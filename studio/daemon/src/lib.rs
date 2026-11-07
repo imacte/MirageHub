@@ -2,8 +2,12 @@
 //! existing port, so migrating the service does not change hardware commands.
 
 pub mod database;
+pub mod device;
+pub mod hid;
+pub mod persistence;
 pub mod protocol;
 pub mod recipes;
+pub mod transport;
 
 use std::fmt;
 

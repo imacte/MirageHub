@@ -146,6 +146,11 @@ jobs:
           python ../tools/export_rust_protocol_fixtures.py --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python ../tools/export_rust_recipe_fixtures.py --check
+      - name: Compare native device operations with the Python oracle
+        run: |
+          cargo build --locked -p openrazer-daemon --example device_oracle
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python ../tools/check_rust_devices.py
       - name: Lint
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Test
