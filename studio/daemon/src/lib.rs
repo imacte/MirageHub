@@ -8,6 +8,7 @@ pub mod effects;
 pub mod hid;
 pub mod integrations;
 pub mod keyboard;
+pub mod keys;
 pub mod manager;
 pub mod persistence;
 pub mod profiles;
