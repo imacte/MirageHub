@@ -4,13 +4,17 @@
 pub mod ble;
 pub mod database;
 pub mod device;
+pub mod effects;
 pub mod hid;
+pub mod integrations;
+pub mod keyboard;
 pub mod manager;
 pub mod persistence;
 pub mod profiles;
 pub mod protocol;
 pub mod recipes;
 pub mod transport;
+mod worker;
 
 use std::fmt;
 

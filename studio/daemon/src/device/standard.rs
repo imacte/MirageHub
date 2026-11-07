@@ -299,6 +299,9 @@ impl StandardDevice {
 }
 
 impl Device for StandardDevice {
+    fn custom_mode_first(&self) -> bool {
+        self.transport.argb_info().is_some()
+    }
     fn info(&self) -> &DeviceInfo {
         &self.metadata
     }

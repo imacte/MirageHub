@@ -151,6 +151,11 @@ jobs:
           cargo build --locked -p openrazer-daemon --example device_oracle
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python ../tools/check_rust_devices.py
+      - name: Compare native lighting frames with the Python oracle
+        run: |
+          cargo build --locked -p openrazer-daemon --example effect_oracle
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python ../tools/check_rust_effects.py
       - name: Lint
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Test

@@ -26,6 +26,9 @@ pub trait Device: Send {
     fn is_connected(&self) -> bool {
         true
     }
+    fn custom_mode_first(&self) -> bool {
+        false
+    }
 }
 
 pub(crate) struct Arguments<'a> {
