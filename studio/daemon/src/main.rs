@@ -7,7 +7,10 @@ fn main() {
         Err(error) => {
             log::error!("{error}");
             eprintln!("error: {error}");
-            2
+            match error {
+                openrazer_daemon::Error::Device(_) | openrazer_daemon::Error::NotSupported(_) => 3,
+                _ => 2,
+            }
         }
     };
     logging::finish();

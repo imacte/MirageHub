@@ -17,7 +17,7 @@ pub struct Child {
 }
 
 #[cfg(windows)]
-fn quoted_line(program: &Path, args: &[OsString]) -> io::Result<Vec<u16>> {
+pub(crate) fn quoted_line(program: &Path, args: &[OsString]) -> io::Result<Vec<u16>> {
     let mut line = Vec::new();
     for arg in std::iter::once(program.as_os_str()).chain(args.iter().map(OsString::as_os_str)) {
         if !line.is_empty() {

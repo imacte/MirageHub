@@ -14,6 +14,8 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+mod control;
+mod system;
 
 pub struct Arguments {
     pub positional: Vec<String>,
@@ -134,6 +136,83 @@ impl Arguments {
         self.port("--chroma-port", 0)?;
         Ok(())
     }
+    fn validate_command(&self) -> Result<()> {
+        let command = self.positional[0].as_str();
+        let (min, max) = match command {
+            "list" | "battery" | "doctor" => (0, 0),
+            "info" | "supported" | "brightness" | "poll-rate" | "daemon" | "autostart" => (0, 1),
+            "dpi" | "profile" | "macro" | "headset" | "integration" => (0, 2),
+            "effect" | "rpc" => (1, 2),
+            "zones" => (0, usize::MAX),
+            _ => return Err(Error::Invalid(format!("unknown command {command}"))),
+        };
+        let count = self.positional.len() - 1;
+        if count < min || count > max {
+            return Err(Error::Invalid(format!(
+                "invalid arguments for {command}; see openrazer-win --help"
+            )));
+        }
+        for option in self.values.keys().chain(self.flags.iter()) {
+            let valid = match option.as_str() {
+                "--help" | "--version" | "--json" | "--quiet" | "--verbose" | "--emulate"
+                | "--config-dir" => true,
+                "--direct" => [
+                    "list",
+                    "info",
+                    "effect",
+                    "zones",
+                    "profile",
+                    "brightness",
+                    "dpi",
+                    "poll-rate",
+                    "battery",
+                    "headset",
+                ]
+                .contains(&command),
+                "--device" => [
+                    "list",
+                    "info",
+                    "effect",
+                    "zones",
+                    "profile",
+                    "macro",
+                    "brightness",
+                    "dpi",
+                    "poll-rate",
+                    "battery",
+                    "headset",
+                ]
+                .contains(&command),
+                "--zone" => ["effect", "brightness"].contains(&command),
+                "--speed" | "--direction" | "--colour2" | "--colour3" => command == "effect",
+                "--keys" | "--text" | "--launch" | "--disable" => command == "macro",
+                "--no-effects" => ["daemon", "autostart"].contains(&command),
+                "--no-keys" | "--host" | "--port" | "--chroma-port" | "--log-file" => {
+                    command == "daemon"
+                }
+                _ => false,
+            };
+            if !valid {
+                return Err(Error::Invalid(format!(
+                    "{option} is not valid for {command}"
+                )));
+            }
+        }
+        if command == "autostart" {
+            let action = self.positional.get(1).map_or("status", String::as_str);
+            if !["enable", "disable", "status"].contains(&action) {
+                return Err(Error::Invalid(format!("unknown autostart action {action}")));
+            }
+            if action != "status"
+                && (self.flag("--emulate") || self.value("--config-dir").is_some())
+            {
+                return Err(Error::Invalid(
+                    "autostart changes are unavailable with --emulate or --config-dir".into(),
+                ));
+            }
+        }
+        control::validate(self)
+    }
 }
 fn print_json(value: &Value) {
     println!(
@@ -162,9 +241,10 @@ pub fn run(raw: Vec<String>) -> Result<i32> {
         return Ok(0);
     }
     if args.flag("--help") || args.positional.is_empty() {
-        println!("OpenRazer for Windows — native Rust backend\n\nUsage: openrazer-win [options] <command>\n\nCommands:\n  daemon run|start|stop|restart|status\n  list                       List connected devices\n  supported [search]         List supported device models\n  rpc <method> [JSON]        Call a daemon method\n\nDaemon options:\n  --no-effects  --no-keys  --verbose\n  --emulate                  Use simulated devices and a separate demo configuration\n  --config-dir PATH          Use this configuration directory\n  --port PORT                Loopback RPC port (default: automatic)\n  --chroma-port PORT         Chroma REST port\n  --log-file PATH            Log file (default: CONFIG/daemon.log)\n\nOther options: --json  --version  --help");
+        println!("OpenRazer for Windows — native Rust backend\n\nUsage: openrazer-win [options] <command>\n\nCommands:\n  daemon run|start|stop|restart|status\n  list                       List connected devices\n  info [device]              Device capabilities and current settings\n  effect NAME [colour]       Apply a lighting effect\n  zones [colour ...]         List zones or set their colours\n  brightness [percent]       Read or set brightness\n  dpi [x] [y]                Read or set mouse DPI\n  poll-rate [Hz]             Read or set polling rate\n  battery                    Battery level and charging state\n  headset [setting value]    Audio settings: sidetone, eq, dnd, led, sleep\n  profile [list|save|load|delete] [name]\n  macro [list|set|clear|record|play|watch] [key]\n  integration [accent|chroma on|off]\n  autostart [status|enable|disable]\n  supported [search]         Supported device models\n  doctor                     Read-only HID, Bluetooth and daemon diagnostics\n  rpc <method> [JSON]         Call a daemon method\n\nDevice options:\n  --device, -d SELECTOR      Serial, product ID, name fragment or all\n  --zone, -z NAME            Lighting zone\n  --direct                   Access hardware without the daemon\n  --speed 1..4  --direction 0..2  --colour2 RGB  --colour3 RGB\n  Colours: red, green, blue, #ff0080, 255,0,128\n\nMacro set options (choose one):\n  --keys \"ctrl+shift+esc\"  --text \"Hello\"  --launch PATH  --disable\n\nDaemon options:\n  --no-effects  --no-keys  --verbose\n  --port PORT                Loopback RPC port (default: automatic)\n  --chroma-port PORT         Chroma REST port\n  --log-file PATH            Log file (default: CONFIG/daemon.log)\n\nOther options:\n  --emulate                  Simulated devices, separate demo configuration\n  --config-dir PATH          Configuration directory\n  --json  --quiet  --version  --help\n\nEffects: {}",control::EFFECTS.join(", "));
         return Ok(0);
     }
+    args.validate_command()?;
     match args.positional[0].as_str() {
         "daemon" => daemon(&args),
         "supported" => {
@@ -191,13 +271,10 @@ pub fn run(raw: Vec<String>) -> Result<i32> {
             }
             Ok(0)
         }
-        "list" => {
-            let value = connect(&args)?
-                .call("devices.list", json!({}))
-                .map_err(rpc_error)?;
-            print_json(&value);
-            Ok(0)
-        }
+        "list" | "info" | "effect" | "zones" | "profile" | "macro" | "brightness" | "dpi"
+        | "poll-rate" | "battery" | "headset" | "integration" => control::run(&args),
+        "doctor" => system::doctor(&args),
+        "autostart" => system::autostart(&args),
         "rpc" => {
             let method = args
                 .positional
@@ -207,6 +284,11 @@ pub fn run(raw: Vec<String>) -> Result<i32> {
                 .positional
                 .get(2)
                 .map_or(Ok(json!({})), |v| serde_json::from_str(v))?;
+            if !params.is_object() {
+                return Err(Error::Invalid(
+                    "RPC parameters must be a JSON object".into(),
+                ));
+            }
             print_json(&connect(&args)?.call(method, params).map_err(rpc_error)?);
             Ok(0)
         }

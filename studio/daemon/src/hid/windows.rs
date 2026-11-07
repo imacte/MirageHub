@@ -17,6 +17,125 @@ use windows_sys::Win32::{
 
 pub struct NativeHid;
 
+#[derive(serde::Serialize)]
+pub struct AttachedDevice {
+    pub instance_id: String,
+    pub description: String,
+    pub device_class: String,
+    pub product_id: Option<u16>,
+    pub transport: String,
+}
+
+fn identifier(instance: &str, prefix: &str) -> Option<u16> {
+    let upper = instance.to_ascii_uppercase();
+    let position = upper
+        .find(&format!("{prefix}_"))
+        .or_else(|| upper.find(&format!("{prefix}&")))?
+        + prefix.len()
+        + 1;
+    let digits: String = upper[position..]
+        .chars()
+        .take_while(char::is_ascii_hexdigit)
+        .take(8)
+        .collect();
+    let width = if digits.len() >= 8 {
+        8
+    } else if digits.len() >= 4 {
+        4
+    } else {
+        return None;
+    };
+    u16::from_str_radix(&digits[width - 4..width], 16).ok()
+}
+
+/// Read-only PnP inventory, including paired devices which expose no HID path.
+pub fn attached_devices(vendor_id: u16) -> Result<Vec<AttachedDevice>> {
+    let handle = unsafe {
+        SetupDiGetClassDevsW(null(), null(), null_mut(), DIGCF_PRESENT | DIGCF_ALLCLASSES)
+    };
+    if handle == INVALID_HANDLE_VALUE as isize {
+        return Err(failure("cannot enumerate attached devices"));
+    }
+    let set = DeviceSet(handle);
+    let mut found = Vec::new();
+    for index in 0.. {
+        let mut data: SP_DEVINFO_DATA = unsafe { zeroed() };
+        data.cbSize = size_of::<SP_DEVINFO_DATA>() as u32;
+        if unsafe { SetupDiEnumDeviceInfo(set.0, index, &mut data) } == 0 {
+            if unsafe { GetLastError() } == ERROR_NO_MORE_ITEMS {
+                break;
+            }
+            return Err(failure("cannot enumerate device node"));
+        }
+        let mut buffer = [0u16; 512];
+        if unsafe {
+            SetupDiGetDeviceInstanceIdW(
+                set.0,
+                &data,
+                buffer.as_mut_ptr(),
+                buffer.len() as u32,
+                null_mut(),
+            )
+        } == 0
+        {
+            continue;
+        }
+        let decode = |b: &[u16]| {
+            String::from_utf16_lossy(&b[..b.iter().position(|v| *v == 0).unwrap_or(b.len())])
+        };
+        let instance_id = decode(&buffer);
+        if identifier(&instance_id, "VID") != Some(vendor_id) {
+            continue;
+        }
+        let property = |kind: u32| {
+            let mut value = [0u16; 512];
+            let ok = unsafe {
+                SetupDiGetDeviceRegistryPropertyW(
+                    set.0,
+                    &data,
+                    kind,
+                    null_mut(),
+                    value.as_mut_ptr().cast(),
+                    size_of_val(&value) as u32,
+                    null_mut(),
+                )
+            };
+            if ok == 0 {
+                String::new()
+            } else {
+                decode(&value)
+            }
+        };
+        let friendly = property(SPDRP_FRIENDLYNAME);
+        let description = if friendly.is_empty() {
+            property(SPDRP_DEVICEDESC)
+        } else {
+            friendly
+        };
+        let head = instance_id
+            .split('\\')
+            .next()
+            .unwrap_or_default()
+            .to_ascii_uppercase();
+        let transport = match head.as_str() {
+            "BTHENUM" | "BTHHFENUM" => "Bluetooth",
+            "BTHLEDEVICE" => "Bluetooth LE",
+            "SWD" => "software",
+            other => other,
+        }
+        .to_string();
+        found.push(AttachedDevice {
+            product_id: identifier(&instance_id, "PID"),
+            instance_id,
+            description,
+            device_class: property(SPDRP_CLASS),
+            transport,
+        });
+    }
+    found.sort_by_key(|d| (d.transport.clone(), d.product_id, d.description.len()));
+    Ok(found)
+}
+
 struct Handle(HANDLE);
 // Handles may move between threads; this wrapper has no shared access and
 // all device operations require &mut self on the owning transport/reader.

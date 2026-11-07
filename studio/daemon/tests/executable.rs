@@ -146,6 +146,200 @@ fn ok(output: Output) -> Value {
     serde_json::from_slice(&output.stdout).unwrap()
 }
 
+fn success(output: Output) -> String {
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8(output.stdout).unwrap()
+}
+
+#[test]
+fn native_cli_controls_devices_and_keeps_profiles_macros_and_integrations_compatible() {
+    let mut session = Session::new();
+    session.start();
+    let devices = ok(session.run(&["list", "--json"]));
+    assert_eq!(devices.as_array().unwrap().len(), 4);
+    assert!(devices
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|d| d["pid"].as_str().is_some_and(|p| p.len() == 4)));
+    assert!(success(session.run(&["list"])).contains("BlackWidow"));
+    let info = ok(session.run(&["info", "0078", "--json"]));
+    assert_eq!(info.as_array().unwrap().len(), 1);
+    assert_eq!(info[0]["capabilities"]["dpi"], true);
+    assert_eq!(
+        ok(session.run(&["dpi", "2400", "3200", "-d", "0078", "--json"]))[0]["dpi"],
+        json!([2400, 3200])
+    );
+    assert_eq!(
+        ok(session.run(&["poll-rate", "500", "-d", "0078", "--json"]))[0]["poll_rate"],
+        500
+    );
+    let brightness = ok(session.run(&["brightness", "40", "-d", "0203", "--json"]))[0]
+        ["brightness"]
+        .as_f64()
+        .unwrap();
+    assert!((brightness - 40.0).abs() < 1.0);
+    success(session.run(&["effect", "static", "#f08", "-d", "0203", "--quiet"]));
+    success(session.run(&["profile", "save", "夜间", "-d", "0203"]));
+    success(session.run(&["effect", "static", "blue", "-d", "0203"]));
+    success(session.run(&["profile", "load", "夜间", "-d", "0203"]));
+    assert_eq!(
+        ok(session.run(&["profile", "--json", "-d", "0203"]))[0]["profiles"][0]["name"],
+        "夜间"
+    );
+    let mut client = session.client();
+    let keyboard = devices
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["pid"] == "0203")
+        .unwrap()["serial"]
+        .as_str()
+        .unwrap();
+    let saved = client.call("daemon.persistence", json!({})).unwrap();
+    assert_eq!(saved[keyboard]["zones"]["backlight"]["effect"], "static");
+    assert_eq!(
+        &saved[keyboard]["zones"]["backlight"]["colors"]
+            .as_array()
+            .unwrap()[..3],
+        &[json!(255), json!(0), json!(136)]
+    );
+    success(session.run(&["effect", "custom", "cyan", "-d", "0203"]));
+    success(session.run(&["effect", "ripple", "green", "-d", "0203"]));
+    assert_eq!(
+        client.call("effect.status", json!({})).unwrap()["active"][keyboard],
+        "ripple"
+    );
+    success(session.run(&["effect", "none", "-d", "0203"]));
+    assert!(client.call("effect.status", json!({})).unwrap()["active"]
+        .get(keyboard)
+        .is_none());
+    assert!(
+        !ok(session.run(&["zones", "red", "-d", "0203", "--json"]))[0]["zones"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(!ok(session.run(&["battery", "--json"]))
+        .as_array()
+        .unwrap()
+        .is_empty());
+    success(session.run(&["headset", "sidetone", "8", "-d", "0565"]));
+    assert_eq!(
+        ok(session.run(&["headset", "-d", "0565", "--json"]))[0]["audio"]["sidetone_level"],
+        8
+    );
+    success(session.run(&["headset", "eq", "-3,0,0,0,0,0,0,2,3,3", "-d", "0565"]));
+    assert_eq!(
+        ok(session.run(&["headset", "-d", "0565", "--json"]))[0]["audio"]["equalizer_bands"],
+        json!([-3, 0, 0, 0, 0, 0, 0, 2, 3, 3])
+    );
+    success(session.run(&["headset", "dnd", "on", "-d", "0565"]));
+    success(session.run(&["headset", "sleep", "30", "-d", "0565"]));
+    success(session.run(&["headset", "led", "battery", "-d", "0565"]));
+    for binding in [
+        vec!["--keys", "ctrl+shift+esc"],
+        vec!["--text", "你好 Rust"],
+        vec!["--launch", "C:\\Test Path\\演示.exe"],
+        vec!["--disable"],
+    ] {
+        let mut args = vec!["macro", "set", "M1", "-d", "0203"];
+        args.extend(binding);
+        success(session.run(&args));
+        success(session.run(&["macro", "play", "M1", "-d", "0203"]));
+    }
+    assert_eq!(
+        ok(session.run(&["macro", "list", "--json", "-d", "0203"]))[0]["bindings"]["M1"]["type"],
+        "disabled"
+    );
+    success(session.run(&["macro", "clear", "M1", "-d", "0203"]));
+    assert!(
+        ok(session.run(&["macro", "list", "--json", "-d", "0203"]))[0]["bindings"]
+            .get("M1")
+            .is_none()
+    );
+    let chroma = ok(session.run(&["integration", "chroma", "on", "--json"]));
+    assert_eq!(chroma["chroma"]["listening"], true);
+    assert!(chroma["chroma"]["port"].as_u64().unwrap() > 0);
+    assert_eq!(
+        ok(session.run(&["integration", "chroma", "off", "--json"]))["chroma"]["enabled"],
+        false
+    );
+    success(session.run(&["profile", "delete", "夜间", "-d", "0203"]));
+    assert!(
+        ok(session.run(&["profile", "--json", "-d", "0203"]))[0]["profiles"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    // Direct access must not race the running daemon for the same devices/files.
+    assert!(!session.run(&["--direct", "list"]).status.success());
+    session.stop();
+}
+
+#[test]
+fn native_cli_validates_before_io_and_direct_mode_needs_no_daemon() {
+    let session = Session::new();
+    for args in [
+        vec!["effect"],
+        vec!["effect", "unknown"],
+        vec!["effect", "static", "中文"],
+        vec!["effect", "static", "red", "--speed", "9"],
+        vec!["dpi", "oops"],
+        vec!["brightness", "NaN"],
+        vec!["headset", "eq", "1,2"],
+        vec!["integration", "chroma", "typo"],
+        vec!["macro", "set", "M1", "--text", "x", "--disable"],
+        vec!["macro", "clear"],
+        vec!["profile", "load"],
+        vec!["battery", "ignored"],
+        vec!["list", "--no-keys"],
+        vec!["autostart", "enable"],
+    ] {
+        let output = session.run(&args);
+        assert_eq!(
+            output.status.code(),
+            Some(2),
+            "{args:?}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            !session.directory.exists(),
+            "invalid command touched configuration: {args:?}"
+        );
+    }
+    assert_eq!(
+        ok(session.run(&["--direct", "list", "--json"]))
+            .as_array()
+            .unwrap()
+            .len(),
+        4
+    );
+    assert!(!session.endpoint().exists());
+    success(session.run(&["--direct", "effect", "static", "red", "-d", "0203"]));
+    success(session.run(&["--direct", "profile", "save", "本地", "-d", "0203"]));
+    assert_eq!(
+        ok(session.run(&["--direct", "profile", "list", "-d", "0203", "--json"]))[0]["profiles"][0]
+            ["name"],
+        "本地"
+    );
+    success(session.run(&["--direct", "profile", "load", "本地", "-d", "0203"]));
+    assert!(!session
+        .run(&["--direct", "effect", "ripple", "-d", "0203"])
+        .status
+        .success());
+    let diagnostic = ok(session.run(&["doctor", "--json"]));
+    assert_eq!(diagnostic["backend"], "native Rust");
+    assert!(diagnostic["hid"].as_array().unwrap().len() >= 4);
+    assert_eq!(diagnostic["bluetooth"], json!([]));
+    assert!(!session.endpoint().exists());
+}
+
 #[test]
 fn native_executable_serves_studio_with_devices_profiles_macros_and_restart_persistence() {
     let mut session = Session::new();
