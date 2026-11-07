@@ -161,6 +161,11 @@ jobs:
           cargo build --locked -p openrazer-daemon --example key_oracle
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python ../tools/check_rust_keys.py
+      - name: Compare native Chroma grids and sessions with the Python oracle
+        run: |
+          cargo build --locked -p openrazer-daemon --example chroma_oracle
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python ../tools/check_rust_chroma.py
       - name: Lint
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Test

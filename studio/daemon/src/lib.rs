@@ -2,6 +2,7 @@
 //! existing port, so migrating the service does not change hardware commands.
 
 pub mod ble;
+pub mod chroma;
 pub mod database;
 pub mod device;
 pub mod effects;
@@ -10,6 +11,7 @@ pub mod integrations;
 pub mod keyboard;
 pub mod keys;
 pub mod manager;
+mod net;
 pub mod persistence;
 pub mod profiles;
 pub mod protocol;
