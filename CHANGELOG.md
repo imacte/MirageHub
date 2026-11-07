@@ -6,6 +6,12 @@ uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-08
+
+The first RsRazer release with a native Rust backend and a separate tray host.
+Download `rsrazer-setup.exe` for the complete package, including the application,
+daemon and Chroma SDK DLLs. Existing settings, profiles and macros are preserved.
+
 ### Fixed
 
 - The endpoint ACL test now verifies the current token's SID directly. Elevated
@@ -20,6 +26,8 @@ uses [semantic versioning](https://semver.org/).
 
 ### Changed
 
+- Added a complete Simplified Chinese interface and installer, with Chinese
+  release notes. Installer text now explains where Start menu shortcuts appear.
 - Studio now uses a lightweight tray process and a separate UI process started
   on demand. Closing the window saves its page and editor drafts, hands queued
   device operations to the tray, and exits the UI to release all graphics memory.

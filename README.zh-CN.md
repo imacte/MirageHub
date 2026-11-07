@@ -12,7 +12,7 @@
 
 ## 下载与安装
 
-在 [Releases](https://github.com/imacte/RsRazer/releases) 发布后，下载 **`rsrazer-setup.exe`**。
+下载 **[rsrazer-setup.exe 完整安装包](https://github.com/imacte/RsRazer/releases/latest/download/rsrazer-setup.exe)**，或前往 [Releases](https://github.com/imacte/RsRazer/releases) 查看所有文件。
 安装包已包含主程序、Rust 后台和 32/64 位 Chroma SDK DLL，不需要另外下载后台。
 
 按当前用户安装，支持修复和卸载。

@@ -13,7 +13,7 @@ No Synapse, custom kernel driver or Python runtime is required.
 
 ## Download
 
-Use **`rsrazer-setup.exe`** from [Releases](https://github.com/imacte/RsRazer/releases), when available.
+Download **[rsrazer-setup.exe](https://github.com/imacte/RsRazer/releases/latest/download/rsrazer-setup.exe)** from [Releases](https://github.com/imacte/RsRazer/releases).
 It contains the application, native daemon and 32/64-bit Chroma SDK DLLs.
 The installer works per user and supports repair and removal.
 `rsrazer-setup-zh-CN.exe` contains the same multilingual package: English, Simplified Chinese and Russian.
