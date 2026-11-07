@@ -208,11 +208,11 @@ pub fn atomic_write(path: &Path, contents: &[u8]) -> Result<()> {
 }
 
 #[cfg(not(windows))]
-fn replace(from: &Path, to: &Path) -> Result<()> {
+pub(crate) fn replace(from: &Path, to: &Path) -> Result<()> {
     Ok(fs::rename(from, to)?)
 }
 #[cfg(windows)]
-fn replace(from: &Path, to: &Path) -> Result<()> {
+pub(crate) fn replace(from: &Path, to: &Path) -> Result<()> {
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::Storage::FileSystem::{
         MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH,

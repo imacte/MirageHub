@@ -2111,6 +2111,7 @@ version = "1.6.1"
 dependencies = [
  "getrandom 0.3.4",
  "openrazer-chroma",
+ "openrazer-studio-core",
  "serde",
  "serde_json",
  "windows 0.62.2",

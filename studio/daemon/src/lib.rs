@@ -16,6 +16,8 @@ pub mod persistence;
 pub mod profiles;
 pub mod protocol;
 pub mod recipes;
+pub mod rpc;
+pub mod service;
 pub mod transport;
 mod worker;
 
