@@ -298,7 +298,7 @@ impl Setup {
     }
 
     fn options(&mut self, ui: &mut egui::Ui) {
-        widgets::toggle_row(ui, t("Start menu entry"), t("Plus one to repair or remove RsRazer."), &mut self.options.start_menu);
+        widgets::toggle_row(ui, t("Start menu shortcuts"), t("Adds app and repair shortcuts to All apps and search. To pin RsRazer, right-click it and choose Pin to Start."), &mut self.options.start_menu);
         widgets::divider(ui);
         widgets::toggle_row(ui, t("Desktop shortcut"), "", &mut self.options.desktop);
         widgets::divider(ui);
