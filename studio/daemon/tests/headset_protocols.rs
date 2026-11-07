@@ -1,4 +1,4 @@
-use openrazer_daemon::protocol::{blackshark, ble, builders::bytes, kraken};
+use rsrazer_daemon::protocol::{blackshark, ble, builders::bytes, kraken};
 use serde_json::{json, Value};
 
 #[test]

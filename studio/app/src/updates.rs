@@ -1,4 +1,4 @@
-//! Keeping Studio up to date from the project's GitHub releases.
+//! Keeping RsRazer up to date from the project's GitHub releases.
 //!
 //! This stays out of the way. The first look comes a minute after start and
 //! the next a day later, each carrying the ETag of the last answer so that an
@@ -7,7 +7,7 @@
 //! navigation; nothing pops up, nothing is downloaded and nothing is replaced
 //! until the person asks.
 
-use openrazer_studio_core::{install, paths, t, tf};
+use rsrazer_core::{install, paths, t, tf};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs::{File, OpenOptions};
@@ -20,16 +20,16 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 pub const CURRENT: &str = env!("CARGO_PKG_VERSION");
 
-const FEED: &str = "https://api.github.com/repos/imacte/openrazer-win/releases?per_page=10";
+const FEED: &str = "https://api.github.com/repos/imacte/RsRazer/releases?per_page=10";
 /// Everything downloaded comes from under here.
-const DOWNLOADS: &str = "https://github.com/imacte/openrazer-win/releases/download/";
+const DOWNLOADS: &str = "https://github.com/imacte/RsRazer/releases/download/";
 /// A build made with this set looks there for releases instead, and takes
 /// files from wherever that says: the whole path can then be tried without
 /// publishing anything. It is decided when building, so nothing on a user's
-/// machine can point a released Studio at another installer.
+/// machine can point a released RsRazer at another installer.
 const TEST_FEED: Option<&str> = option_env!("OPENRAZER_STUDIO_TEST_FEED");
 
-const SETUP_ASSET: &str = "openrazer-studio-setup.exe";
+const SETUP_ASSET: &str = "rsrazer-setup.exe";
 const SUMS_ASSET: &str = "SHA256SUMS.txt";
 
 /// How long after start the first look comes: not while Windows is signing in.
@@ -54,7 +54,7 @@ pub fn newer(candidate: &str, current: &str) -> bool {
     parse(candidate) > parse(current)
 }
 
-/// One release, as much of it as Studio needs.
+/// One release, as much of it as RsRazer needs.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Release {
@@ -146,12 +146,12 @@ fn sha256(path: &Path) -> std::io::Result<String> {
 }
 
 fn setup_path(version: &str) -> PathBuf {
-    paths::updates_dir().join(format!("openrazer-studio-setup-{version}.exe"))
+    paths::updates_dir().join(format!("rsrazer-setup-{version}.exe"))
 }
 
 /// An installer in the updates folder for a version this copy already is, or has passed.
 fn spent(file_name: &str) -> bool {
-    let version = file_name.trim_start_matches("openrazer-studio-setup-").trim_end_matches(".exe").trim_end_matches(".partial");
+    let version = file_name.trim_start_matches("rsrazer-setup-").trim_end_matches(".exe").trim_end_matches(".partial");
     !newer(version, CURRENT)
 }
 
@@ -364,7 +364,7 @@ enum Failure {
 
 fn agent() -> ureq::Agent {
     ureq::AgentBuilder::new()
-        .user_agent(concat!("openrazer-studio/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("rsrazer/", env!("CARGO_PKG_VERSION")))
         .timeout_connect(Duration::from_secs(15))
         .timeout_read(Duration::from_secs(30))
         .try_proxy_from_env(true)
@@ -679,7 +679,7 @@ mod tests {
     #[test]
     fn an_installer_from_anywhere_else_is_ignored() {
         let mut elsewhere = release("v1.5.4");
-        for base in ["https://example.com/", "https://github.com/Ar4ikov/openrazer-win/releases/download/v1.5.4/", "https://github.com/imacte/openrazer-win-other/releases/download/v1.5.4/"] {
+        for base in ["https://example.com/", "https://github.com/Ar4ikov/openrazer-win/releases/download/v1.5.4/", "https://github.com/imacte/RsRazer-other/releases/download/v1.5.4/"] {
             elsewhere["assets"][0]["browser_download_url"] = json!(format!("{base}{SETUP_ASSET}"));
             elsewhere["assets"][1]["browser_download_url"] = json!(format!("{base}{SUMS_ASSET}"));
             let rejected = read_release(&elsewhere).unwrap();
@@ -747,7 +747,7 @@ mod tests {
         let hash = "a".repeat(64);
         let listing = format!("{} *other.exe\n{hash}  {SETUP_ASSET}\n", "b".repeat(64));
         assert_eq!(from_sums(&listing, SETUP_ASSET), Some(hash));
-        assert_eq!(from_sums("nonsense  openrazer-studio-setup.exe", SETUP_ASSET), None);
+        assert_eq!(from_sums("nonsense  rsrazer-setup.exe", SETUP_ASSET), None);
     }
 
     #[test]
@@ -777,8 +777,8 @@ mod tests {
 
     #[test]
     fn installers_for_versions_reached_are_spent() {
-        assert!(spent(&format!("openrazer-studio-setup-{CURRENT}.exe")));
-        assert!(spent("openrazer-studio-setup-1.0.0.partial"));
-        assert!(!spent("openrazer-studio-setup-99.0.0.exe"));
+        assert!(spent(&format!("rsrazer-setup-{CURRENT}.exe")));
+        assert!(spent("rsrazer-setup-1.0.0.partial"));
+        assert!(!spent("rsrazer-setup-99.0.0.exe"));
     }
 }

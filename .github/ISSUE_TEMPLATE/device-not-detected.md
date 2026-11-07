@@ -1,10 +1,10 @@
 ---
 name: Device not detected
-about: A Razer device is plugged in but openrazer-win does not see it
+about: A Razer device is plugged in but rsrazer-daemon does not see it
 labels: device-support
 ---
 
-**Output of `openrazer-win doctor`**
+**Output of `rsrazer-daemon doctor`**
 
 ```
 paste here

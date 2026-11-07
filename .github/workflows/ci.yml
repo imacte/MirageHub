@@ -11,76 +11,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: Test (Windows, Python ${{ matrix.python-version }})
-    runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-
-      - name: Install
-        run: pip install -e ".[dev]"
-
-      - name: Lint
-        run: ruff check .
-
-      - name: Test
-        run: pytest -q
-
-      - name: Simulate every supported device
-        run: python tools/simulate_devices.py
-
-      - name: Check the console entry points start
-        run: |
-          openrazer-win --version
-          openrazer-win supported viper
-          openrazer-win doctor
-
-  linux-import:
-    name: Import check (Linux)
+  tools:
+    name: Development tools (Rust)
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: studio
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: pip
-      - run: pip install -e ".[dev]"
-      # The Windows HID backend is ctypes-only and must still import elsewhere,
-      # so the emulator-backed tests can run on any CI runner.
-      - run: pytest -q
-      - run: python tools/simulate_devices.py
-
-  build:
-    name: Build distributions
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: pip
-      - run: pip install build
-      - run: python -m build
-      - name: Verify the wheel installs cleanly
-        run: |
-          python -m venv fresh
-          fresh\Scripts\pip install --no-deps (Get-ChildItem dist\*.whl).FullName
-          fresh\Scripts\openrazer-win --version
-          fresh\Scripts\python -c "from openrazer_win.devices import get_database; assert len(get_database()) > 250"
-        shell: pwsh
-      - uses: actions/upload-artifact@v4
-        with:
-          name: distributions
-          path: dist/*
+      - run: rustup toolchain install
+      - run: cargo clippy --locked -p rsrazer-tools --all-targets -- -D warnings
+      - run: cargo test --locked -p rsrazer-tools
+      - run: cargo run --locked -p rsrazer-tools -- check-translations
+      - run: cargo run --locked -p rsrazer-tools -- docs-data --check
 
   gui:
     name: Control panel (Rust)
@@ -114,21 +57,18 @@ jobs:
       - name: Smoke-test the executable
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath target/release/openrazer-win-gui.exe -ArgumentList '--self-test' -WindowStyle Hidden -Wait -PassThru
+          $p = Start-Process -FilePath target/release/rsrazer-classic.exe -ArgumentList '--self-test' -WindowStyle Hidden -Wait -PassThru
           if ($p.ExitCode -ne 0) { exit 1 }
           exit 0
 
   studio:
-    name: OpenRazer Studio (Rust)
+    name: RsRazer (Rust)
     runs-on: windows-latest
     defaults:
       run:
         working-directory: studio
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
       - name: Install Rust
         # The version pinned in studio/rust-toolchain.toml.
         run: rustup toolchain install
@@ -140,51 +80,26 @@ jobs:
             studio/target
           key: studio-${{ runner.os }}-${{ hashFiles('studio/Cargo.lock') }}
       - name: Every string has Russian and Simplified Chinese translations
-        run: python tools/check_translations.py
-      - name: Verify native backend protocol fixtures
-        run: |
-          python ../tools/export_rust_protocol_fixtures.py --check
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python ../tools/export_rust_recipe_fixtures.py --check
-      - name: Compare native device operations with the Python oracle
-        run: |
-          cargo build --locked -p openrazer-daemon --example device_oracle
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python ../tools/check_rust_devices.py
-      - name: Compare native lighting frames with the Python oracle
-        run: |
-          cargo build --locked -p openrazer-daemon --example effect_oracle
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python ../tools/check_rust_effects.py
-      - name: Compare native keys and macros with the Python oracle
-        run: |
-          cargo build --locked -p openrazer-daemon --example key_oracle
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python ../tools/check_rust_keys.py
-      - name: Compare native Chroma grids and sessions with the Python oracle
-        run: |
-          cargo build --locked -p openrazer-daemon --example chroma_oracle
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python ../tools/check_rust_chroma.py
+        run: cargo run --locked -p rsrazer-tools -- check-translations
       - name: Lint
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Test
         run: cargo test --workspace --locked
       - name: Test the Chroma DLL as 32-bit games load it
-        run: cargo test --locked -p openrazer-chroma --target i686-pc-windows-msvc
+        run: cargo test --locked -p rsrazer-chroma --target i686-pc-windows-msvc
       - name: Build the native daemon, Studio, Chroma DLLs and installer
         shell: pwsh
         run: ./tools/build-native.ps1
       - name: Test the shipped daemon and embedded Chroma DLLs
         shell: pwsh
         run: |
-          $env:OPENRAZER_TEST_DAEMON = "$PWD/../dist/openrazer-win.exe"
-          cargo test --locked -p openrazer-daemon --test executable
+          $env:OPENRAZER_TEST_DAEMON = "$PWD/../dist/rsrazer-daemon.exe"
+          cargo test --locked -p rsrazer-daemon --test executable
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:OPENRAZER_STUDIO_CHROMA = "$PWD/target/native-chroma"
-          cargo test --locked -p openrazer-studio chroma
+          cargo test --locked -p rsrazer chroma
       - name: Install, repair and remove
         shell: pwsh
         run: |
           $env:LOCALAPPDATA = "$env:RUNNER_TEMP\lad"
-          ./tools/installer-cycle.ps1 -Setup ../dist/openrazer-studio-setup.exe -Dir "$env:RUNNER_TEMP\studio-install"
+          ./tools/installer-cycle.ps1 -Setup ../dist/rsrazer-setup.exe -Dir "$env:RUNNER_TEMP\studio-install"

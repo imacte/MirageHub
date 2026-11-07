@@ -1,4 +1,4 @@
-use openrazer_daemon::rpc::{self, Endpoint, RpcError, RpcServer, Service, SingleInstance};
+use rsrazer_daemon::rpc::{self, Endpoint, RpcError, RpcServer, Service, SingleInstance};
 use serde_json::{json, Map, Value};
 use std::{
     fs,
@@ -87,7 +87,7 @@ fn studio_client_connects_and_uses_the_existing_device_and_shutdown_methods() {
     let mut server = RpcServer::start(Arc::new(Echo::default()), 0).unwrap();
     let endpoint =
         serde_json::from_value(serde_json::to_value(server.endpoint()).unwrap()).unwrap();
-    let mut client = openrazer_studio_core::rpc::Client::connect_to(endpoint).unwrap();
+    let mut client = rsrazer_core::rpc::Client::connect_to(endpoint).unwrap();
     assert_eq!(
         client.call("daemon.version", json!({})).unwrap()["backend"],
         "rust-test"

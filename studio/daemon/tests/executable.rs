@@ -1,6 +1,6 @@
 #![cfg(windows)]
-use openrazer_daemon::rpc::{Client, Endpoint};
-use openrazer_studio_core::rpc::Client as StudioClient;
+use rsrazer_core::rpc::Client as StudioClient;
+use rsrazer_daemon::rpc::{Client, Endpoint};
 use serde_json::{json, Value};
 use std::{
     fs,
@@ -20,7 +20,7 @@ impl Session {
     fn new() -> Self {
         let directory = std::env::temp_dir().join(format!(
             "openrazer-native-exe-{} 中文 config",
-            openrazer_daemon::rpc::new_token().unwrap()
+            rsrazer_daemon::rpc::new_token().unwrap()
         ));
         Self {
             directory,
@@ -30,7 +30,7 @@ impl Session {
     fn command(&self, args: &[&str]) -> Command {
         let executable = std::env::var_os("OPENRAZER_TEST_DAEMON")
             .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from(env!("CARGO_BIN_EXE_openrazer-win")));
+            .unwrap_or_else(|| PathBuf::from(env!("CARGO_BIN_EXE_rsrazer-daemon")));
         let mut cmd = Command::new(executable);
         cmd.creation_flags(0x08000000)
             .args(args)

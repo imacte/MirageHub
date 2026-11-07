@@ -1,6 +1,6 @@
 [package]
-name = "openrazer-daemon"
-description = "Native Rust device control backend for OpenRazer Studio"
+name = "rsrazer-daemon"
+description = "Native Rust device control backend for RsRazer"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -14,7 +14,7 @@ getrandom = "0.3.4"
 log = { version = "0.4", features = ["std"] }
 
 [[bin]]
-name = "openrazer-win"
+name = "rsrazer-daemon"
 path = "src/main.rs"
 
 [target.'cfg(windows)'.dependencies]
@@ -27,5 +27,5 @@ winreg.workspace = true
 winresource = "0.1"
 
 [dev-dependencies]
-openrazer-chroma = { path = "../chroma" }
-openrazer-studio-core.workspace = true
+rsrazer-chroma = { path = "../chroma" }
+rsrazer-core.workspace = true

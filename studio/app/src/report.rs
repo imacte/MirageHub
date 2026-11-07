@@ -13,8 +13,8 @@ fn mask(serial: &str) -> String {
 
 pub fn build(snap: &Snapshot) -> String {
     let mut out = String::new();
-    let _ = writeln!(out, "OpenRazer Studio {}", env!("CARGO_PKG_VERSION"));
-    if let Some(installed) = openrazer_studio_core::install::installed() {
+    let _ = writeln!(out, "RsRazer {}", env!("CARGO_PKG_VERSION"));
+    if let Some(installed) = rsrazer_core::install::installed() {
         let _ = writeln!(out, "Installed: {} in {}", installed.version, installed.dir.display());
     }
     let _ = writeln!(out, "Windows: {}", std::env::var("OS").unwrap_or_default());

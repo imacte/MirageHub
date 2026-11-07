@@ -58,7 +58,7 @@ pub(super) fn doctor(args: &Arguments) -> Result<i32> {
         return Ok(0);
     }
     println!(
-        "openrazer-win {} — native Rust backend ({})",
+        "rsrazer-daemon {} — native Rust backend ({})",
         env!("CARGO_PKG_VERSION"),
         std::env::consts::ARCH
     );
@@ -249,8 +249,8 @@ pub(super) fn autostart(args: &Arguments) -> Result<i32> {
             let exe = std::env::current_exe()?;
             // Explicit daemon flags must reach the backend. Otherwise prefer
             // Studio's tray startup when the complete application is installed.
-            let studio = exe.with_file_name("openrazer-studio.exe");
-            let gui = exe.with_file_name("openrazer-win-gui.exe");
+            let studio = exe.with_file_name("rsrazer.exe");
+            let gui = exe.with_file_name("rsrazer-classic.exe");
             let (program, mut flags) = if !args.flag("--no-effects") && studio.is_file() {
                 (studio, vec!["--background".into()])
             } else if !args.flag("--no-effects") && gui.is_file() {

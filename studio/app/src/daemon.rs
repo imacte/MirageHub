@@ -1,12 +1,12 @@
 //! Finding, starting and stopping the daemon, and starting with Windows.
 //!
-//! The native daemon owns the devices. Studio starts the copy installed beside
+//! The native daemon owns the devices. RsRazer starts the copy installed beside
 //! it, or one on PATH, without opening a console window.
 
-use openrazer_studio_core::install;
-use openrazer_studio_core::paths::data_dir as config_dir;
-use openrazer_studio_core::rpc::{Client, Endpoint};
-use openrazer_studio_core::t;
+use rsrazer_core::install;
+use rsrazer_core::paths::data_dir as config_dir;
+use rsrazer_core::rpc::{Client, Endpoint};
+use rsrazer_core::t;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 pub struct StartError {
     pub message: String,
     /// Nothing on this machine can run the daemon at all: the case for
-    /// offering the Studio installer or repairing an existing installation.
+    /// offering the RsRazer installer or repairing an existing installation.
     pub missing: bool,
 }
 
@@ -88,7 +88,7 @@ pub fn start() -> Result<(), StartError> {
     let commands = candidates();
     if commands.is_empty() {
         return Err(StartError {
-            message: t("The daemon is not on this computer: openrazer-win.exe was not found beside Studio or on PATH.").to_string(),
+            message: t("The daemon is not on this computer: rsrazer-daemon.exe was not found beside RsRazer or on PATH.").to_string(),
             missing: true,
         });
     }
@@ -177,7 +177,7 @@ fn this_exe() -> Option<PathBuf> {
     std::env::current_exe().ok()
 }
 
-/// Whether Studio, rather than the classic panel or the command line, starts
+/// Whether RsRazer, rather than the classic panel or the command line, starts
 /// at sign-in.
 pub fn autostart_enabled() -> bool {
     let Some(exe) = this_exe() else { return false };
@@ -201,9 +201,9 @@ pub fn set_autostart(enabled: bool) -> Result<(), String> {
     }
 }
 
-/// Keep an entry that starts Studio pointing at this copy of it.
+/// Keep an entry that starts RsRazer pointing at this copy of it.
 ///
-/// Only an entry for Studio is touched: one the classic panel or the command
+/// Only an entry for RsRazer is touched: one the classic panel or the command
 /// line wrote is theirs, until the user turns this on in Settings.
 pub fn refresh_autostart() {
     let (Some(value), Some(exe)) = (install::autostart_value(), this_exe()) else { return };

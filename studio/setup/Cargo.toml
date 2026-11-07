@@ -1,6 +1,6 @@
 [package]
-name = "openrazer-studio-setup"
-description = "Installs, repairs and removes OpenRazer Studio"
+name = "rsrazer-setup"
+description = "Installs, repairs and removes RsRazer"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,11 +8,11 @@ repository.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "openrazer-studio-setup"
+name = "rsrazer-setup"
 path = "src/main.rs"
 
 [dependencies]
-openrazer-studio-core.workspace = true
+rsrazer-core.workspace = true
 eframe.workspace = true
 egui.workspace = true
 serde.workspace = true

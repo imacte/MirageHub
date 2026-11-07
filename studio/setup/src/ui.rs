@@ -3,10 +3,10 @@
 use crate::ops::{self, Removal};
 use crate::{Action, Args};
 use egui::{vec2, Align, CornerRadius, Frame, Layout, Margin, RichText, Sense};
-use openrazer_studio_core::install::{self, Installed, Options, APP_EXE};
-use openrazer_studio_core::theme::{self, icon, ACCENT, NAV, TEXT, TEXT_DIM, TEXT_FAINT};
-use openrazer_studio_core::widgets::{self, Button};
-use openrazer_studio_core::{t, tf};
+use rsrazer_core::install::{self, Installed, Options, APP_EXE};
+use rsrazer_core::theme::{self, icon, ACCENT, NAV, TEXT, TEXT_DIM, TEXT_FAINT};
+use rsrazer_core::widgets::{self, Button};
+use rsrazer_core::{t, tf};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -58,17 +58,17 @@ struct Setup {
 pub fn run(args: Args) -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title(t("OpenRazer Studio Setup"))
+            .with_title(t("RsRazer Setup"))
             .with_inner_size([720.0, 560.0])
             .with_resizable(false)
             .with_maximize_button(false)
             .with_icon(Arc::new(egui::IconData { rgba: icon_rgba(64), width: 64, height: 64 })),
         ..Default::default()
     };
-    eframe::run_native("OpenRazer Studio Setup", options, Box::new(move |cc| {
+    eframe::run_native("RsRazer Setup", options, Box::new(move |cc| {
         theme::apply(&cc.egui_ctx);
         let installed = args.dir.clone().filter(|_| args.from_temp).map(|dir| Installed { version: install::Manifest::read(&dir).map(|m| m.version).unwrap_or_default(), dir }).or_else(install::installed);
-        let dir = installed.as_ref().map(|i| i.dir.clone()).or(args.dir.clone()).unwrap_or_else(openrazer_studio_core::paths::default_install_dir);
+        let dir = installed.as_ref().map(|i| i.dir.clone()).or(args.dir.clone()).unwrap_or_else(rsrazer_core::paths::default_install_dir);
         let saved = installed.as_ref().and_then(|i| install::Manifest::read(&i.dir)).map(|m| m.options);
         let updating = args.action == Some(Action::Update) && installed.is_some();
         let mut setup = Setup {
@@ -98,26 +98,7 @@ pub fn run(args: Args) -> eframe::Result<()> {
     }))
 }
 
-/// The same drawn icon as the app's.
-fn icon_rgba(size: u32) -> Vec<u8> {
-    let mut pixels = vec![0u8; (size * size * 4) as usize];
-    let s = size as f32;
-    let c = (s - 1.0) / 2.0;
-    let mix = |from: [f32; 3], to: [f32; 3], t: f32| [0, 1, 2].map(|i| from[i] + (to[i] - from[i]) * t);
-    for y in 0..size {
-        for x in 0..size {
-            let d = ((x as f32 - c).powi(2) + (y as f32 - c).powi(2)).sqrt();
-            let inside = |radius: f32| (radius - d + 0.5).clamp(0.0, 1.0);
-            let mut colour = [18.0, 22.0, 28.0];
-            colour = mix(colour, [68.0, 214.0, 44.0], inside(s * 0.44) * (1.0 - inside(s * 0.31)));
-            colour = mix(colour, [184.0, 255.0, 168.0], inside(s * 0.15));
-            let i = ((y * size + x) * 4) as usize;
-            pixels[i..i + 3].copy_from_slice(&colour.map(|v| v as u8));
-            pixels[i + 3] = (inside(s * 0.48) * 255.0) as u8;
-        }
-    }
-    pixels
-}
+use rsrazer_core::branding::icon_rgba;
 
 impl Setup {
     fn start(&mut self, ctx: &egui::Context, what: &'static str) {
@@ -159,19 +140,19 @@ impl eframe::App for Setup {
                     Ok(()) => (
                         true,
                         match what {
-                            "uninstall" => t("OpenRazer Studio has been removed.").to_string(),
-                            "repair" => t("OpenRazer Studio has been repaired.").to_string(),
-                            "update" => t("OpenRazer Studio has been updated.").to_string(),
-                            _ => t("OpenRazer Studio is installed.").to_string(),
+                            "uninstall" => t("RsRazer has been removed.").to_string(),
+                            "repair" => t("RsRazer has been repaired.").to_string(),
+                            "update" => t("RsRazer has been updated.").to_string(),
+                            _ => t("RsRazer is installed.").to_string(),
                         },
                     ),
                     Err(error) => (false, error),
                 };
                 let app = PathBuf::from(self.dir.trim()).join(APP_EXE);
-                // A failed update still leaves a Studio to go back to.
+                // A failed update still leaves a RsRazer to go back to.
                 self.page = Page::Done { ok, message, launch: if what == "update" { app.exists() } else { ok && what != "uninstall" } };
                 self.installed = install::installed();
-                // The person is waiting for Studio, not for this window.
+                // The person is waiting for RsRazer, not for this window.
                 if what == "update" && ok && std::process::Command::new(app).spawn().is_ok() {
                     ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                 }
@@ -203,7 +184,7 @@ impl eframe::App for Setup {
                 ui.vertical(|ui| {
                     ui.spacing_mut().item_spacing.y = 0.0;
                     ui.add_space(16.0);
-                    ui.label(RichText::new("OpenRazer Studio").font(theme::bold(18.0)).color(TEXT));
+                    ui.label(RichText::new("RsRazer").font(theme::bold(18.0)).color(TEXT));
                     ui.label(RichText::new(tf("Setup · version {}", &[&ops::VERSION])).size(12.5).color(TEXT_DIM));
                 });
             });
@@ -262,7 +243,7 @@ impl Setup {
                     ui.add(Button::secondary(t("Close")).min_width(100.0).enabled(false));
                 }
                 Page::Done { ok, launch, .. } => {
-                    if launch && ui.add(Button::primary(t("Open OpenRazer Studio")).icon(icon::OPEN)).clicked() {
+                    if launch && ui.add(Button::primary(t("Open RsRazer")).icon(icon::OPEN)).clicked() {
                         let _ = std::process::Command::new(PathBuf::from(self.dir.trim()).join(APP_EXE)).spawn();
                         ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                     }
@@ -300,13 +281,13 @@ impl Setup {
     }
 
     fn options(&mut self, ui: &mut egui::Ui) {
-        widgets::toggle_row(ui, t("Start menu entry"), t("Plus one to repair or remove Studio."), &mut self.options.start_menu);
+        widgets::toggle_row(ui, t("Start menu entry"), t("Plus one to repair or remove RsRazer."), &mut self.options.start_menu);
         widgets::divider(ui);
         widgets::toggle_row(ui, t("Desktop shortcut"), "", &mut self.options.desktop);
         widgets::divider(ui);
         widgets::toggle_row(ui, t("Start with Windows"), t("In the tray, keeping your devices set up."), &mut self.options.autostart);
         widgets::divider(ui);
-        widgets::toggle_row(ui, t("Command line in PATH"), t("For openrazer-win in a terminal."), &mut self.options.path);
+        widgets::toggle_row(ui, t("Command line in PATH"), t("For rsrazer-daemon in a terminal."), &mut self.options.path);
     }
 
     fn maintenance(&mut self, ui: &mut egui::Ui) {
@@ -355,10 +336,10 @@ impl Setup {
     }
 
     fn confirm_removal(&mut self, ui: &mut egui::Ui) {
-        ui.label(RichText::new(t("Remove OpenRazer Studio")).font(theme::bold(17.0)).color(TEXT));
+        ui.label(RichText::new(t("Remove RsRazer")).font(theme::bold(17.0)).color(TEXT));
         widgets::help(ui, &tf("The program in {} and its shortcuts go. Your devices keep whatever lighting they show until they lose power.", &[&self.dir]));
         widgets::panel(ui, t("Also remove"), |ui| {
-            widgets::toggle_row(ui, t("Also remove Studio's settings"), t("The macro library, links between apps and profiles, and window settings."), &mut self.removal.settings);
+            widgets::toggle_row(ui, t("Also remove RsRazer's settings"), t("The macro library, links between apps and profiles, and window settings."), &mut self.removal.settings);
             widgets::divider(ui);
             widgets::toggle_row(ui, t("Also remove everything the daemon keeps"), t("Device settings, profiles, macro key bindings and logs, shared with the classic control panel and the command line."), &mut self.removal.all_data);
         });
@@ -392,7 +373,7 @@ impl Setup {
         let colour = if ok { ACCENT } else { theme::DANGER };
         widgets::banner(ui, colour, if ok { icon::CHECK } else { icon::WARNING }, message, "", |ui| {
             if !ok {
-                ui.label(widgets::faint(tf("The details are also in {}", &[&std::env::temp_dir().join("openrazer-studio-setup.log").display()])));
+                ui.label(widgets::faint(tf("The details are also in {}", &[&std::env::temp_dir().join("rsrazer-setup.log").display()])));
             }
         });
         let notes = self.shared.lock().unwrap().notes.clone();
@@ -402,7 +383,7 @@ impl Setup {
                     ui.label(widgets::dim(format!("· {note}")));
                 }
             });
-        } else if ok && message == t("OpenRazer Studio has been repaired.") {
+        } else if ok && message == t("RsRazer has been repaired.") {
             widgets::help(ui, t("Nothing needed fixing: every file was as it should be."));
         }
     }

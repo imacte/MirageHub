@@ -1,16 +1,17 @@
 //! Put what the installer installs inside it.
 //!
-//! `OPENRAZER_STUDIO_PAYLOAD` names a folder holding `openrazer-studio.exe`
-//! and `openrazer-win.exe`; a release build sets it. Without it the installer
+//! `OPENRAZER_STUDIO_PAYLOAD` names a folder holding `rsrazer.exe`
+//! and `rsrazer-daemon.exe`; a release build sets it. Without it the installer
 //! still builds -- for tests and clippy -- and says it has nothing to install.
 
 fn main() {
+    println!("cargo::rerun-if-changed=../../assets/rsrazer.ico");
     println!("cargo::rustc-check-cfg=cfg(payload)");
     println!("cargo::rerun-if-env-changed=OPENRAZER_STUDIO_PAYLOAD");
     if let Some(dir) = std::env::var_os("OPENRAZER_STUDIO_PAYLOAD") {
         let dir = std::path::PathBuf::from(dir);
         let out = std::path::PathBuf::from(std::env::var_os("OUT_DIR").expect("cargo sets OUT_DIR"));
-        for name in ["openrazer-studio.exe", "openrazer-win.exe"] {
+        for name in ["rsrazer.exe", "rsrazer-daemon.exe"] {
             let from = dir.join(name);
             std::fs::copy(&from, out.join(name)).unwrap_or_else(|e| panic!("OPENRAZER_STUDIO_PAYLOAD has no readable {}: {e}", from.display()));
             println!("cargo::rerun-if-changed={}", from.display());
@@ -22,9 +23,9 @@ fn main() {
         return;
     }
     let mut resource = winresource::WindowsResource::new();
-    resource.set_icon("assets/openrazer.ico");
-    resource.set("FileDescription", "OpenRazer Studio Setup");
-    resource.set("ProductName", "OpenRazer Studio");
+    resource.set_icon("../../assets/rsrazer.ico");
+    resource.set("FileDescription", "RsRazer Setup");
+    resource.set("ProductName", "RsRazer");
     resource.set("LegalCopyright", "GPL-2.0-or-later");
     // Without this Windows guesses from the word "setup" in the name that it
     // needs administrator rights, and asks for them. It does not: it installs

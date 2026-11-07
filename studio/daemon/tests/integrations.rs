@@ -1,4 +1,4 @@
-use openrazer_daemon::{
+use rsrazer_daemon::{
     integrations::{AccentWatch, IntegrationSettings},
     Error,
 };

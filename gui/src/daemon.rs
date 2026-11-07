@@ -13,11 +13,11 @@ const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 const RUN_VALUE: &str = "OpenRazerWin";
 
 /// Where to download the daemon from, for the one case it cannot be found.
-pub const RELEASES: &str = "https://github.com/imacte/openrazer-win/releases";
+pub const RELEASES: &str = "https://github.com/imacte/RsRazer/releases";
 
 /// The native daemon a release build carries, so the panel needs nothing else.
 #[cfg(embedded_daemon)]
-const EMBEDDED: Option<&[u8]> = Some(include_bytes!(concat!(env!("OUT_DIR"), "/openrazer-win.exe")));
+const EMBEDDED: Option<&[u8]> = Some(include_bytes!(concat!(env!("OUT_DIR"), "/rsrazer-daemon.exe")));
 #[cfg(not(embedded_daemon))]
 const EMBEDDED: Option<&[u8]> = None;
 
@@ -30,7 +30,7 @@ pub fn embedded_daemon_ok(required: bool) -> bool {
 fn unpack_embedded() -> Result<Option<PathBuf>, String> {
     let Some(bytes) = EMBEDDED else { return Ok(None) };
     let dir = config_dir().join("bin");
-    let path = dir.join(format!("openrazer-win-{}.exe", env!("CARGO_PKG_VERSION")));
+    let path = dir.join(format!("rsrazer-daemon-{}.exe", env!("CARGO_PKG_VERSION")));
     if std::fs::metadata(&path).is_ok_and(|m| m.len() == bytes.len() as u64) {
         return Ok(Some(path));
     }
@@ -43,7 +43,7 @@ fn unpack_embedded() -> Result<Option<PathBuf>, String> {
         for entry in entries.flatten() {
             let other = entry.path();
             let name = other.file_name().and_then(|n| n.to_str()).unwrap_or_default();
-            if other != path && name.starts_with("openrazer-win-") && name.ends_with(".exe") {
+            if other != path && name.starts_with("rsrazer-daemon-") && name.ends_with(".exe") {
                 let _ = std::fs::remove_file(&other);
             }
         }
@@ -79,7 +79,7 @@ fn candidates() -> (Vec<Command>, Vec<String>) {
         command
     };
     let exe_dir = std::env::current_exe().ok().and_then(|p| p.parent().map(Path::to_path_buf));
-    if let Some(beside) = exe_dir.as_ref().map(|dir| dir.join("openrazer-win.exe")).filter(|p| p.is_file()) {
+    if let Some(beside) = exe_dir.as_ref().map(|dir| dir.join("rsrazer-daemon.exe")).filter(|p| p.is_file()) {
         commands.push(exe(beside));
     }
     match unpack_embedded() {
@@ -87,7 +87,7 @@ fn candidates() -> (Vec<Command>, Vec<String>) {
         Ok(None) => {}
         Err(problem) => problems.push(problem),
     }
-    for installed in on_path("openrazer-win.exe") {
+    for installed in on_path("rsrazer-daemon.exe") {
         if installed.is_file() {
             commands.push(exe(installed));
         }
@@ -136,7 +136,7 @@ pub fn start() -> Result<(), StartError> {
     let (commands, mut problems) = candidates();
     if commands.is_empty() {
         problems.push(
-            "The daemon is not on this computer: openrazer-win.exe was not found beside this program, inside it or on PATH."
+            "The daemon is not on this computer: rsrazer-daemon.exe was not found beside this program, inside it or on PATH."
                 .to_string(),
         );
         return Err(StartError { message: problems.join("\n\n"), missing: true });

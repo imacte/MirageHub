@@ -2,14 +2,14 @@ fn main() {
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
         return;
     }
-    println!("cargo::rerun-if-changed=../app/assets/openrazer.ico");
+    println!("cargo::rerun-if-changed=../../assets/rsrazer.ico");
     let mut resource = winresource::WindowsResource::new();
-    resource.set_icon("../app/assets/openrazer.ico");
+    resource.set_icon("../../assets/rsrazer.ico");
     resource.set(
         "FileDescription",
-        "OpenRazer native Rust daemon and command line",
+        "RsRazer native Rust daemon and command line",
     );
-    resource.set("ProductName", "OpenRazer Studio");
+    resource.set("ProductName", "RsRazer");
     resource.set("LegalCopyright", "GPL-2.0-or-later");
     resource.set_manifest(r#"<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
 <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3"><security><requestedPrivileges><requestedExecutionLevel level="asInvoker" uiAccess="false"/></requestedPrivileges></security></trustInfo>

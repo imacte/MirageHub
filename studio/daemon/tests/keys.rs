@@ -1,4 +1,4 @@
-use openrazer_daemon::{
+use rsrazer_daemon::{
     database,
     device::Device,
     hid::{HidBackend, HidHandle, HidInfo, InputReader},
@@ -314,7 +314,7 @@ fn macro_binding_replaces_default_and_disabled_does_nothing() {
     });
     assert_eq!(
         rig.outputs(),
-        openrazer_daemon::keys::inject::text_inputs("你好😀")
+        rsrazer_daemon::keys::inject::text_inputs("你好😀")
     );
     assert_eq!(*rig.output.launches.lock().unwrap(), ["notepad.exe"]);
 }
@@ -436,7 +436,7 @@ fn stopping_cancels_long_macros_and_releases_fn_and_default_keys() {
 fn mini_fn_macro_keys_work_and_detach_does_not_leave_recording_active() {
     let mut rig = Rig::new(0x0258); // BlackWidow V3 Mini has Fn macro targets.
     assert!(rig.service.attach(&rig.device).unwrap());
-    let table = openrazer_daemon::keys::service::table_for(0x0258);
+    let table = rsrazer_daemon::keys::service::table_for(0x0258);
     let source = table
         .iter()
         .find(|(_, target)| *target == "KEY_MACRO1")
@@ -510,7 +510,7 @@ fn old_macro_json_round_trips_unicode_and_rejects_invalid_updates() {
 
 #[test]
 fn keyboard_output_handles_pause_high_function_keys_media_and_utf16() {
-    use openrazer_daemon::keys::inject::{key_input, raw_input, text_inputs};
+    use rsrazer_daemon::keys::inject::{key_input, raw_input, text_inputs};
     assert_eq!(
         key_input(codes::key_named("pause").unwrap(), true),
         Injection {

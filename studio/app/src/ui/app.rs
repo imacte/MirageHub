@@ -10,8 +10,8 @@ use crate::shell::{self, Tray, TrayAction};
 use crate::updates::{Phase, Status, Updater};
 use crate::worker::{self, Command, DaemonState, Device, Shared, Snapshot};
 use egui::{pos2, vec2, Align, Align2, Color32, CornerRadius, Frame, Layout, Margin, Rect, RichText, Sense, Stroke, StrokeKind};
-use openrazer_studio_core::theme::{self, icon, ACCENT, BORDER_HI, NAV, SURFACE, SURFACE_HI, TEXT, TEXT_DIM, TEXT_FAINT};
-use openrazer_studio_core::{install, t, tf, widgets};
+use rsrazer_core::theme::{self, icon, ACCENT, BORDER_HI, NAV, SURFACE, SURFACE_HI, TEXT, TEXT_DIM, TEXT_FAINT};
+use rsrazer_core::{install, t, tf, widgets};
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
@@ -120,7 +120,7 @@ impl App {
 
     pub fn new(cc: &eframe::CreationContext<'_>, background: bool) -> App {
         let settings = Settings::load();
-        openrazer_studio_core::i18n::set(settings.language);
+        rsrazer_core::i18n::set(settings.language);
         theme::apply(&cc.egui_ctx);
         #[cfg(debug_assertions)]
         if std::env::var_os("OPENRAZER_STUDIO_DEBUG").is_some() {
@@ -132,10 +132,12 @@ impl App {
         let shared: Shared = Default::default();
         let ctx = cc.egui_ctx.clone();
         let tx = worker::spawn(shared.clone(), move || ctx.request_repaint());
-        // Studio is how most people start the daemon; do it for them.
+        // RsRazer is how most people start the daemon; do it for them.
         let _ = tx.send(Command::StartDaemon);
-        crate::daemon::refresh_autostart();
-        openrazer_studio_core::process::listen_for_quit(quit);
+        if std::env::var_os("OPENRAZER_STUDIO_CAPTURE").is_none() {
+            crate::daemon::refresh_autostart();
+        }
+        rsrazer_core::process::listen_for_quit(quit);
 
         let ctx = cc.egui_ctx.clone();
         let tray_tx = tx.clone();
@@ -333,8 +335,8 @@ impl App {
             ui.add_space(4.0);
             ui.vertical(|ui| {
                 ui.spacing_mut().item_spacing.y = 0.0;
-                ui.label(RichText::new("OpenRazer").font(theme::bold(15.5)).color(TEXT));
-                ui.label(RichText::new("STUDIO").font(theme::bold(10.0)).color(ACCENT).extra_letter_spacing(2.6));
+                ui.label(RichText::new("RsRazer").font(theme::bold(15.5)).color(TEXT));
+                ui.label(RichText::new("RGB CONTROL").font(theme::bold(10.0)).color(ACCENT).extra_letter_spacing(2.6));
             });
         });
         ui.add_space(20.0);
@@ -439,7 +441,7 @@ impl App {
             }
             ui.horizontal(|ui| {
                 ui.add_space(28.0);
-                ui.label(RichText::new(format!("Studio {}", env!("CARGO_PKG_VERSION"))).size(11.5).color(TEXT_FAINT));
+                ui.label(RichText::new(format!("RsRazer {}", env!("CARGO_PKG_VERSION"))).size(11.5).color(TEXT_FAINT));
             });
         });
         ui.add_space(4.0);

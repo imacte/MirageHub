@@ -1,6 +1,6 @@
-//! OpenRazer for Windows: the control panel.
+//! RsRazer: the control panel.
 //!
-//! A client of the openrazer-win daemon, which owns the devices. Started with
+//! A client of the rsrazer-daemon daemon, which owns the devices. Started with
 //! `--background` (as it is at sign-in) it lives in the tray and makes sure
 //! the daemon is running; otherwise it opens its window.
 
@@ -19,7 +19,7 @@ fn main() -> eframe::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.iter().any(|a| a == "--version" || a == "-V") {
         attach_console();
-        println!("openrazer-win-gui {}", env!("CARGO_PKG_VERSION"));
+        println!("rsrazer-classic {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
     if args.iter().any(|a| a == "--self-test") {
@@ -33,7 +33,7 @@ fn main() -> eframe::Result<()> {
     let background = args.iter().any(|a| a == "--background" || a == "--tray")
         || (args.first().map(String::as_str) == Some("daemon") && args.get(1).map(String::as_str) == Some("run"));
 
-    if !shell::claim_single_instance() {
+    if std::env::var_os("OPENRAZER_GUI_CAPTURE").is_none() && !shell::claim_single_instance() {
         if !background {
             shell::show();
         }

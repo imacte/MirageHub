@@ -1,9 +1,9 @@
-//! Studio's own settings: how the window behaves, the macro library, and
+//! RsRazer's own settings: how the window behaves, the macro library, and
 //! which profile each app switches to.  The daemon keeps everything about
 //! the devices themselves.
 
 use crate::layout::Variant;
-use openrazer_studio_core::i18n::Lang;
+use rsrazer_core::i18n::Lang;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -68,7 +68,7 @@ impl Default for Settings {
 
 impl Settings {
     pub fn path() -> PathBuf {
-        openrazer_studio_core::paths::studio_dir().join("settings.json")
+        rsrazer_core::paths::studio_dir().join("settings.json")
     }
 
     /// The saved settings; a file that will not read is set aside, not lost.
@@ -86,7 +86,7 @@ impl Settings {
 
     pub fn save(&self) {
         if let Ok(text) = serde_json::to_string_pretty(self) {
-            let _ = openrazer_studio_core::paths::write_atomic(&Self::path(), text.as_bytes());
+            let _ = rsrazer_core::paths::write_atomic(&Self::path(), text.as_bytes());
         }
     }
 

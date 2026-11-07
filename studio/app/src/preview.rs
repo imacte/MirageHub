@@ -1,7 +1,7 @@
 //! What the lighting looks like, frame by frame, for drawing on screen.
 //!
 //! Per-key layers are drawn with the same arithmetic as the daemon's
-//! `effects/layers.py`, so the preview is what the keyboard shows. The
+//! `daemon/src/effects/layers.rs`, so the preview is what the keyboard shows. The
 //! device's own effects run in its firmware and cannot be asked for a frame;
 //! for those this is a good likeness.
 
@@ -17,7 +17,7 @@ pub const REACTIVE_FADE: f32 = 1.0;
 pub const RIPPLE_DURATION: f32 = 0.8;
 
 pub fn hue(h: f32) -> Color32 {
-    openrazer_studio_core::widgets::hsv(h, 1.0, 1.0)
+    rsrazer_core::widgets::hsv(h, 1.0, 1.0)
 }
 
 fn mix(a: Color32, b: Color32, t: f32) -> Color32 {
@@ -54,7 +54,7 @@ impl Kind {
     pub const ALL: [Kind; 8] = [Kind::Static, Kind::Gradient, Kind::Breath, Kind::Spectrum, Kind::Wave, Kind::Starlight, Kind::Reactive, Kind::Ripple];
 
     pub fn label(self) -> &'static str {
-        use openrazer_studio_core::t;
+        use rsrazer_core::t;
         match self {
             Kind::Static => t("Static"),
             Kind::Gradient => t("Gradient"),
@@ -68,7 +68,7 @@ impl Kind {
     }
 
     pub fn hint(self) -> &'static str {
-        use openrazer_studio_core::t;
+        use rsrazer_core::t;
         match self {
             Kind::Static => t("One steady colour."),
             Kind::Gradient => t("Fades from one colour to another, left to right."),
@@ -327,7 +327,7 @@ mod tests {
 
     #[test]
     fn the_twinkle_matches_the_daemon() {
-        // test_layers.py: twinkle_phase(0, 0) == 0.3262379
+        // Regression fixture: twinkle_phase(0, 0) == 0.3262379
         assert!((twinkle_phase(0, 0) - 0.326_237_9).abs() < 1e-5);
     }
 

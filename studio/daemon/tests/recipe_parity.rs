@@ -1,4 +1,4 @@
-use openrazer_daemon::{
+use rsrazer_daemon::{
     protocol::{builders, report::Report},
     recipes::{self, Environment, Sender},
     Result,

@@ -1,6 +1,6 @@
 [package]
-name = "openrazer-studio-core"
-description = "What OpenRazer Studio and its installer share: the daemon's protocol, paths, look and words"
+name = "rsrazer-core"
+description = "What RsRazer and its installer share: the daemon's protocol, paths, look and words"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

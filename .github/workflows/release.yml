@@ -14,71 +14,47 @@ permissions:
 
 jobs:
   build:
-    name: Build ${{ matrix.artifact }}
+    name: Build native daemon
     runs-on: windows-latest
-    strategy:
-      matrix:
-        include:
-          - artifact: wheel
-          - artifact: exe
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
-      - uses: actions/setup-python@v5
-        if: matrix.artifact == 'wheel'
-        with:
-          python-version: '3.12'
-          cache: pip
-
-      - name: Build wheel and sdist
-        if: matrix.artifact == 'wheel'
-        run: |
-          pip install build
-          python -m build
-
       - name: Install Rust
-        if: matrix.artifact == 'exe'
         working-directory: studio
         run: rustup toolchain install
 
       - name: Build the native daemon and CLI
-        if: matrix.artifact == 'exe'
         shell: pwsh
         run: ./studio/tools/build-native.ps1 -DaemonOnly
 
       - name: Test the shipped native daemon with simulated devices
-        if: matrix.artifact == 'exe'
         working-directory: studio
         env:
-          OPENRAZER_TEST_DAEMON: ${{ github.workspace }}/dist/openrazer-win.exe
-        run: cargo test --locked -p openrazer-daemon --test executable
+          OPENRAZER_TEST_DAEMON: ${{ github.workspace }}/dist/rsrazer-daemon.exe
+        run: cargo test --locked -p rsrazer-daemon --test executable
 
       - name: Smoke-test the executable
-        if: matrix.artifact == 'exe'
         # The runner appends `exit $LASTEXITCODE`, so the script has to end on a
         # deliberate exit: `autostart status` reports 1 when autostart is off,
         # which is the expected state on a fresh runner.
         run: |
-          .\dist\openrazer-win.exe --version
+          .\dist\rsrazer-daemon.exe --version
           if ($LASTEXITCODE -ne 0) { exit 1 }
-          .\dist\openrazer-win.exe supported viper
+          .\dist\rsrazer-daemon.exe supported viper
           if ($LASTEXITCODE -ne 0) { exit 1 }
-          .\dist\openrazer-win.exe doctor
+          .\dist\rsrazer-daemon.exe doctor
           if ($LASTEXITCODE -ne 0) { exit 1 }
-          .\dist\openrazer-win.exe autostart status
+          .\dist\rsrazer-daemon.exe autostart status
           if ($LASTEXITCODE -notin 0, 1) { exit 1 }
           exit 0
         shell: pwsh
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: |
-            dist/*.whl
-            dist/*.tar.gz
-            dist/*.exe
+          name: exe
+          path: dist/rsrazer-daemon.exe
           if-no-files-found: error
 
   gui:
@@ -101,27 +77,27 @@ jobs:
       - name: Build
         working-directory: gui
         env:
-          OPENRAZER_EMBED_DAEMON: ${{ github.workspace }}/daemon/openrazer-win.exe
+          OPENRAZER_EMBED_DAEMON: ${{ github.workspace }}/daemon/rsrazer-daemon.exe
           RUSTFLAGS: -C target-feature=+crt-static
         run: cargo build --release --locked --target x86_64-pc-windows-msvc
       - name: Smoke-test the executable
         shell: pwsh
         run: |
           # --self-test also fails a build whose embedded daemon is missing or broken.
-          $p = Start-Process -FilePath gui/target/x86_64-pc-windows-msvc/release/openrazer-win-gui.exe -ArgumentList '--self-test','--require-daemon' -WindowStyle Hidden -Wait -PassThru
+          $p = Start-Process -FilePath gui/target/x86_64-pc-windows-msvc/release/rsrazer-classic.exe -ArgumentList '--self-test','--require-daemon' -WindowStyle Hidden -Wait -PassThru
           if ($p.ExitCode -ne 0) { exit 1 }
-          ./studio/tools/check-native.ps1 -Files gui/target/x86_64-pc-windows-msvc/release/openrazer-win-gui.exe
+          ./studio/tools/check-native.ps1 -Files gui/target/x86_64-pc-windows-msvc/release/rsrazer-classic.exe
           New-Item -ItemType Directory -Force dist | Out-Null
-          Copy-Item gui/target/x86_64-pc-windows-msvc/release/openrazer-win-gui.exe dist/
+          Copy-Item gui/target/x86_64-pc-windows-msvc/release/rsrazer-classic.exe dist/
           exit 0
       - uses: actions/upload-artifact@v4
         with:
           name: gui
-          path: dist/openrazer-win-gui.exe
+          path: dist/rsrazer-classic.exe
           if-no-files-found: error
 
   studio:
-    name: Build OpenRazer Studio and its installer
+    name: Build RsRazer and its installer
     # The installer carries the native daemon, so it is built after that.
     needs: build
     runs-on: windows-latest
@@ -141,44 +117,22 @@ jobs:
         run: rustup toolchain install
       - name: Build Studio, both Chroma DLLs and the installer
         shell: pwsh
-        run: ./tools/build-native.ps1 -DaemonPath ../daemon/openrazer-win.exe
+        run: ./tools/build-native.ps1 -DaemonPath ../daemon/rsrazer-daemon.exe
       - name: Install, repair and remove
         shell: pwsh
         run: |
           $env:LOCALAPPDATA = "$env:RUNNER_TEMP\lad"
-          ./tools/installer-cycle.ps1 -Setup ../dist/openrazer-studio-setup.exe -Dir "$env:RUNNER_TEMP\studio-install"
+          ./tools/installer-cycle.ps1 -Setup ../dist/rsrazer-setup.exe -Dir "$env:RUNNER_TEMP\studio-install"
           if ($LASTEXITCODE -ne 0) { exit 1 }
           exit 0
       - uses: actions/upload-artifact@v4
         with:
           name: studio
           path: |
-            dist/openrazer-studio-setup.exe
-            dist/openrazer-studio-setup-zh-CN.exe
-            dist/openrazer-studio.exe
+            dist/rsrazer-setup.exe
+            dist/rsrazer-setup-zh-CN.exe
+            dist/rsrazer.exe
           if-no-files-found: error
-
-  pypi:
-    name: Publish to PyPI
-    # The fork's releases ship on GitHub; this PyPI project belongs to upstream.
-    if: github.repository == 'Ar4ikov/openrazer-win'
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: wheel
-          path: dist
-
-      - name: Keep only the Python distributions
-        run: |
-          find dist -type f ! -name '*.whl' ! -name '*.tar.gz' -delete
-          ls -la dist
-
-      - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
-          skip-existing: true
 
   release:
     name: Publish the release
@@ -203,12 +157,17 @@ jobs:
           ls -la
           cat SHA256SUMS.txt
 
+      - name: Install Rust for the release tools
+        working-directory: studio
+        run: rustup toolchain install
+
       - name: Write the release's text from the changelogs
         # Studio shows this on its Updates page, so it fails here rather than
         # publish a release with nothing to say.
         env:
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
-        run: python3 tools/release_notes.py "$TAG" > release-body.md
+        working-directory: studio
+        run: cargo run --quiet --locked -p rsrazer-tools -- release-notes "$TAG" > ../release-body.md
 
       - uses: softprops/action-gh-release@v2
         with:

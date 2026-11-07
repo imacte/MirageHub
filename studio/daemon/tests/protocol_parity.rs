@@ -1,4 +1,4 @@
-use openrazer_daemon::{database, protocol::builders};
+use rsrazer_daemon::{database, protocol::builders};
 use serde_json::Value;
 
 #[test]

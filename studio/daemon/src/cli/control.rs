@@ -165,7 +165,7 @@ fn select(devices: Vec<Value>, selector: Option<&str>) -> Result<Vec<Value>> {
         .collect();
     if matched.is_empty() {
         return Err(Error::Invalid(format!(
-            "no device matches {selector:?}; try: openrazer-win list"
+            "no device matches {selector:?}; try: rsrazer-daemon list"
         )));
     }
     Ok(matched)
@@ -488,7 +488,7 @@ pub(super) fn run(args: &Arguments) -> Result<i32> {
             print_json(&json!(devices.iter().map(summary).collect::<Vec<_>>()));
         } else if devices.is_empty() {
             println!(
-                "No supported Razer devices found. Run openrazer-win doctor to diagnose detection."
+                "No supported Razer devices found. Run rsrazer-daemon doctor to diagnose detection."
             );
             return Ok(1);
         } else {

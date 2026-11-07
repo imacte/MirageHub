@@ -419,10 +419,8 @@ pub fn recipes() -> &'static RecipeTable {
     static RECIPES: OnceLock<RecipeTable> = OnceLock::new();
     RECIPES.get_or_init(|| {
         RecipeTable::from_json(
-            serde_json::from_str(include_str!(
-                "../../../../openrazer_win/devices/data/recipes.json"
-            ))
-            .expect("embedded recipes must be valid JSON"),
+            serde_json::from_str(include_str!("../../../../data/recipes.json"))
+                .expect("embedded recipes must be valid JSON"),
         )
         .expect("embedded recipes must be valid programs")
     })

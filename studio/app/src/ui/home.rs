@@ -7,9 +7,9 @@ use super::edit::light_up;
 use super::effects::{self, PALETTE};
 use crate::worker::{Command, Device, Snapshot, Then};
 use egui::{vec2, Color32, CornerRadius, Frame, Margin, RichText, Sense, Stroke};
-use openrazer_studio_core::theme::{self, icon, ACCENT, BORDER, BORDER_HI, SURFACE, TEXT, TEXT_DIM, TEXT_FAINT};
-use openrazer_studio_core::widgets::{self, Button};
-use openrazer_studio_core::{t, tf};
+use rsrazer_core::theme::{self, icon, ACCENT, BORDER, BORDER_HI, SURFACE, TEXT, TEXT_DIM, TEXT_FAINT};
+use rsrazer_core::widgets::{self, Button};
+use rsrazer_core::{t, tf};
 use serde_json::json;
 
 /// Tiles are at least this wide; as many fit across as can.
@@ -75,7 +75,7 @@ fn notices(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
             theme::WARN,
             icon::WARNING,
             t("Razer Synapse is running"),
-            t("Synapse talks to the same devices, and the two will keep overwriting each other's lighting and settings. Close it to let OpenRazer have them to itself."),
+            t("Synapse talks to the same devices, and the two will keep overwriting each other's lighting and settings. Close it to let RsRazer have them to itself."),
             |ui| {
                 if ui.add(Button::primary(t("Close Synapse")).small()).clicked() {
                     let _ = tx.send(Command::CloseSynapse);
@@ -87,7 +87,7 @@ fn notices(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
     if !snap.unsupported.is_empty() {
         let names: Vec<String> = snap.unsupported.iter().map(|(pid, name)| if name.is_empty() { format!("1532:{pid:04X}") } else { format!("{name} (1532:{pid:04X})") }).collect();
         widgets::banner(ui, theme::INFO, icon::INFO, t("Some Razer devices are not supported yet"), &names.join(", "), |ui| {
-            widgets::link_button(ui, t("Ask for one to be added"), &format!("{}/issues/new?template=device-not-detected.md", openrazer_studio_core::install::REPOSITORY));
+            widgets::link_button(ui, t("Ask for one to be added"), &format!("{}/issues/new?template=device-not-detected.md", rsrazer_core::install::REPOSITORY));
         });
     }
 }

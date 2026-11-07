@@ -6,9 +6,9 @@
 use super::app::App;
 use super::device::TWO_COLUMNS;
 use crate::worker::{Command, Detail, Device, Snapshot, Then};
-use openrazer_studio_core::theme::{self, icon, ACCENT};
-use openrazer_studio_core::widgets::{self, Button};
-use openrazer_studio_core::t;
+use rsrazer_core::theme::{self, icon, ACCENT};
+use rsrazer_core::widgets::{self, Button};
+use rsrazer_core::t;
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
 

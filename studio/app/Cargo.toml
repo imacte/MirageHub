@@ -1,6 +1,6 @@
 [package]
-name = "openrazer-studio"
-description = "OpenRazer Studio: Razer device control on Windows"
+name = "rsrazer"
+description = "RsRazer: Razer device control on Windows"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,11 +8,11 @@ repository.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "openrazer-studio"
+name = "rsrazer"
 path = "src/main.rs"
 
 [dependencies]
-openrazer-studio-core.workspace = true
+rsrazer-core.workspace = true
 eframe.workspace = true
 egui.workspace = true
 serde.workspace = true

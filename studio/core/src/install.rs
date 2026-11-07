@@ -1,4 +1,4 @@
-//! What an installation of Studio is, and where Windows is told about it.
+//! What an installation of RsRazer is, and where Windows is told about it.
 //!
 //! Everything is per user: the program lives under `%LOCALAPPDATA%\Programs`,
 //! its entry in Apps & features under `HKEY_CURRENT_USER`. No step of
@@ -8,29 +8,30 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-pub const APP_NAME: &str = "OpenRazer Studio";
-pub const PUBLISHER: &str = "openrazer-win project";
-pub const APP_EXE: &str = "openrazer-studio.exe";
+pub const APP_NAME: &str = "RsRazer";
+pub const PUBLISHER: &str = "RsRazer project";
+pub const APP_EXE: &str = "rsrazer.exe";
 /// The daemon and command line, installed beside the app.
-pub const DAEMON_EXE: &str = "openrazer-win.exe";
+pub const DAEMON_EXE: &str = "rsrazer-daemon.exe";
 /// A copy of the installer kept in the install folder: Apps & features runs
-/// it to repair or remove Studio, and it carries everything it needs to put
+/// it to repair or remove RsRazer, and it carries everything it needs to put
 /// back a file that has gone missing, without a download.
 pub const SETUP_EXE: &str = "setup.exe";
 /// What was installed, and how, in the install folder.
 pub const MANIFEST: &str = "install.json";
 
-const UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenRazerStudio";
+const UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\RsRazer";
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 /// Shared with the classic control panel and the command line's `autostart`,
 /// so that only one of them ever starts at sign-in.
+/// Retain the legacy registry value to replace an existing startup entry.
 pub const RUN_VALUE: &str = "OpenRazerWin";
 
-pub const RELEASES: &str = "https://github.com/imacte/openrazer-win/releases";
-pub const REPOSITORY: &str = "https://github.com/imacte/openrazer-win";
+pub const RELEASES: &str = "https://github.com/imacte/RsRazer/releases";
+pub const REPOSITORY: &str = "https://github.com/imacte/RsRazer";
 pub const COMMUNITY: &str = REPOSITORY;
 
-/// The choices made when Studio was installed, kept so a repair or an update
+/// The choices made when RsRazer was installed, kept so a repair or an update
 /// makes the same ones.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
@@ -38,7 +39,7 @@ pub struct Options {
     pub start_menu: bool,
     pub desktop: bool,
     pub autostart: bool,
-    /// Put the install folder on the user's PATH, for `openrazer-win` in a terminal.
+    /// Put the install folder on the user's PATH, for `rsrazer-daemon` in a terminal.
     pub path: bool,
 }
 

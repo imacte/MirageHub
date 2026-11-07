@@ -3,7 +3,7 @@
 //! A game lights Razer devices by loading `RzChromaSDK64.dll` (or, 32-bit,
 //! `RzChromaSDK.dll`), which Synapse installs. Without Synapse there is none,
 //! and the game lights nothing. This is a DLL of the same name with the same
-//! functions; it passes what the game shows on to the openrazer-win daemon,
+//! functions; it passes what the game shows on to the rsrazer-daemon daemon,
 //! through the same REST API Razer's SDK serves, and the daemon draws it.
 //!
 //! It never makes a game wait: calls only note what is to be shown, and a
@@ -28,7 +28,7 @@ pub const PORT: u16 = 54235;
 /// What tells this DLL from Razer's own: Studio takes back only a DLL that
 /// carries it. Exported, so that no linker can leave it out.
 #[no_mangle]
-pub static OPENRAZER_CHROMA: [u8; 16] = *b"openrazer-chroma";
+pub static OPENRAZER_CHROMA: [u8; 14] = *b"rsrazer-chroma";
 
 /// How often the session is said to be alive while nothing is shown: the
 /// daemon lets go of a game it has not heard from for fifteen seconds.
@@ -114,7 +114,7 @@ fn start(title: String, description: String) -> RzResult {
     }
     state.running = true;
     drop(state);
-    if std::thread::Builder::new().name("openrazer-chroma".into()).spawn(run).is_err() {
+    if std::thread::Builder::new().name("rsrazer-chroma".into()).spawn(run).is_err() {
         lock().running = false;
         return effects::NOT_SUPPORTED;
     }

@@ -92,7 +92,7 @@ impl DeviceEdit {
 
     pub fn refresh(&mut self, device: &Device, detail: &Detail, snap: &Snapshot) {
         let Some(caps) = detail.caps.as_ref() else { return };
-        // The headset is the one holding these, and it can be used without Studio.
+        // The headset is the one holding these, and it can be used without RsRazer.
         if let Some(audio) = detail.audio.as_ref().filter(|_| !self.recently_touched()) {
             self.audio = AudioEdit::read(audio);
         }

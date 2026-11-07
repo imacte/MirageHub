@@ -5,7 +5,9 @@ on:
     branches: [main]
     paths:
       - 'docs/**'
-      - 'openrazer_win/devices/data/devices.json'
+      - 'data/devices.json'
+      - 'data/upstream-version.txt'
+      - 'studio/tools/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -20,6 +22,8 @@ concurrency:
 
 jobs:
   deploy:
+    # Enable this repository variable after configuring GitHub Pages for Actions.
+    if: vars.PAGES_ENABLED == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -27,12 +31,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+      - name: Install Rust
+        working-directory: studio
+        run: rustup toolchain install
 
       - name: Refresh the device list the site renders
-        run: python tools/build_docs_data.py
+        working-directory: studio
+        run: cargo run --locked -p rsrazer-tools -- docs-data
 
       - uses: actions/configure-pages@v5
 

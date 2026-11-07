@@ -3,7 +3,7 @@
 //! Quick effects: pick a part of the device on its drawing, pick an effect,
 //! pick a colour -- the device's own effects, the way most people want them.
 //!
-//! Studio: per-key lighting in layers. Each layer is one effect painted onto
+//! RsRazer: per-key lighting in layers. Each layer is one effect painted onto
 //! the keys chosen for it; upper layers cover lower ones, and the ones that
 //! react to typing let what is below show through. The daemon draws the
 //! result, so it keeps running with this window closed.
@@ -16,9 +16,9 @@ use crate::art::{Art, Region, Shape};
 use crate::preview::{self, Kind, Layer};
 use crate::worker::{Command, Device, Snapshot, Then};
 use egui::{vec2, Align, Color32, CornerRadius, Layout, RichText, Sense};
-use openrazer_studio_core::theme::{self, icon, ACCENT, TEXT, TEXT_DIM, TEXT_FAINT};
-use openrazer_studio_core::widgets::{self, Button, IconButton};
-use openrazer_studio_core::{t, tf};
+use rsrazer_core::theme::{self, icon, ACCENT, TEXT, TEXT_DIM, TEXT_FAINT};
+use rsrazer_core::widgets::{self, Button, IconButton};
+use rsrazer_core::{t, tf};
 use serde_json::{json, Value};
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
@@ -64,7 +64,7 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot, device: &Device) 
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 12.0;
         let mut studio = app.lighting.studio;
-        let options = vec![(false, t("Quick effects").to_string()), (true, t("Studio · per key").to_string())];
+        let options = vec![(false, t("Quick effects").to_string()), (true, t("Per-key editor").to_string())];
         if widgets::segmented(ui, &options, &mut studio) {
             app.lighting.studio = studio;
         }
@@ -95,7 +95,7 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot, device: &Device) 
 
 // -- quick ---------------------------------------------------------------------------------
 
-/// What a device is showing now, LED by LED, as far as Studio can tell.
+/// What a device is showing now, LED by LED, as far as RsRazer can tell.
 pub struct Look {
     pub colours: Vec<Color32>,
     pub layers_running: bool,

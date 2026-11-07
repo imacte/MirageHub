@@ -3,7 +3,7 @@
 use super::edit::ZoneEdit;
 use crate::worker::{Command, Then};
 use egui::Color32;
-use openrazer_studio_core::t;
+use rsrazer_core::t;
 use serde_json::{json, Value};
 
 /// Drawn by the daemon, frame by frame, rather than by the device.
@@ -56,7 +56,7 @@ pub fn label(effect: &str) -> &'static str {
         "breath_soft" => t("Breathing"),
         "starlight_soft" => t("Starlight"),
         "accent" => t("Accent colour"),
-        "custom" | "layers" => t("Per-key (Studio)"),
+        "custom" | "layers" => t("Per-key lighting"),
         "zones" => t("Each ear on its own"),
         _ => t("Other"),
     }

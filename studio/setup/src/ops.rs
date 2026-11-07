@@ -1,22 +1,22 @@
-//! Installing, repairing and removing Studio: the work itself, without a window.
+//! Installing, repairing and removing RsRazer: the work itself, without a window.
 //!
 //! Every step says what it is doing through `progress`, and every step that
 //! finds something to fix says so in the report, so the window -- or the log
 //! of a silent run -- can tell the user exactly what was done.
 
-use openrazer_studio_core::install::{self, Manifest, Options, APP_EXE, APP_NAME, DAEMON_EXE, MANIFEST, SETUP_EXE};
-use openrazer_studio_core::{paths, process, t, tf};
+use rsrazer_core::install::{self, Manifest, Options, APP_EXE, APP_NAME, DAEMON_EXE, MANIFEST, SETUP_EXE};
+use rsrazer_core::{paths, process, t, tf};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg(payload)]
-const APP: Option<&[u8]> = Some(include_bytes!(concat!(env!("OUT_DIR"), "/openrazer-studio.exe")));
+const APP: Option<&[u8]> = Some(include_bytes!(concat!(env!("OUT_DIR"), "/rsrazer.exe")));
 #[cfg(not(payload))]
 const APP: Option<&[u8]> = None;
 #[cfg(payload)]
-const DAEMON: Option<&[u8]> = Some(include_bytes!(concat!(env!("OUT_DIR"), "/openrazer-win.exe")));
+const DAEMON: Option<&[u8]> = Some(include_bytes!(concat!(env!("OUT_DIR"), "/rsrazer-daemon.exe")));
 #[cfg(not(payload))]
 const DAEMON: Option<&[u8]> = None;
 const LICENSE: &str = include_str!("../../../LICENSE");
@@ -100,7 +100,7 @@ fn shortcut(target: &Path, arguments: Option<&str>, link: &Path, description: &s
 }
 
 /// The options as they stand now, for an update. The manifest has what was
-/// chosen when installing, and Studio's own settings change some of that
+/// chosen when installing, and RsRazer's own settings change some of that
 /// since: an update must not quietly put those back.
 pub fn options_in_place(dir: &Path) -> Options {
     Options { start_menu: start_menu().exists(), desktop: desktop_link().exists(), autostart: install::autostart_points_into(dir), path: install::on_user_path(dir) }
@@ -136,15 +136,15 @@ fn put(path: &Path, bytes: &[u8]) -> Result<bool, String> {
 /// also looks over the settings files and the daemon's endpoint.
 pub fn install(dir: &Path, options: &Options, repair: bool, progress: &dyn Progress) -> Result<(), String> {
     let files = payload()?;
-    progress.step(t("Closing OpenRazer Studio and the daemon…").into(), 0.05);
+    progress.step(t("Closing RsRazer and the daemon…").into(), 0.05);
     let stuck = process::stop_everything_in(dir);
     if !stuck.is_empty() {
         progress.note(tf("Could not close: {}", &[&stuck.join(", ")]));
     }
-    // A daemon from somewhere else (pip, the classic panel) would be the one
-    // Studio talks to; stop it too, so this version's starts in its place.
-    if openrazer_studio_core::rpc::shutdown_daemon(Duration::from_secs(10)) {
-        progress.note(t("Stopped the running daemon; Studio starts this version's").into());
+    // A daemon from somewhere else (a legacy installation or the classic panel) would be the one
+    // RsRazer talks to; stop it too, so this version's starts in its place.
+    if rsrazer_core::rpc::shutdown_daemon(Duration::from_secs(10)) {
+        progress.note(t("Stopped the running daemon; RsRazer starts this version's").into());
     }
 
     progress.step(tf("Copying files to {}…", &[&dir.display()]), 0.15);
@@ -178,7 +178,7 @@ pub fn install(dir: &Path, options: &Options, repair: bool, progress: &dyn Progr
     let menu = start_menu();
     if options.start_menu {
         shortcut(&app, None, &menu.join(format!("{APP_NAME}.lnk")), t("Razer device control"))?;
-        shortcut(&dir.join(SETUP_EXE), Some("--maintenance"), &menu.join(format!("{}.lnk", t("Repair or remove OpenRazer Studio"))), t("Repair or remove OpenRazer Studio"))?;
+        shortcut(&dir.join(SETUP_EXE), Some("--maintenance"), &menu.join(format!("{}.lnk", t("Repair or remove RsRazer"))), t("Repair or remove RsRazer"))?;
     } else if menu.exists() {
         let _ = std::fs::remove_dir_all(&menu);
     }
@@ -210,7 +210,7 @@ fn days() -> i64 {
 
 /// Set aside settings files that no longer read, and a stale endpoint.
 ///
-/// Everything a file held is kept, renamed beside it: the daemon and Studio
+/// Everything a file held is kept, renamed beside it: the daemon and RsRazer
 /// start afresh rather than refusing to, and nothing is lost for good.
 pub fn check_settings(progress: &dyn Progress) {
     let data = paths::data_dir();
@@ -231,8 +231,8 @@ pub fn check_settings(progress: &dyn Progress) {
             }
         }
     }
-    let endpoint = openrazer_studio_core::rpc::Endpoint::path();
-    if endpoint.exists() && openrazer_studio_core::rpc::Client::connect().is_err() && std::fs::remove_file(&endpoint).is_ok() {
+    let endpoint = rsrazer_core::rpc::Endpoint::path();
+    if endpoint.exists() && rsrazer_core::rpc::Client::connect().is_err() && std::fs::remove_file(&endpoint).is_ok() {
         progress.note(t("Removed a leftover note of a daemon that is no longer running").into());
     }
 }
@@ -241,15 +241,15 @@ pub fn check_settings(progress: &dyn Progress) {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Removal {
-    /// Studio's own settings and macro library.
+    /// RsRazer's own settings and macro library.
     pub settings: bool,
     /// Everything in `%LOCALAPPDATA%\openrazer-win`: device settings,
-    /// profiles, key bindings, logs -- shared with the classic panel and pip.
+    /// profiles, key bindings, logs -- shared with the classic panel and legacy versions.
     pub all_data: bool,
 }
 
 pub fn uninstall(dir: &Path, removal: Removal, progress: &dyn Progress) -> Result<(), String> {
-    progress.step(t("Closing OpenRazer Studio and the daemon…").into(), 0.1);
+    progress.step(t("Closing RsRazer and the daemon…").into(), 0.1);
     let stuck = process::stop_everything_in(dir);
     if !stuck.is_empty() {
         return Err(tf("These are still running and could not be closed: {}. Close them and try again.", &[&stuck.join(", ")]));
@@ -257,7 +257,7 @@ pub fn uninstall(dir: &Path, removal: Removal, progress: &dyn Progress) -> Resul
     progress.step(t("Removing shortcuts and settings in Windows…").into(), 0.3);
     if install::autostart_points_into(dir) {
         install::set_autostart(None)?;
-        progress.note(t("Studio no longer starts with Windows").into());
+        progress.note(t("RsRazer no longer starts with Windows").into());
     }
     let _ = install::set_on_user_path(dir, false);
     let menu = start_menu();
@@ -323,10 +323,10 @@ pub fn uninstall(dir: &Path, removal: Removal, progress: &dyn Progress) -> Resul
 }
 
 /// Take the stand-in for Razer's Chroma SDK DLL back from beside the games
-/// Studio gave it to: with no daemon to pass their lighting to, it would only
+/// RsRazer gave it to: with no daemon to pass their lighting to, it would only
 /// tell them Synapse is there. A DLL without its mark is Razer's, and stays.
 fn take_back_chroma() -> usize {
-    const MARK: &[u8] = b"openrazer-chroma";
+    const MARK: &[u8] = b"rsrazer-chroma";
     let Ok(text) = std::fs::read_to_string(paths::studio_dir().join("settings.json")) else { return 0 };
     let Ok(settings) = serde_json::from_str::<serde_json::Value>(&text) else { return 0 };
     let mut taken = 0;
@@ -345,7 +345,7 @@ fn take_back_chroma() -> usize {
 
 /// Have Windows delete `file` once this process has exited.
 ///
-/// The installer that removes Studio is a copy of itself in the temporary
+/// The installer that removes RsRazer is a copy of itself in the temporary
 /// folder; it cannot delete its own running file, so a hidden command waits a
 /// moment and deletes it.
 pub fn delete_after_exit(file: &Path) {

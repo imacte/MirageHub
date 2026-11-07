@@ -31,7 +31,7 @@ impl RunningDaemon {
         let server = RpcServer::start(service.clone(), port)?;
         let published = server.endpoint().publish(&directory.join("daemon.json"))?;
         log::info!(
-            "openrazer-win {} (Rust) listening on {}:{}; endpoint {}",
+            "rsrazer-daemon {} (Rust) listening on {}:{}; endpoint {}",
             env!("CARGO_PKG_VERSION"),
             server.endpoint().host,
             server.endpoint().port,
@@ -104,5 +104,5 @@ pub fn instance_name(directory: &Path, emulate: bool) -> Result<String> {
     let hash = path.as_bytes().iter().fold(0xcbf29ce484222325u64, |h, b| {
         (h ^ u64::from(*b)).wrapping_mul(0x100000001b3)
     });
-    Ok(format!("Local\\openrazer-win-emulator-{hash:016x}"))
+    Ok(format!("Local\\rsrazer-daemon-emulator-{hash:016x}"))
 }

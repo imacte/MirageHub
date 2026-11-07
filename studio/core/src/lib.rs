@@ -1,4 +1,4 @@
-//! What OpenRazer Studio and its installer have in common.
+//! What RsRazer and its installer have in common.
 //!
 //! The installer has to stop the daemon and the app before it can replace
 //! them, knows where they live and how they start with Windows, and looks like
@@ -13,3 +13,5 @@ pub mod theme;
 pub mod widgets;
 
 pub use i18n::{t, tf};
+#[path = "../../../assets/branding.rs"]
+pub mod branding;

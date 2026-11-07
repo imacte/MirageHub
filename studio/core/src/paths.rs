@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 /// `%LOCALAPPDATA%\openrazer-win`: the daemon's settings, profiles, macros
-/// and logs.  Shared with the classic control panel and with pip installs.
+/// and logs. Retained for compatibility with existing configurations.
 pub fn data_dir() -> PathBuf {
     let base = std::env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
@@ -12,7 +12,7 @@ pub fn data_dir() -> PathBuf {
     base.join("openrazer-win")
 }
 
-/// Studio's own settings, inside the shared folder.
+/// RsRazer's own settings, inside the shared folder.
 pub fn studio_dir() -> PathBuf {
     data_dir().join("studio")
 }
@@ -22,7 +22,7 @@ pub fn updates_dir() -> PathBuf {
     studio_dir().join("updates")
 }
 
-/// `%LOCALAPPDATA%\Programs\OpenRazer Studio`: installed per user, so that
+/// `%LOCALAPPDATA%\Programs\RsRazer`: installed per user, so that
 /// installing, repairing and removing never asks for administrator rights.
 pub fn default_install_dir() -> PathBuf {
     let base = std::env::var_os("LOCALAPPDATA").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));

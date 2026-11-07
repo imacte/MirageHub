@@ -101,11 +101,10 @@ pub fn devices() -> &'static [DeviceInfo] {
         struct Database {
             devices: Vec<DeviceInfo>,
         }
-        let mut entries = serde_json::from_str::<Database>(include_str!(
-            "../../../openrazer_win/devices/data/devices.json"
-        ))
-        .expect("the embedded device database must be valid")
-        .devices;
+        let mut entries =
+            serde_json::from_str::<Database>(include_str!("../../../data/devices.json"))
+                .expect("the embedded device database must be valid")
+                .devices;
         entries.sort_by(|a, b| (&a.device_type, &a.name).cmp(&(&b.device_type, &b.name)));
         entries
     })

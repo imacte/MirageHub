@@ -60,10 +60,7 @@ impl Frame {
 pub fn keymap(name: &str) -> &'static BTreeMap<String, Cell> {
     static MAPS: OnceLock<BTreeMap<String, BTreeMap<String, Cell>>> = OnceLock::new();
     let maps = MAPS.get_or_init(|| {
-        serde_json::from_str(include_str!(
-            "../../../../openrazer_win/devices/data/keymap.json"
-        ))
-        .expect("embedded keymap")
+        serde_json::from_str(include_str!("../../../../data/keymap.json")).expect("embedded keymap")
     });
     let name = name.to_lowercase();
     let family = if name.contains("tartarus") {

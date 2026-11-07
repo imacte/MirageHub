@@ -1,4 +1,4 @@
-use openrazer_daemon::{
+use rsrazer_daemon::{
     hid::{HidBackend, HidHandle, HidInfo, InputReader},
     protocol::report::Report,
     recipes::Sender,

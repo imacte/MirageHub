@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OpenRazer for Windows</title>
+<title>RsRazer</title>
 <meta name="description" content="Control Razer keyboards, mice and mousepads on Windows 10 and 11 without Synapse and without a kernel driver. A user-space port of OpenRazer covering 279 devices.">
-<meta property="og:title" content="OpenRazer for Windows">
+<meta property="og:title" content="RsRazer">
 <meta property="og:description" content="Razer device control on Windows 10/11 — no Synapse, no kernel driver, no dependencies. 279 devices.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://github.com/imacte/openrazer-win#readme">
+<meta property="og:url" content="https://github.com/imacte/RsRazer#readme">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%90%8D%3C/text%3E%3C/svg%3E">
 <style>
 :root {
@@ -174,14 +174,14 @@ footer p { margin: 0 0 8px; }
 
 <nav>
   <div class="wrap">
-    <a class="brand" href="#top">openrazer<span>-win</span></a>
+    <a class="brand" href="#top">Rs<span>Razer</span></a>
     <div class="links">
       <a href="#install">Install</a>
       <a href="#usage">Usage</a>
       <a href="#how" class="opt">How it works</a>
       <a href="#devices">Devices</a>
       <a href="#help" class="opt">Troubleshooting</a>
-      <a href="https://github.com/imacte/openrazer-win">GitHub</a>
+      <a href="https://github.com/imacte/RsRazer">GitHub</a>
     </div>
   </div>
 </nav>
@@ -205,7 +205,7 @@ footer p { margin: 0 0 8px; }
     </div>
     <div class="cta">
       <a class="btn primary" href="#install">Get started</a>
-      <a class="btn" href="https://github.com/imacte/openrazer-win">View source</a>
+      <a class="btn" href="https://github.com/imacte/RsRazer">View source</a>
       <a class="btn" href="#devices">Is my device supported?</a>
     </div>
   </div>
@@ -214,21 +214,20 @@ footer p { margin: 0 0 8px; }
 <section id="install">
   <div class="wrap">
     <h2><span class="num">01</span>Install</h2>
-    <p class="sub">Windows 10 / 11 (amd64). Studio, the background service and installer are native Rust programs.</p>
+    <p class="sub">Windows 10 / 11 (amd64). RsRazer, the background service and installer are native Rust programs.</p>
 <pre><code><span class="c-com"># After installing, start the service and list connected devices</span>
-<span class="c-cmd">openrazer-win</span> daemon start
-<span class="c-cmd">openrazer-win</span> list</code></pre>
+<span class="c-cmd">rsrazer-daemon</span> daemon start
+<span class="c-cmd">rsrazer-daemon</span> list</code></pre>
     <p class="sub" style="margin-bottom:14px">
-      Download <code>openrazer-studio-setup.exe</code> or <code>openrazer-studio-setup-zh-CN.exe</code>
-      from the <a href="https://github.com/imacte/openrazer-win/releases">releases page</a> when a build
-      is published. Both contain Studio and the Rust background service, with English, Russian and
+      Download <code>rsrazer-setup.exe</code> or <code>rsrazer-setup-zh-CN.exe</code>
+      from the <a href="https://github.com/imacte/RsRazer/releases">releases page</a> when a build
+      is published. Both contain RsRazer and the Rust background service, with English, Russian and
       Simplified Chinese. Bluetooth LE is built in; no Python, extra packages or driver installation
-      is required. <code>openrazer-win.exe</code> is the standalone CLI and daemon. The upstream PyPI
-      distribution remains the Python client and reference implementation.
+      is required. <code>rsrazer-daemon.exe</code> is the standalone CLI and daemon. The application and backend both run natively in Rust.
     </p>
     <div class="note">
       <strong>Close Razer Synapse first.</strong> Synapse holds the device open and will fight you
-      for the LEDs. Run <code>openrazer-win doctor</code> to check.
+      for the LEDs. Run <code>rsrazer-daemon doctor</code> to check.
     </div>
   </div>
 </section>
@@ -236,43 +235,43 @@ footer p { margin: 0 0 8px; }
 <section id="usage">
   <div class="wrap">
     <h2><span class="num">02</span>Usage</h2>
-    <p class="sub">A command line, a Python API and a small graphical panel — pick whichever suits.</p>
+    <p class="sub">A command line, a JSON-RPC API and a graphical panel — pick whichever suits.</p>
 
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" aria-selected="true" data-panel="p-cli">Command line</button>
-      <button class="tab" role="tab" aria-selected="false" data-panel="p-py">Python</button>
+      <button class="tab" role="tab" aria-selected="false" data-panel="p-api">JSON-RPC</button>
       <button class="tab" role="tab" aria-selected="false" data-panel="p-gui">GUI</button>
     </div>
 
     <div class="panel" id="p-cli" role="tabpanel">
 <pre><code><span class="c-com"># start the background service, then look around</span>
-<span class="c-cmd">openrazer-win</span> daemon start
-<span class="c-cmd">openrazer-win</span> list
-<span class="c-cmd">openrazer-win</span> info
+<span class="c-cmd">rsrazer-daemon</span> daemon start
+<span class="c-cmd">rsrazer-daemon</span> list
+<span class="c-cmd">rsrazer-daemon</span> info
 
 <span class="c-com"># lighting</span>
-<span class="c-cmd">openrazer-win</span> effect static red
-<span class="c-cmd">openrazer-win</span> effect spectrum
-<span class="c-cmd">openrazer-win</span> effect wave --direction 2
-<span class="c-cmd">openrazer-win</span> effect breath_dual <span class="c-str">"#ff0080"</span> --colour2 cyan
-<span class="c-cmd">openrazer-win</span> effect ripple green   <span class="c-com"># follows your typing</span>
+<span class="c-cmd">rsrazer-daemon</span> effect static red
+<span class="c-cmd">rsrazer-daemon</span> effect spectrum
+<span class="c-cmd">rsrazer-daemon</span> effect wave --direction 2
+<span class="c-cmd">rsrazer-daemon</span> effect breath_dual <span class="c-str">"#ff0080"</span> --colour2 cyan
+<span class="c-cmd">rsrazer-daemon</span> effect ripple green   <span class="c-com"># follows your typing</span>
 
 <span class="c-com"># one colour per zone -- on the Bluetooth headset, one per ear</span>
-<span class="c-cmd">openrazer-win</span> zones
-<span class="c-cmd">openrazer-win</span> zones red blue
+<span class="c-cmd">rsrazer-daemon</span> zones
+<span class="c-cmd">rsrazer-daemon</span> zones red blue
 
 <span class="c-com"># named lighting profiles, kept on this PC</span>
-<span class="c-cmd">openrazer-win</span> profile save night
-<span class="c-cmd">openrazer-win</span> profile load night
+<span class="c-cmd">rsrazer-daemon</span> profile save night
+<span class="c-cmd">rsrazer-daemon</span> profile load night
 
 <span class="c-com"># settings</span>
-<span class="c-cmd">openrazer-win</span> brightness 60
-<span class="c-cmd">openrazer-win</span> dpi 1800
-<span class="c-cmd">openrazer-win</span> poll-rate 1000
-<span class="c-cmd">openrazer-win</span> battery
+<span class="c-cmd">rsrazer-daemon</span> brightness 60
+<span class="c-cmd">rsrazer-daemon</span> dpi 1800
+<span class="c-cmd">rsrazer-daemon</span> poll-rate 1000
+<span class="c-cmd">rsrazer-daemon</span> battery
 
 <span class="c-com"># start the daemon with Windows (per-user, no admin rights)</span>
-<span class="c-cmd">openrazer-win</span> autostart enable</code></pre>
+<span class="c-cmd">rsrazer-daemon</span> autostart enable</code></pre>
       <p class="sub" style="margin:0">
         Every command accepts <code>--device</code> (serial, product id or part of the name),
         <code>--zone</code> and <code>--json</code>. Autostart writes a single
@@ -280,49 +279,30 @@ footer p { margin: 0 0 8px; }
       </p>
     </div>
 
-    <div class="panel" id="p-py" role="tabpanel" hidden>
-<pre><code><span class="c-kw">from</span> openrazer_win.client <span class="c-kw">import</span> DeviceManager
-
-<span class="c-kw">for</span> device <span class="c-kw">in</span> DeviceManager().devices:
-    print(device.name, device.serial, device.firmware_version)
-
-    device.fx.static(<span class="c-str">0</span>, <span class="c-str">255</span>, <span class="c-str">0</span>)
-    device.brightness = <span class="c-str">75</span>
-
-    <span class="c-kw">if</span> device.has(<span class="c-str">'dpi'</span>):
-        device.dpi = (<span class="c-str">1800</span>, <span class="c-str">1800</span>)
-
-<span class="c-com"># per-key lighting, same shape as upstream's fx.advanced</span>
-keyboard = DeviceManager().by_name(<span class="c-str">'BlackWidow'</span>)[<span class="c-str">0</span>]
-matrix = keyboard.fx.advanced
-<span class="c-kw">for</span> row <span class="c-kw">in</span> range(matrix.rows):
-    <span class="c-kw">for</span> column <span class="c-kw">in</span> range(matrix.columns):
-        matrix[row, column] = (<span class="c-str">255</span>, <span class="c-str">0</span>, <span class="c-str">128</span>)
-matrix.draw()
-
-<span class="c-com"># one colour per zone, sent as a single write where the device allows it</span>
-headset = DeviceManager().by_name(<span class="c-str">'Kraken Kitty V2 BT'</span>)[<span class="c-str">0</span>]
-headset.colour_zones()                          <span class="c-com"># ['left', 'right']</span>
-headset.set_colour_zones([(<span class="c-str">255</span>, <span class="c-str">0</span>, <span class="c-str">0</span>), (<span class="c-str">0</span>, <span class="c-str">0</span>, <span class="c-str">255</span>)])</code></pre>
+    <div class="panel" id="p-api" role="tabpanel" hidden>
+<pre><code><span class="c-com"># Query the same JSON-RPC service used by the desktop app</span>
+<span class="c-cmd">rsrazer-daemon</span> rpc daemon.version
+<span class="c-cmd">rsrazer-daemon</span> rpc devices.list
+<span class="c-cmd">rsrazer-daemon</span> rpc integration.status</code></pre>
       <p class="sub" style="margin:0">
-        The API mirrors upstream's <code>openrazer.client</code>, so Linux scripts usually port by
-        changing the import. No daemon? <code>DeviceManager(direct=True)</code> opens the HID
-        handles in-process.
+        The daemon speaks newline-delimited JSON-RPC over loopback TCP. The local endpoint file
+        contains the port and a per-process authentication token. Any language can implement a client.
+        Hardware control, lighting, macros and Bluetooth all run in Rust.
       </p>
     </div>
 
     <div class="panel" id="p-gui" role="tabpanel" hidden>
-<pre><code><span class="c-cmd">openrazer-studio-setup.exe</span></code></pre>
+<pre><code><span class="c-cmd">rsrazer-setup.exe</span></code></pre>
       <p class="sub" style="margin:0">
-        OpenRazer Studio, from the release: every device drawn from its own product photo and lit as
+        RsRazer, from the release: every device drawn from its own product photo and lit as
         it is now, one-click effects and colours, per-key lighting in layers, DPI and its stages,
-        battery, profiles that follow the app in front, and a macro library &mdash; in English or
+        battery, profiles that follow the app in front, and a macro library &mdash; in English, Simplified Chinese or
         Russian. The installer needs no administrator rights, brings the daemon with it, and repairs
-        or removes Studio from <em>Settings &rsaquo; Apps</em>. The classic panel,
-        <code>openrazer-win-gui.exe</code>, is still in the release as a single file.
+        or removes RsRazer from <em>Settings &rsaquo; Apps</em>. The classic panel,
+        <code>rsrazer-classic.exe</code>, is still in the release as a single file.
       </p>
-      <img src="images/studio-lighting.png" alt="OpenRazer Studio: per-key lighting in layers" style="width:100%;margin-top:14px;border-radius:12px">
-      <img src="images/studio-home.png" alt="OpenRazer Studio: every device at a glance" style="width:100%;margin-top:14px;border-radius:12px">
+      <img src="images/rsrazer-lighting.png" alt="RsRazer: per-key lighting in layers" style="width:100%;margin-top:14px;border-radius:12px">
+      <img src="images/rsrazer-home.png" alt="RsRazer: every device at a glance" style="width:100%;margin-top:14px;border-radius:12px">
     </div>
   </div>
 </section>
@@ -372,20 +352,20 @@ headset.set_colour_zones([(<span class="c-str">255</span>, <span class="c-str">0
         <text class="lbl" x="46" y="262">usbhid / usbcore</text>
 
         <rect class="box" x="500" y="38" width="370" height="52"/>
-        <text class="lbl" x="516" y="60">openrazer_win.client</text>
+        <text class="lbl" x="516" y="60">RsRazer / native CLI</text>
         <text class="lbl-s" x="516" y="78">JSON-RPC over loopback TCP</text>
 
         <rect class="box" x="500" y="102" width="370" height="52"/>
-        <text class="lbl" x="516" y="124">openrazer_win.daemon</text>
+        <text class="lbl" x="516" y="124">rsrazer-daemon (Rust)</text>
         <text class="lbl-s" x="516" y="142">bearer token, hot-plug watcher</text>
 
         <rect class="box-a" x="500" y="166" width="370" height="62"/>
-        <text class="lbl" x="516" y="188">openrazer_win.devices</text>
-        <text class="lbl-s" x="516" y="206">565 recipes transpiled from the same C</text>
+        <text class="lbl" x="516" y="188">Rust device API / recipe interpreter</text>
+        <text class="lbl-s" x="516" y="206">Bundled recipes derived from upstream C</text>
         <text class="lbl-s" x="516" y="221">user space — native Rust, no reboot</text>
 
         <rect class="box" x="500" y="240" width="370" height="46"/>
-        <text class="lbl" x="516" y="262">hid.dll + setupapi.dll via ctypes</text>
+        <text class="lbl" x="516" y="262">Windows HID / SetupAPI / WinRT</text>
 
         <path class="arrow" d="M368 197 L492 197" marker-end="url(#ah)"/>
         <text class="lbl-s" x="376" y="190" style="fill:var(--accent)">transpiled</text>
@@ -404,7 +384,7 @@ headset.set_colour_zones([(<span class="c-str">255</span>, <span class="c-str">0
       which transaction id. Hand-porting that would guarantee drift from upstream.
     </p>
     <p class="sub">
-      Instead a transpiler parses the C, folds every switch against each known product id, and emits
+      The bundled data was generated from upstream C, resolving each switch for known product IDs into
       a tiny program per (attribute, device):
     </p>
 <pre><code>[{<span class="c-str">"op"</span>: <span class="c-str">"build"</span>, <span class="c-str">"fn"</span>: <span class="c-str">"razer_chroma_extended_matrix_effect_static"</span>,
@@ -413,8 +393,8 @@ headset.set_colour_zones([(<span class="c-str">255</span>, <span class="c-str">0
  {<span class="c-str">"op"</span>: <span class="c-str">"txid"</span>, <span class="c-str">"value"</span>: {<span class="c-str">"k"</span>: <span class="c-str">"const"</span>, <span class="c-str">"value"</span>: 63}},
  {<span class="c-str">"op"</span>: <span class="c-str">"send"</span>}]</code></pre>
     <p class="sub">
-      609 distinct recipes cover all 276 USB devices, and a runtime interpreter executes them. Tracking
-      a new upstream release means regenerating shared data for the native Rust interpreter.
+      The native Rust interpreter executes the bundled recipes. The original generators are retained
+      in Git history; new device support requires updating the data and regression fixtures.
     </p>
 
     <div class="grid" style="margin-top:26px">
@@ -474,7 +454,7 @@ headset.set_colour_zones([(<span class="c-str">255</span>, <span class="c-str">0
         <p>The BlackShark V2 HyperSpeed is a MediaTek design: 64-byte reports with a sequence number
           and a checksum, and a receiver that answers for itself and forwards the rest. There is
           nothing to light, but sidetone, the equalizer and the sleep timer live in the headset,
-          and <code>openrazer-win headset</code> and Studio reach all of them.</p>
+          and <code>rsrazer-daemon headset</code> and RsRazer reach all of them.</p>
       </div>
       <div class="card">
         <span class="ico">🎮</span>
@@ -535,7 +515,7 @@ headset.set_colour_zones([(<span class="c-str">255</span>, <span class="c-str">0
     <h2><span class="num">05</span>Troubleshooting</h2>
     <p class="sub">Start here — it lists every Razer HID collection Windows can see and marks the
       control interface.</p>
-<pre><code><span class="c-cmd">openrazer-win</span> doctor</code></pre>
+<pre><code><span class="c-cmd">rsrazer-daemon</span> doctor</code></pre>
     <div class="scroll">
       <table>
         <thead><tr><th style="width:44%">Symptom</th><th>Cause</th></tr></thead>
@@ -544,7 +524,7 @@ headset.set_colour_zones([(<span class="c-str">255</span>, <span class="c-str">0
               <td>Synapse is running, or another program holds the device. Close it.</td></tr>
           <tr><td>Device shown as <code>NOT IN DATABASE</code></td>
               <td>Newer than the bundled data.
-                  <a href="https://github.com/imacte/openrazer-win/issues">Open an issue</a>
+                  <a href="https://github.com/imacte/RsRazer/issues">Open an issue</a>
                   with the product id.</td></tr>
           <tr><td><code>device replied not supported</code></td>
               <td>The firmware refused that command; the device genuinely lacks the feature.</td></tr>
@@ -552,7 +532,7 @@ headset.set_colour_zones([(<span class="c-str">255</span>, <span class="c-str">0
               <td>Windows cuts USB power. The daemon replays stored state on reconnect.</td></tr>
           <tr><td>A Bluetooth device is on, but not listed</td>
               <td>Bluetooth LE support is built into the Rust daemon. Run
-                  <code>openrazer-win doctor</code> to inspect paired devices and radio advertisements.</td></tr>
+                  <code>rsrazer-daemon doctor</code> to inspect paired devices and radio advertisements.</td></tr>
           <tr><td>Nothing listed at all</td>
               <td>Only Razer devices (vendor <code>1532</code>) are handled.</td></tr>
         </tbody>
@@ -675,7 +655,7 @@ headset.set_colour_zones([(<span class="c-str">255</span>, <span class="c-str">0
     .catch(function () {
       rowsEl.innerHTML = '<tr><td colspan="6" style="color:var(--text-dim)">' +
         'Could not load the device list. See ' +
-        '<a href="https://github.com/imacte/openrazer-win">the repository</a>.</td></tr>';
+        '<a href="https://github.com/imacte/RsRazer">the repository</a>.</td></tr>';
     });
 })();
 </script>

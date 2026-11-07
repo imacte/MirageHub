@@ -8,6 +8,13 @@ uses [semantic versioning](https://semver.org/).
 
 ### Changed
 
+- Renamed the application and repository to RsRazer. UI links and update downloads
+  now point to `imacte/RsRazer`; existing configuration and startup entries remain compatible.
+- Replaced the application, tray and installer icons with the shared RsRazer mark,
+  and regenerated all documentation screenshots from the native application.
+- Removed the legacy Python package, packaging, tests and development scripts.
+  Rust tools now check translations and generate documentation data and release notes.
+  Device databases remain bundled under `data/`; historical generators are in Git history.
 - The Windows background service and CLI now run natively in Rust. HID and Bluetooth
   discovery, hardware and software lighting, DPI, headset audio, profiles, macros,
   Windows accent colour and Chroma REST retain the existing device protocols and
@@ -17,9 +24,8 @@ uses [semantic versioning](https://semver.org/).
   32/64-bit Chroma SDK DLLs; native release builds statically link the CRT.
 - `studio/tools/build-native.ps1` builds the complete package without Python or
   PyInstaller. CI tests the actual native daemon and installed payload with isolated
-  simulated devices. Python remains available as a compatibility client and as the
-  reference implementation for protocol regression comparisons.
-- `openrazer-win daemon start --emulate` uses separate demo data and instance locks.
+  simulated devices. Recorded protocol regression fixtures remain in the Rust tests.
+- `rsrazer-daemon daemon start --emulate` uses separate demo data and instance locks.
   Native CLI commands include device controls, profiles, macros, diagnostics and
   Windows startup management; `--direct` refuses to race a running daemon.
 

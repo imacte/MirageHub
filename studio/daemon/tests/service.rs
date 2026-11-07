@@ -1,4 +1,4 @@
-use openrazer_daemon::{
+use rsrazer_daemon::{
     database::{self, DeviceInfo},
     device::Device,
     effects::{
@@ -258,7 +258,7 @@ fn startup_is_observable_before_scan_finishes_and_retries_failed_devices() {
     eventually(|| f.registry.scans.load(Ordering::SeqCst) == 1);
     let server = RpcServer::start(f.service.clone(), 0).unwrap();
     let ep = serde_json::from_value(serde_json::to_value(server.endpoint()).unwrap()).unwrap();
-    let mut client = openrazer_studio_core::rpc::Client::connect_to(ep).unwrap();
+    let mut client = rsrazer_core::rpc::Client::connect_to(ep).unwrap();
     let version = client.call("daemon.version", json!({})).unwrap();
     *f.registry.gate.0.lock().unwrap() = false;
     f.registry.gate.1.notify_all();

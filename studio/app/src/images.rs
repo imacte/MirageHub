@@ -90,7 +90,7 @@ fn cache_path(url: &str) -> PathBuf {
         hash ^= byte as u64;
         hash = hash.wrapping_mul(0x100000001b3);
     }
-    openrazer_studio_core::paths::data_dir().join("images").join(format!("{hash:016x}.img"))
+    rsrazer_core::paths::data_dir().join("images").join(format!("{hash:016x}.img"))
 }
 
 fn fetch(url: &str) -> Option<Vec<u8>> {

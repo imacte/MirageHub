@@ -5,8 +5,8 @@
 //! them against the daemon in order, and what comes back lands in a shared
 //! snapshot the UI reads every frame.
 
-use openrazer_studio_core::rpc::{Client, RpcError};
-use openrazer_studio_core::{t, tf};
+use rsrazer_core::rpc::{Client, RpcError};
+use rsrazer_core::{t, tf};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
@@ -265,7 +265,7 @@ impl Worker {
     }
 
     fn slow_poll(&mut self) {
-        let synapse: Vec<(u32, String)> = openrazer_studio_core::process::list(false)
+        let synapse: Vec<(u32, String)> = rsrazer_core::process::list(false)
             .into_iter()
             .filter(|p| SYNAPSE.contains(&p.name.to_lowercase().as_str()))
             .map(|p| (p.pid, p.name))
@@ -560,7 +560,7 @@ impl Worker {
                 let running = self.shared.lock().unwrap().synapse.clone();
                 let mut refused = 0;
                 for (pid, _) in &running {
-                    if !openrazer_studio_core::process::terminate(*pid) {
+                    if !rsrazer_core::process::terminate(*pid) {
                         refused += 1;
                     }
                 }

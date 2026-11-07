@@ -1,83 +1,68 @@
 # Contributing
 
-## Setting up
+## Build and check
 
-```bash
-git clone https://github.com/imacte/openrazer-win
-cd openrazer-win
-pip install -e ".[dev]"
+Clone `git@github.com:imacte/RsRazer.git`. On Windows, install Microsoft C++ Build Tools
+with the Windows SDK and the Rust version pinned in `studio/rust-toolchain.toml`.
+
+```powershell
+./studio/tools/build-native.ps1 -IncludeClassic
+cd studio
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --locked
+cargo run --locked -p rsrazer-tools -- check-translations
+cargo run --locked -p rsrazer-tools -- docs-data --check
+cd ../gui
+cargo clippy --locked -- -D warnings
+cargo test --locked
 ```
 
-## Changelogs
+Tests use simulated devices and recorded protocol fixtures. Executable tests create isolated
+configuration directories. `studio/tools/installer-cycle.ps1` is for clean CI accounts only;
+it installs, repairs and removes the application.
 
-A change people will notice goes in `CHANGELOG.md` and, in Russian, in `CHANGELOG.ru.md`. A release's
-text on GitHub is made from both by `tools/release_notes.py`, and Studio shows it on its *Updates*
-page. The tests ask for a section in both for the version being released: with none in Russian,
-Studio would show Russian readers the English.
+The portable `rsrazer-tools` crate also builds on Linux without the Windows application.
+No repository tool requires Python.
 
-## Trying an update without publishing one
+After configuring GitHub Pages to use Actions, set the repository variable `PAGES_ENABLED=true`
+to enable the documentation deployment workflow. CI checks the documentation data independently.
+`studio/tools/capture-docs.ps1` refreshes screenshots from simulated devices after a native build.
 
-Build Studio with `OPENRAZER_STUDIO_TEST_FEED` set to a URL that answers like GitHub's list of
-releases, and that build takes its releases and installers from there. It is read when building, so
-nothing can redirect a released Studio.
+## Repository tools
 
-## Before opening a pull request
+Run these from `studio/`:
 
-```bash
-pytest                              # 391 tests, no hardware required
-ruff check .
-python tools/simulate_devices.py    # every capability of all 276 USB devices
+```powershell
+cargo run --locked -p rsrazer-tools -- check-translations
+cargo run --locked -p rsrazer-tools -- docs-data
+cargo run --locked -p rsrazer-tools -- release-notes v1.6.1
+cargo run --locked -p rsrazer-tools -- icons
 ```
 
-Everything runs against the built-in emulator, so all three pass on any machine — Windows or not.
+Translations live in `studio/core/src/ru.rs` and `zh_cn.rs`. The checker checks missing and unused
+strings, duplicate keys and formatting placeholders. Release notes come from the matching version
+in `CHANGELOG.md`, with optional `CHANGELOG.ru.md` and `CHANGELOG.zh-CN.md` translations.
+English notes are required. Language markers let the Updates page select the appropriate text.
+Changes people notice belong in the Unreleased section of the changelog.
 
-## Reporting an unsupported device
+## Testing updates
 
-Run `openrazer-win doctor` and paste the output. It shows the product id, the HID collections
-Windows exposes, and which one carries the control interface. If the device is listed as
-`NOT IN DATABASE`, it is newer than the bundled data.
+`OPENRAZER_STUDIO_TEST_FEED` can be set at build time to use a test release feed.
+Released builds use the RsRazer GitHub repository; runtime settings cannot redirect that feed.
+The legacy environment-variable prefix is retained for existing development setups.
 
-The device database and the per-device quirks both come from upstream OpenRazer, so support for a
-new device usually starts [there](https://github.com/openrazer/openrazer). Once it lands upstream,
-re-syncing here is mechanical:
+## Device support
 
-```bash
-git clone --depth 1 https://github.com/openrazer/openrazer /tmp/openrazer
-python tools/extract_device_db.py  /tmp/openrazer openrazer_win/devices/data/devices.json
-python tools/transpile_recipes.py  /tmp/openrazer openrazer_win/devices/data/recipes.json
-python tools/transpile_keys.py     /tmp/openrazer openrazer_win/devices/data/keys.json
-python tools/build_docs_data.py
-pytest && python tools/simulate_devices.py
-```
+Include `rsrazer-daemon doctor` output in a device report. See [data/README.md](data/README.md)
+for provenance and the historical generators. Current tools do not automatically import upstream
+releases. Protocol or database changes should cite their upstream source and include regression
+cases against the Rust emulator or report fixtures.
 
-If upstream has a pull request for the device that is tested on the hardware but not merged yet,
-put its `driver/` and `daemon/` changes, rebased onto upstream master, in
-`tools/upstream_patches/openrazer-<PR number>-<device>.patch`, with a few lines on top saying where
-it came from. The three generators apply every patch there to a scratch copy of the checkout, so
-the device's quirks are transpiled like any other device's. When a sync reports that upstream
-already carries a patch, delete it; when one no longer applies, rebase it.
+## Source layout
 
-## Where things live
+The workspace is under `studio/`: `daemon` contains protocols, transports, effects, keys, RPC and
+the CLI; `app`, `core`, `setup`, `chroma` and `tools` contain the UI, shared components, installer,
+SDK DLL and development tools. The classic panel has its own workspace in `gui/`.
+Shared branding geometry lives under `assets/`; device data lives under `data/`.
 
-| Path | What it holds |
-|---|---|
-| `openrazer_win/protocol/` | The 90-byte report and its builders — a direct port of the C |
-| `openrazer_win/hid/` | The ctypes Windows backend, and the emulator used by the tests |
-| `openrazer_win/devices/` | Generated data plus the recipe interpreter |
-| `openrazer_win/core/` | Transport, device API, discovery, persistence |
-| `openrazer_win/daemon/` | The JSON-RPC service |
-| `openrazer_win/client/` | The public Python API |
-| `openrazer_win/effects/` | Frame buffer, keyboard hook, host-rendered effects |
-| `openrazer_win/keys/` | Macro keys and the Fn layer of keyboards in driver mode |
-| `gui/` | The control panel, in Rust (`cargo run`; `openrazer-win-daemon --emulate` for devices) |
-| `tools/` | The transpiler, the database extractor, the fleet simulator |
-
-## Style
-
-- Python 3.9 compatible; the code reads as 3.9 on purpose (`typing.Optional`, explicit
-  `str.format` indices).
-- `ruff check .` must pass.
-- Comments explain *why*, not *what* — especially where the code mirrors a specific quirk in the
-  upstream driver.
-- Do not hand-edit `openrazer_win/devices/data/*.json`. Change the generator instead, so the next
-  upstream sync does not throw the fix away.
+Keep changes focused, retain protocol attribution, and explain hardware quirks in comments.

@@ -1,4 +1,4 @@
-use openrazer_daemon::{
+use rsrazer_daemon::{
     ble::{Advertisements, Advertiser, BleBackend, BleChannel, BleTransport, GattLink, Timing},
     database,
     device::{BleDevice, Device},

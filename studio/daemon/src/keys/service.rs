@@ -43,10 +43,8 @@ pub struct KeyData {
 pub fn key_data() -> &'static KeyData {
     static DATA: OnceLock<KeyData> = OnceLock::new();
     DATA.get_or_init(|| {
-        serde_json::from_str(include_str!(
-            "../../../../openrazer_win/devices/data/keys.json"
-        ))
-        .expect("embedded key data is valid")
+        serde_json::from_str(include_str!("../../../../data/keys.json"))
+            .expect("embedded key data is valid")
     })
 }
 pub fn is_event_collection(info: &HidInfo) -> bool {

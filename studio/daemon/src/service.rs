@@ -24,7 +24,7 @@ use std::{
 };
 
 pub const HOTPLUG_INTERVAL: Duration = Duration::from_secs(3);
-pub const UPSTREAM_VERSION: &str = "3.12.4+477f4d6";
+pub const UPSTREAM_VERSION: &str = include_str!("../../../data/upstream-version.txt").trim_ascii();
 pub const DEVICE_METHODS: &[&str] = &[
     "set_none",
     "set_on",

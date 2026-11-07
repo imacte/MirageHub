@@ -8,7 +8,7 @@ use crate::art::{Art, Geom, Shape};
 use crate::layout::Variant;
 use crate::worker::Device;
 use egui::{pos2, vec2, Color32, CornerRadius, Pos2, Rect, Sense, Stroke, StrokeKind, TextureHandle, TextureOptions, Vec2};
-use openrazer_studio_core::theme::{self, ACCENT, TEXT, TEXT_FAINT};
+use rsrazer_core::theme::{self, ACCENT, TEXT, TEXT_FAINT};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -244,14 +244,14 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, serial: &str, art: &Art, colours: 
         picked.secondary = true;
     }
     if !art.photo {
-        painter.text(rect.right_bottom() - vec2(6.0, 4.0), egui::Align2::RIGHT_BOTTOM, openrazer_studio_core::t("Drawn: no product photo"), egui::FontId::proportional(10.5), TEXT_FAINT);
+        painter.text(rect.right_bottom() - vec2(6.0, 4.0), egui::Align2::RIGHT_BOTTOM, rsrazer_core::t("Drawn: no product photo"), egui::FontId::proportional(10.5), TEXT_FAINT);
     }
     picked
 }
 
 /// A shape's name for its tooltip: words translated, key names as they are.
 pub fn shape_label(label: &str) -> String {
-    use openrazer_studio_core::t;
+    use rsrazer_core::t;
     match label {
         "Logo" => t("Logo").into(),
         "Scroll wheel" => t("Scroll wheel").into(),
@@ -277,7 +277,7 @@ pub fn waiting(ui: &mut egui::Ui, size: Vec2) {
         let phase = (t * 3.0 - i as f32 * 0.6).sin() * 0.5 + 0.5;
         painter.circle_filled(rect.center() + vec2((i as f32 - 1.0) * 16.0, 0.0), 4.0, ACCENT.gamma_multiply(0.3 + 0.7 * phase));
     }
-    painter.text(rect.center() + vec2(0.0, 22.0), egui::Align2::CENTER_TOP, openrazer_studio_core::t("Tracing the device…"), egui::FontId::proportional(12.0), TEXT_FAINT);
+    painter.text(rect.center() + vec2(0.0, 22.0), egui::Align2::CENTER_TOP, rsrazer_core::t("Tracing the device…"), egui::FontId::proportional(12.0), TEXT_FAINT);
     ui.ctx().request_repaint();
 }
 

@@ -1,4 +1,4 @@
-use openrazer_daemon::{
+use rsrazer_daemon::{
     ble::{Advertiser, BleBackend, GattLink},
     database,
     hid::{HidBackend, HidHandle, HidInfo, InputReader},

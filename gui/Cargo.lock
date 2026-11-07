@@ -2085,23 +2085,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
-name = "openrazer-win-gui"
-version = "1.6.1"
-dependencies = [
- "eframe",
- "egui",
- "image",
- "rfd",
- "serde",
- "serde_json",
- "tray-icon",
- "ureq",
- "windows-sys 0.59.0",
- "winreg",
- "winresource",
-]
-
-[[package]]
 name = "orbclient"
 version = "0.3.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2481,6 +2464,23 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "rsrazer-classic"
+version = "1.6.1"
+dependencies = [
+ "eframe",
+ "egui",
+ "image",
+ "rfd",
+ "serde",
+ "serde_json",
+ "tray-icon",
+ "ureq",
+ "windows-sys 0.59.0",
+ "winreg",
+ "winresource",
 ]
 
 [[package]]

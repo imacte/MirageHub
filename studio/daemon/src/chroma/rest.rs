@@ -435,7 +435,7 @@ impl ChromaServer {
         let (stop, clients) = (cancel.clone(), connections.clone());
         let base = format!("http://localhost:{}", address.port());
         let worker = thread::Builder::new()
-            .name("openrazer-chroma-rest".into())
+            .name("rsrazer-chroma-rest".into())
             .spawn(move || {
                 let mut workers: Vec<JoinHandle<()>> = Vec::new();
                 let mut number = 0u64;
@@ -461,7 +461,7 @@ impl ChromaServer {
                             let (bridge, base, stop, client_registry) =
                                 (bridge.clone(), base.clone(), stop.clone(), clients.clone());
                             match thread::Builder::new()
-                                .name("openrazer-chroma-client".into())
+                                .name("rsrazer-chroma-client".into())
                                 .spawn(move || {
                                     connection(stream, bridge, base, stop);
                                     lock(&client_registry).remove(&id);

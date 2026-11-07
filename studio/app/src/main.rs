@@ -1,6 +1,6 @@
-//! OpenRazer Studio: Razer device control on Windows.
+//! RsRazer: Razer device control on Windows.
 //!
-//! A client of the openrazer-win daemon, which owns the devices. Started with
+//! A client of the rsrazer-daemon daemon, which owns the devices. Started with
 //! `--background` (as it is at sign-in) it lives in the tray and makes sure
 //! the daemon is running; otherwise it opens its window.
 
@@ -29,7 +29,7 @@ fn main() -> eframe::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.iter().any(|a| a == "--version" || a == "-V") {
         attach_console();
-        println!("openrazer-studio {}", env!("CARGO_PKG_VERSION"));
+        println!("rsrazer {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
     if args.iter().any(|a| a == "--self-test") {
@@ -41,7 +41,7 @@ fn main() -> eframe::Result<()> {
     }
     let background = args.iter().any(|a| a == "--background" || a == "--tray");
 
-    // A run that only takes a screenshot leaves a Studio already open alone.
+    // A run that only takes a screenshot leaves a RsRazer already open alone.
     let capturing = std::env::var_os("OPENRAZER_STUDIO_CAPTURE").is_some();
     if !capturing && !shell::claim_single_instance() {
         if !background {

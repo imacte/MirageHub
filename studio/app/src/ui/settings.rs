@@ -1,13 +1,13 @@
-//! Settings: the app, the daemon, repairing and removing Studio, and about.
+//! Settings: the app, the daemon, repairing and removing RsRazer, and about.
 
 use super::app::{scroll, App, Page};
 use crate::worker::{Command, DaemonState, Snapshot};
 use egui::RichText;
-use openrazer_studio_core::i18n::Lang;
-use openrazer_studio_core::install::{self, COMMUNITY, REPOSITORY};
-use openrazer_studio_core::theme::{self, icon, ACCENT, TEXT_DIM, TEXT_FAINT};
-use openrazer_studio_core::widgets::{self, Button};
-use openrazer_studio_core::{t, tf};
+use rsrazer_core::i18n::Lang;
+use rsrazer_core::install::{self, COMMUNITY, REPOSITORY};
+use rsrazer_core::theme::{self, icon, ACCENT, TEXT_DIM, TEXT_FAINT};
+use rsrazer_core::widgets::{self, Button};
+use rsrazer_core::{t, tf};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -21,7 +21,7 @@ fn uptime(seconds: f64) -> String {
 }
 
 pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
-    widgets::page_header(ui, t("Settings"), t("How Studio starts and behaves, and the daemon behind it."), |_| {});
+    widgets::page_header(ui, t("Settings"), t("How RsRazer starts and behaves, and the daemon behind it."), |_| {});
     scroll(ui, "settings", |ui| {
         widgets::columns(ui, 0.5, super::device::TWO_COLUMNS, |ui, column| {
             if column == 0 {
@@ -59,7 +59,7 @@ fn general(app: &mut App, ui: &mut egui::Ui) {
         });
         if let Some(language) = chosen {
             app.settings.language = language;
-            openrazer_studio_core::i18n::set(language);
+            rsrazer_core::i18n::set(language);
             app.refresh_tray_language();
             app.save_settings();
         }
@@ -98,7 +98,7 @@ fn general(app: &mut App, ui: &mut egui::Ui) {
 
 fn daemon(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
     widgets::panel(ui, t("Daemon"), |ui| {
-        widgets::help(ui, t("The background service that owns the devices. Studio is only a window onto it, so your lighting carries on with Studio closed."));
+        widgets::help(ui, t("The background service that owns the devices. RsRazer is only a window onto it, so your lighting carries on with RsRazer closed."));
         match &snap.daemon {
             DaemonState::Running(info) => {
                 let starting = info["state"] == "starting";
@@ -122,7 +122,7 @@ fn daemon(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
                 if !version.is_empty() && version != VERSION {
                     ui.horizontal(|ui| {
                         widgets::icon(ui, icon::WARNING, 14.0, theme::WARN);
-                        ui.add(egui::Label::new(RichText::new(tf("The daemon is version {}; Studio is {}. If you just upgraded, restart the daemon.", &[&version, &VERSION])).color(theme::WARN)).wrap());
+                        ui.add(egui::Label::new(RichText::new(tf("The daemon is version {}; RsRazer is {}. If you just upgraded, restart the daemon.", &[&version, &VERSION])).color(theme::WARN)).wrap());
                     });
                 }
                 ui.add_space(4.0);
@@ -155,7 +155,7 @@ fn daemon(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
         widgets::divider(ui);
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing = egui::vec2(8.0, 8.0);
-            let dir = openrazer_studio_core::paths::data_dir();
+            let dir = rsrazer_core::paths::data_dir();
             if ui.add(Button::ghost(t("Open the data folder")).icon(icon::FOLDER).small()).clicked() {
                 let _ = std::fs::create_dir_all(&dir);
                 let _ = std::process::Command::new("explorer").arg(&dir).spawn();
@@ -174,17 +174,17 @@ fn maintenance(app: &mut App, ui: &mut egui::Ui) {
             widgets::help(ui, t("Repair puts back any missing or damaged file, the Start menu entry and starting with Windows, and sets aside settings files that no longer read. Your profiles and macros are kept."));
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = 8.0;
-                if ui.add(Button::secondary(t("Repair Studio")).icon(icon::WRENCH)).clicked() {
+                if ui.add(Button::secondary(t("Repair RsRazer")).icon(icon::WRENCH)).clicked() {
                     run_setup(app, &installed, "--repair");
                 }
                 if ui.add(Button::danger(t("Uninstall…")).icon(icon::DELETE)).clicked() {
                     run_setup(app, &installed, "--uninstall");
                 }
             });
-            widgets::help(ui, t("Both are also in Windows Settings › Apps › OpenRazer Studio, and work even when Studio itself will not start."));
+            widgets::help(ui, t("Both are also in Windows Settings › Apps › RsRazer, and work even when RsRazer itself will not start."));
         }
         None => {
-            widgets::help(ui, t("This copy of Studio is not installed, so there is nothing to repair or remove: delete the folder it is in when you are done with it."));
+            widgets::help(ui, t("This copy of RsRazer is not installed, so there is nothing to repair or remove: delete the folder it is in when you are done with it."));
             widgets::link_button(ui, t("Get the installer"), install::RELEASES);
         }
     });
@@ -204,16 +204,16 @@ fn support(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
             }
         });
         widgets::divider(ui);
-        widgets::action_row(ui, t("Reset Studio's settings"), t("The library of macros, app links and window settings. Devices, profiles and key bindings are kept by the daemon and stay."), 190.0, |ui| {
+        widgets::action_row(ui, t("Reset RsRazer's settings"), t("The library of macros, app links and window settings. Devices, profiles and key bindings are kept by the daemon and stay."), 190.0, |ui| {
             let confirm = ui.ctx().data(|d| d.get_temp::<bool>(egui::Id::new("reset-confirm"))).unwrap_or(false);
             let text = if confirm { t("Click again to reset") } else { t("Reset…") };
             if ui.add(Button::danger(text).min_width(160.0)).clicked() {
                 if confirm {
                     app.settings = Default::default();
                     app.save_settings();
-                    openrazer_studio_core::i18n::set(app.settings.language);
+                    rsrazer_core::i18n::set(app.settings.language);
                     app.refresh_tray_language();
-                    app.toast(t("Studio's settings were reset"), false);
+                    app.toast(t("RsRazer's settings were reset"), false);
                 }
                 ui.ctx().data_mut(|d| d.insert_temp(egui::Id::new("reset-confirm"), !confirm));
             }
@@ -221,7 +221,7 @@ fn support(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
     });
 }
 
-/// Start the installed setup to repair or remove Studio, which closes this window.
+/// Start the installed setup to repair or remove RsRazer, which closes this window.
 fn run_setup(app: &mut App, installed: &install::Installed, action: &str) {
     match std::process::Command::new(installed.setup()).arg(action).spawn() {
         Ok(_) => {}
@@ -230,7 +230,7 @@ fn run_setup(app: &mut App, installed: &install::Installed, action: &str) {
 }
 
 fn about(app: &mut App, ui: &mut egui::Ui) {
-    widgets::panel(ui, &format!("OpenRazer Studio {VERSION}"), |ui| {
+    widgets::panel(ui, &format!("RsRazer {VERSION}"), |ui| {
         widgets::help(ui, t("Razer device control without Synapse: a user-space port of OpenRazer to Windows. No account, no cloud, nothing sent anywhere."));
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing = egui::vec2(8.0, 8.0);

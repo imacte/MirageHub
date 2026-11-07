@@ -1,14 +1,14 @@
 [package]
-name = "openrazer-win-gui"
+name = "rsrazer-classic"
 version = "1.6.1"
 edition = "2021"
-description = "Control panel for openrazer-win: Razer device control on Windows"
+description = "Control panel for rsrazer-daemon: Razer device control on Windows"
 license = "GPL-2.0-or-later"
-repository = "https://github.com/imacte/openrazer-win"
+repository = "https://github.com/imacte/RsRazer"
 publish = false
 
 [[bin]]
-name = "openrazer-win-gui"
+name = "rsrazer-classic"
 path = "src/main.rs"
 
 [dependencies]

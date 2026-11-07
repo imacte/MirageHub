@@ -114,7 +114,9 @@ impl App {
         let tx = worker::spawn(shared.clone(), move || ctx.request_repaint());
         // The control panel is how most people start the daemon; do it for them.
         let _ = tx.send(Command::StartDaemon);
-        crate::daemon::refresh_autostart();
+        if std::env::var_os("OPENRAZER_GUI_CAPTURE").is_none() {
+            crate::daemon::refresh_autostart();
+        }
 
         let ctx = cc.egui_ctx.clone();
         let tray_tx = tx.clone();
@@ -310,13 +312,16 @@ impl App {
         ui.horizontal(|ui| {
             let (rect, _) = ui.allocate_exact_size(vec2(30.0, 30.0), Sense::hover());
             let painter = ui.painter();
-            painter.circle_filled(rect.center(), 14.0, Color32::from_rgb(0x12, 0x16, 0x1C));
-            painter.circle_stroke(rect.center(), 10.5, Stroke::new(4.0_f32, ACCENT));
-            painter.circle_filled(rect.center(), 4.5, Color32::from_rgb(0xB8, 0xFF, 0xA8));
+            let origin = rect.left_top();
+            painter.rect_filled(rect, CornerRadius::same(5), Color32::from_rgb(18, 22, 28));
+            for path in [crate::shell::branding::STEM, crate::shell::branding::LEG] {
+                let points = path.iter().map(|p| origin + vec2(p[0] * 30.0, p[1] * 30.0)).collect();
+                painter.add(egui::Shape::line(points, Stroke::new(30.0 * crate::shell::branding::WIDTH, ACCENT)));
+            }
             ui.vertical(|ui| {
                 ui.spacing_mut().item_spacing.y = 0.0;
-                ui.label(RichText::new("OpenRazer").font(theme::bold(18.0)));
-                ui.label(RichText::new("for Windows").size(12.0).color(TEXT_DIM));
+                ui.label(RichText::new("RsRazer").font(theme::bold(18.0)));
+                ui.label(RichText::new("Classic").size(12.0).color(TEXT_DIM));
             });
         });
         ui.add_space(18.0);

@@ -3,12 +3,12 @@
 use super::app::{scroll, App};
 use crate::worker::{Command, Snapshot};
 use egui::{CornerRadius, Frame, Margin, RichText, Stroke};
-use openrazer_studio_core::theme::{self, icon, ACCENT, TEXT, TEXT_DIM};
-use openrazer_studio_core::widgets::{self, Button};
-use openrazer_studio_core::t;
+use rsrazer_core::theme::{self, icon, ACCENT, TEXT, TEXT_DIM};
+use rsrazer_core::widgets::{self, Button};
+use rsrazer_core::t;
 
 pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot, reason: &str) {
-    widgets::page_header(ui, t("The daemon is not running"), t("It is the background service that owns your devices; Studio only talks to it."), |_| {});
+    widgets::page_header(ui, t("The daemon is not running"), t("It is the background service that owns your devices; RsRazer only talks to it."), |_| {});
     scroll(ui, "setup", |ui| {
         ui.set_max_width(ui.available_width().min(820.0));
         if snap.busy {
@@ -32,15 +32,15 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot, reason: &str) {
         };
 
         if let Some(installed) = app.installed.clone() {
-            widgets::banner(ui, theme::WARN, icon::WRENCH, t("Studio may be damaged"), t("Repair puts back the daemon and every other file Studio was installed with. Profiles and macros are kept."), |ui| {
-                if ui.add(Button::primary(t("Repair Studio")).icon(icon::WRENCH)).clicked() {
+            widgets::banner(ui, theme::WARN, icon::WRENCH, t("RsRazer may be damaged"), t("Repair puts back the daemon and every other file RsRazer was installed with. Profiles and macros are kept."), |ui| {
+                if ui.add(Button::primary(t("Repair RsRazer")).icon(icon::WRENCH)).clicked() {
                     let _ = std::process::Command::new(installed.setup()).arg("--repair").spawn();
                 }
             });
         } else if error.missing {
             widgets::panel(ui, t("Set it up"), |ui| {
-                widgets::help(ui, t("Studio includes the background service. Download the installer to set up both together."));
-                widgets::link_button(ui, t("Get the installer"), openrazer_studio_core::install::RELEASES);
+                widgets::help(ui, t("RsRazer includes the background service. Download the installer to set up both together."));
+                widgets::link_button(ui, t("Get the installer"), rsrazer_core::install::RELEASES);
             });
         }
 
@@ -61,7 +61,7 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot, reason: &str) {
                         app.send(Command::StartDaemon);
                     }
                     if ui.add(Button::ghost(t("Open the log folder")).icon(icon::FOLDER)).clicked() {
-                        let dir = openrazer_studio_core::paths::data_dir();
+                        let dir = rsrazer_core::paths::data_dir();
                         let _ = std::fs::create_dir_all(&dir);
                         let _ = std::process::Command::new("explorer").arg(&dir).spawn();
                     }

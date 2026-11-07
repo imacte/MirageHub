@@ -396,7 +396,7 @@ impl ChromaBridge {
         *lock(&self.shared.wake) = Some(send);
         let (shared, stop) = (self.shared.clone(), cancel.clone());
         let thread = thread::Builder::new()
-            .name("openrazer-chroma".into())
+            .name("rsrazer-chroma".into())
             .spawn(move || {
                 while !stop.stopped() {
                     let _ = receive.recv_timeout(Duration::from_millis(500));

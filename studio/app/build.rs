@@ -1,6 +1,7 @@
 //! Embed the icon, version information and manifest in the executable.
 
 fn main() {
+    println!("cargo::rerun-if-changed=../../assets/rsrazer.ico");
     // `OPENRAZER_STUDIO_CHROMA` names a folder holding the stand-in for Razer's
     // Chroma SDK DLL, built from `../chroma` as RzChromaSDK64.dll and, 32-bit,
     // RzChromaSDK.dll; a release build sets it, and Studio puts them beside
@@ -22,9 +23,9 @@ fn main() {
         return;
     }
     let mut resource = winresource::WindowsResource::new();
-    resource.set_icon("assets/openrazer.ico");
-    resource.set("FileDescription", "OpenRazer Studio");
-    resource.set("ProductName", "OpenRazer Studio");
+    resource.set_icon("../../assets/rsrazer.ico");
+    resource.set("FileDescription", "RsRazer");
+    resource.set("ProductName", "RsRazer");
     resource.set("LegalCopyright", "GPL-2.0-or-later");
     resource.set_manifest(
         r#"<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">

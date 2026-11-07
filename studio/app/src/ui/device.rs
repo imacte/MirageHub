@@ -6,9 +6,9 @@ use super::app::{draw_picture, kind_label, scroll, App};
 use crate::settings::AppRule;
 use crate::worker::{Command, Device, Snapshot, Then};
 use egui::{vec2, Align, CornerRadius, Frame, Layout, Margin, Rect, RichText, Sense, Stroke};
-use openrazer_studio_core::theme::{self, icon, ACCENT, BORDER, SURFACE_HI, TEXT, TEXT_DIM};
-use openrazer_studio_core::widgets::{self, Button, IconButton};
-use openrazer_studio_core::{t, tf};
+use rsrazer_core::theme::{self, icon, ACCENT, BORDER, SURFACE_HI, TEXT, TEXT_DIM};
+use rsrazer_core::widgets::{self, Button, IconButton};
+use rsrazer_core::{t, tf};
 use serde_json::json;
 
 const DPI_PRESETS: [i64; 8] = [400, 800, 1200, 1600, 3200, 6400, 12800, 25600];
@@ -463,7 +463,7 @@ fn profiles(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapshot) 
     widgets::columns(ui, 0.4, TWO_COLUMNS, |ui, column| {
         if column == 0 {
             widgets::panel(ui, t("Save what is showing now"), |ui| {
-                widgets::help(ui, t("Every zone's effect, colours and brightness, and per-key Studio lighting. Up to ten per device."));
+                widgets::help(ui, t("Every zone's effect, colours and brightness, and per-key lighting. Up to ten per device."));
                 ui.add_space(4.0);
                 ui.horizontal(|ui| {
                     let name = app.device_ui.profile_name.trim().to_string();
@@ -569,7 +569,7 @@ fn profile_row(app: &mut App, ui: &mut egui::Ui, serial: &str, profile: &serde_j
             }
             if ui.add(Button::ghost(t("Link an app")).icon(icon::LINK).small()).clicked() {
                 app.device_ui.linking = Some(name.clone());
-                app.device_ui.apps = openrazer_studio_core::process::windowed_apps();
+                app.device_ui.apps = rsrazer_core::process::windowed_apps();
                 app.device_ui.app_name.clear();
             }
         });
@@ -593,7 +593,7 @@ fn link_app_dialog(app: &mut App, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical().max_height(150.0).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = vec2(6.0, 6.0);
-                let apps: Vec<String> = app.device_ui.apps.iter().filter(|exe| exe.as_str() != openrazer_studio_core::install::APP_EXE && exe.as_str() != "explorer.exe").cloned().collect();
+                let apps: Vec<String> = app.device_ui.apps.iter().filter(|exe| exe.as_str() != rsrazer_core::install::APP_EXE && exe.as_str() != "explorer.exe").cloned().collect();
                 if apps.is_empty() {
                     ui.label(widgets::faint(t("None found")));
                 }

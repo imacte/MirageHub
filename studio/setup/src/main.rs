@@ -1,4 +1,4 @@
-//! OpenRazer Studio's installer: installs, updates, repairs and removes it.
+//! RsRazer's installer: installs, updates, repairs and removes it.
 //!
 //! The same program does all four, so the copy kept in the install folder --
 //! which Apps & features runs for "Modify" and "Uninstall" -- can always put
@@ -13,15 +13,15 @@
 //! setup --uninstall [--remove-settings] [--remove-all-data] --silent
 //! ```
 //!
-//! `--update` without `--silent` is what Studio itself runs: straight to
-//! work with a progress bar, then Studio again and no window left behind.
+//! `--update` without `--silent` is what RsRazer itself runs: straight to
+//! work with a progress bar, then RsRazer again and no window left behind.
 
 #![windows_subsystem = "windows"]
 
 mod ops;
 mod ui;
 
-use openrazer_studio_core::install::{self, Options};
+use rsrazer_core::install::{self, Options};
 use std::path::PathBuf;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -106,7 +106,7 @@ impl ops::Progress for Log {
 
 impl Log {
     fn path() -> PathBuf {
-        std::env::temp_dir().join("openrazer-studio-setup.log")
+        std::env::temp_dir().join("rsrazer-setup.log")
     }
     fn open() -> Log {
         let file = std::fs::OpenOptions::new().create(true).append(true).open(Self::path()).or_else(|_| std::fs::File::create(std::env::temp_dir().join("openrazer-setup.log"))).expect("the temporary folder is writable");
@@ -134,7 +134,7 @@ fn hand_over_to_temp(args: &[String]) -> bool {
     if !me.parent().is_some_and(|parent| install::same_path(parent, &dir)) {
         return false;
     }
-    let copy = std::env::temp_dir().join(format!("openrazer-studio-uninstall-{}.exe", std::process::id()));
+    let copy = std::env::temp_dir().join(format!("rsrazer-uninstall-{}.exe", std::process::id()));
     if std::fs::copy(&me, &copy).is_err() {
         return false;
     }
@@ -148,13 +148,13 @@ fn hand_over_to_temp(args: &[String]) -> bool {
 fn main() -> eframe::Result<()> {
     let raw: Vec<String> = std::env::args().skip(1).collect();
     let args = parse(&raw);
-    let settings = openrazer_studio_core::paths::studio_dir().join("settings.json");
+    let settings = rsrazer_core::paths::studio_dir().join("settings.json");
     let language = std::fs::read_to_string(settings).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()).and_then(|v| serde_json::from_value(v["language"].clone()).ok()).unwrap_or_default();
-    openrazer_studio_core::i18n::set(language);
+    rsrazer_core::i18n::set(language);
 
     if raw.iter().any(|a| a == "--version") {
         attach_console();
-        println!("openrazer-studio-setup {}", ops::VERSION);
+        println!("rsrazer-setup {}", ops::VERSION);
         return Ok(());
     }
     if raw.iter().any(|a| a == "--self-test") {
@@ -173,10 +173,10 @@ fn main() -> eframe::Result<()> {
 /// Do what the arguments ask without a window; the exit code says how it went.
 fn silent(args: &Args) -> i32 {
     let log = Log::open();
-    log.line(&format!("OpenRazer Studio setup {} — {:?}", ops::VERSION, args.action));
+    log.line(&format!("RsRazer setup {} — {:?}", ops::VERSION, args.action));
     let result = match args.action.unwrap_or(Action::Install) {
         Action::Install => {
-            let dir = args.dir.clone().unwrap_or_else(openrazer_studio_core::paths::default_install_dir);
+            let dir = args.dir.clone().unwrap_or_else(rsrazer_core::paths::default_install_dir);
             let options = if args.options_given { args.options.clone() } else { install::Manifest::read(&dir).map(|m| m.options).unwrap_or_default() };
             let result = ops::install(&dir, &options, false, &log);
             if result.is_ok() && args.launch {
@@ -193,7 +193,7 @@ fn silent(args: &Args) -> i32 {
                 result
             }
             None => {
-                log.line("OpenRazer Studio is not installed");
+                log.line("RsRazer is not installed");
                 return 2;
             }
         },
@@ -203,7 +203,7 @@ fn silent(args: &Args) -> i32 {
                 ops::install(&dir, &options, true, &log)
             }
             None => {
-                log.line("OpenRazer Studio is not installed");
+                log.line("RsRazer is not installed");
                 return 2;
             }
         },
@@ -218,7 +218,7 @@ fn silent(args: &Args) -> i32 {
                 result
             }
             None => {
-                log.line("OpenRazer Studio is not installed");
+                log.line("RsRazer is not installed");
                 return 2;
             }
         },

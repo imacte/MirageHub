@@ -43,8 +43,8 @@ try {
     $env:CARGO_ENCODED_RUSTFLAGS = "-C$([char]0x1f)target-feature=+crt-static"
     if ($providedDaemon) { $daemon = $providedDaemon }
     else {
-        CargoBuild -CargoArguments @('build','--release','--locked','--target',$target,'-p','openrazer-daemon','--bin','openrazer-win')
-        $daemon = Join-Path $release 'openrazer-win.exe'
+        CargoBuild -CargoArguments @('build','--release','--locked','--target',$target,'-p','rsrazer-daemon','--bin','rsrazer-daemon')
+        $daemon = Join-Path $release 'rsrazer-daemon.exe'
     }
     $version = (& $daemon --version | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or $version -notlike '*Rust backend*') { throw 'The payload is not the native Rust daemon.' }
@@ -53,26 +53,26 @@ try {
     & (Join-Path $PSScriptRoot 'check-native.ps1') -Files @($daemon)
     New-Item -ItemType Directory -Force -Path $outPath | Out-Null
     if ($DaemonOnly) {
-        CopyArtifact $daemon (Join-Path $outPath 'openrazer-win.exe')
+        CopyArtifact $daemon (Join-Path $outPath 'rsrazer-daemon.exe')
         return
     }
-    CargoBuild -CargoArguments @('build','--release','--locked','--target',$target,'-p','openrazer-chroma')
-    CargoBuild -CargoArguments @('build','--release','--locked','--target','i686-pc-windows-msvc','-p','openrazer-chroma')
+    CargoBuild -CargoArguments @('build','--release','--locked','--target',$target,'-p','rsrazer-chroma')
+    CargoBuild -CargoArguments @('build','--release','--locked','--target','i686-pc-windows-msvc','-p','rsrazer-chroma')
     $chroma = Join-Path $studioRoot 'target\native-chroma'
     New-Item -ItemType Directory -Force -Path $chroma | Out-Null
     Copy-Item -LiteralPath (Join-Path $release 'rzchromasdk.dll') -Destination (Join-Path $chroma 'RzChromaSDK64.dll') -Force
     Copy-Item -LiteralPath (Join-Path $studioRoot 'target\i686-pc-windows-msvc\release\rzchromasdk.dll') -Destination (Join-Path $chroma 'RzChromaSDK.dll') -Force
     $env:OPENRAZER_STUDIO_CHROMA = $chroma
-    CargoBuild -CargoArguments @('build','--release','--locked','--target',$target,'-p','openrazer-studio')
-    $app = Join-Path $release 'openrazer-studio.exe'
+    CargoBuild -CargoArguments @('build','--release','--locked','--target',$target,'-p','rsrazer')
+    $app = Join-Path $release 'rsrazer.exe'
     SelfTest $app
     $payload = Join-Path $studioRoot 'target\native-payload'
     New-Item -ItemType Directory -Force -Path $payload | Out-Null
-    Copy-Item -LiteralPath $app -Destination (Join-Path $payload 'openrazer-studio.exe') -Force
-    Copy-Item -LiteralPath $daemon -Destination (Join-Path $payload 'openrazer-win.exe') -Force
+    Copy-Item -LiteralPath $app -Destination (Join-Path $payload 'rsrazer.exe') -Force
+    Copy-Item -LiteralPath $daemon -Destination (Join-Path $payload 'rsrazer-daemon.exe') -Force
     $env:OPENRAZER_STUDIO_PAYLOAD = $payload
-    CargoBuild -CargoArguments @('build','--release','--locked','--target',$target,'-p','openrazer-studio-setup')
-    $setup = Join-Path $release 'openrazer-studio-setup.exe'
+    CargoBuild -CargoArguments @('build','--release','--locked','--target',$target,'-p','rsrazer-setup')
+    $setup = Join-Path $release 'rsrazer-setup.exe'
     SelfTest $setup
     & (Join-Path $PSScriptRoot 'check-native.ps1') -Files @($app,$setup,(Join-Path $chroma 'RzChromaSDK64.dll'),(Join-Path $chroma 'RzChromaSDK.dll'))
     if ($IncludeClassic) {
@@ -80,7 +80,7 @@ try {
         try {
             $env:OPENRAZER_EMBED_DAEMON = $daemon
             CargoBuild -CargoArguments @('build','--release','--locked','--target',$target)
-            $classic = Join-Path $repoRoot "gui\target\$target\release\openrazer-win-gui.exe"
+            $classic = Join-Path $repoRoot "gui\target\$target\release\rsrazer-classic.exe"
             SelfTest $classic -RequireDaemon
             & (Join-Path $PSScriptRoot 'check-native.ps1') -Files @($classic)
         } finally { Pop-Location }
@@ -88,10 +88,10 @@ try {
     foreach ($file in @($daemon,$app,$setup)) {
         CopyArtifact $file (Join-Path $outPath (Split-Path $file -Leaf))
     }
-    Copy-Item -LiteralPath $setup -Destination (Join-Path $outPath 'openrazer-studio-setup-zh-CN.exe') -Force
-    if ($IncludeClassic) { Copy-Item -LiteralPath $classic -Destination (Join-Path $outPath 'openrazer-win-gui.exe') -Force }
-    $names = @('openrazer-win.exe','openrazer-studio.exe','openrazer-studio-setup.exe','openrazer-studio-setup-zh-CN.exe')
-    if ($IncludeClassic) { $names += 'openrazer-win-gui.exe' }
+    Copy-Item -LiteralPath $setup -Destination (Join-Path $outPath 'rsrazer-setup-zh-CN.exe') -Force
+    if ($IncludeClassic) { Copy-Item -LiteralPath $classic -Destination (Join-Path $outPath 'rsrazer-classic.exe') -Force }
+    $names = @('rsrazer-daemon.exe','rsrazer.exe','rsrazer-setup.exe','rsrazer-setup-zh-CN.exe')
+    if ($IncludeClassic) { $names += 'rsrazer-classic.exe' }
     $lines = foreach ($name in $names) {
         $hash = (Get-FileHash -LiteralPath (Join-Path $outPath $name) -Algorithm SHA256).Hash.ToLowerInvariant()
         "$hash  $name"

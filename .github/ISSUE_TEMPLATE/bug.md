@@ -15,7 +15,7 @@ the exact command or code
 ```
 
 **Environment**
-- openrazer-win version (`openrazer-win --version`):
+- rsrazer-daemon version (`rsrazer-daemon --version`):
 - Windows version:
-- Python version, or "standalone exe":
+- RsRazer version and executable (application, classic panel or daemon):
 - Device:

@@ -2102,73 +2102,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
-name = "openrazer-chroma"
-version = "1.6.1"
-
-[[package]]
-name = "openrazer-daemon"
-version = "1.6.1"
-dependencies = [
- "getrandom 0.3.4",
- "log",
- "openrazer-chroma",
- "openrazer-studio-core",
- "serde",
- "serde_json",
- "windows 0.62.2",
- "windows-future",
- "windows-sys 0.59.0",
- "winreg",
- "winresource",
-]
-
-[[package]]
-name = "openrazer-studio"
-version = "1.6.1"
-dependencies = [
- "eframe",
- "egui",
- "image",
- "openrazer-studio-core",
- "rfd",
- "ring",
- "serde",
- "serde_json",
- "tray-icon",
- "ureq",
- "windows-sys 0.59.0",
- "winreg",
- "winresource",
-]
-
-[[package]]
-name = "openrazer-studio-core"
-version = "1.6.1"
-dependencies = [
- "egui",
- "serde",
- "serde_json",
- "windows-sys 0.59.0",
- "winreg",
-]
-
-[[package]]
-name = "openrazer-studio-setup"
-version = "1.6.1"
-dependencies = [
- "eframe",
- "egui",
- "image",
- "mslnk",
- "openrazer-studio-core",
- "serde",
- "serde_json",
- "windows-sys 0.59.0",
- "winreg",
- "winresource",
-]
-
-[[package]]
 name = "orbclient"
 version = "0.3.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2548,6 +2481,83 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "rsrazer"
+version = "1.6.1"
+dependencies = [
+ "eframe",
+ "egui",
+ "image",
+ "rfd",
+ "ring",
+ "rsrazer-core",
+ "serde",
+ "serde_json",
+ "tray-icon",
+ "ureq",
+ "windows-sys 0.59.0",
+ "winreg",
+ "winresource",
+]
+
+[[package]]
+name = "rsrazer-chroma"
+version = "1.6.1"
+
+[[package]]
+name = "rsrazer-core"
+version = "1.6.1"
+dependencies = [
+ "egui",
+ "serde",
+ "serde_json",
+ "windows-sys 0.59.0",
+ "winreg",
+]
+
+[[package]]
+name = "rsrazer-daemon"
+version = "1.6.1"
+dependencies = [
+ "getrandom 0.3.4",
+ "log",
+ "rsrazer-chroma",
+ "rsrazer-core",
+ "serde",
+ "serde_json",
+ "windows 0.62.2",
+ "windows-future",
+ "windows-sys 0.59.0",
+ "winreg",
+ "winresource",
+]
+
+[[package]]
+name = "rsrazer-setup"
+version = "1.6.1"
+dependencies = [
+ "eframe",
+ "egui",
+ "image",
+ "mslnk",
+ "rsrazer-core",
+ "serde",
+ "serde_json",
+ "windows-sys 0.59.0",
+ "winreg",
+ "winresource",
+]
+
+[[package]]
+name = "rsrazer-tools"
+version = "1.6.1"
+dependencies = [
+ "png",
+ "proc-macro2",
+ "serde_json",
+ "syn 2.0.119",
 ]
 
 [[package]]

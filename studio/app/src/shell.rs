@@ -5,9 +5,9 @@
 //! frame for it and a "show yourself" command would wait forever; ShowWindow
 //! does not care.
 
-use openrazer_studio_core::t;
+use rsrazer_core::t;
 
-pub const WINDOW_TITLE: &str = "OpenRazer Studio";
+pub const WINDOW_TITLE: &str = "RsRazer";
 
 #[cfg(windows)]
 mod win {
@@ -34,7 +34,7 @@ mod win {
 
     /// True if this is the only control panel in the session.
     pub fn claim_single_instance() -> bool {
-        let name = wide("Local\\openrazer-studio");
+        let name = wide("Local\\rsrazer");
         unsafe {
             let handle = CreateMutexW(std::ptr::null(), 0, name.as_ptr());
             // Deliberately never closed: held for the life of the process.
@@ -75,30 +75,7 @@ mod win {
 
 pub use win::{claim_single_instance, hide, show};
 
-/// The program's icon: a green ring with a bright core, drawn rather than
-/// shipped, so the tray, the window and the executable all agree.
-pub fn icon_rgba(size: u32) -> Vec<u8> {
-    let mut pixels = vec![0u8; (size * size * 4) as usize];
-    let s = size as f32;
-    let c = (s - 1.0) / 2.0;
-    let mix = |from: [f32; 3], to: [f32; 3], t: f32| [0, 1, 2].map(|i| from[i] + (to[i] - from[i]) * t);
-    for y in 0..size {
-        for x in 0..size {
-            let d = ((x as f32 - c).powi(2) + (y as f32 - c).powi(2)).sqrt();
-            // Antialiased "inside a circle of this radius".
-            let inside = |radius: f32| (radius - d + 0.5).clamp(0.0, 1.0);
-            let mut colour = [18.0, 22.0, 28.0];
-            colour = mix(colour, [68.0, 214.0, 44.0], inside(s * 0.44) * (1.0 - inside(s * 0.31)));
-            colour = mix(colour, [184.0, 255.0, 168.0], inside(s * 0.15));
-            let i = ((y * size + x) * 4) as usize;
-            pixels[i] = colour[0] as u8;
-            pixels[i + 1] = colour[1] as u8;
-            pixels[i + 2] = colour[2] as u8;
-            pixels[i + 3] = (inside(s * 0.48) * 255.0) as u8;
-        }
-    }
-    pixels
-}
+pub use rsrazer_core::branding::icon_rgba;
 
 pub enum TrayAction {
     Open,
@@ -119,7 +96,7 @@ impl Tray {
         use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
         use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
-        let open = MenuItem::new(t("Open OpenRazer Studio"), true, None);
+        let open = MenuItem::new(t("Open RsRazer"), true, None);
         let restart = MenuItem::new(t("Restart the daemon"), true, None);
         let quit = MenuItem::new(t("Quit"), true, None);
         let menu = Menu::new();
@@ -154,7 +131,7 @@ impl Tray {
     }
 
     pub fn refresh_language(&self) {
-        self.open.set_text(t("Open OpenRazer Studio"));
+        self.open.set_text(t("Open RsRazer"));
         self.restart.set_text(t("Restart the daemon"));
         self.quit.set_text(t("Quit"));
     }
