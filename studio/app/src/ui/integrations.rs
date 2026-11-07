@@ -256,7 +256,7 @@ fn developers(ui: &mut egui::Ui) {
             widgets::row(ui, t("Endpoint"), &openrazer_studio_core::rpc::Endpoint::path().display().to_string(), |ui| code(ui, &endpoint));
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = 8.0;
-                widgets::link_button(ui, t("Documentation"), "https://ar4ikov.github.io/openrazer-win/");
+                widgets::link_button(ui, t("Documentation"), &format!("{REPOSITORY}#readme"));
                 widgets::link_button(ui, t("Examples"), &format!("{REPOSITORY}/tree/main/examples"));
             });
         },

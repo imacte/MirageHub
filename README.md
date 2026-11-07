@@ -6,14 +6,14 @@
 
 **Control your Razer keyboard, mouse and mousepad on Windows 10 / 11 — without Synapse, without a kernel driver, without a single third-party package.**
 
-[![CI](https://github.com/Ar4ikov/openrazer-win/actions/workflows/ci.yml/badge.svg)](https://github.com/Ar4ikov/openrazer-win/actions/workflows/ci.yml)
+[![CI](https://github.com/imacte/openrazer-win/actions/workflows/ci.yml/badge.svg)](https://github.com/imacte/openrazer-win/actions/workflows/ci.yml)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/downloads/)
 [![License: GPL-2.0-or-later](https://img.shields.io/badge/license-GPL--2.0--or--later-green)](LICENSE)
-[![PyPI](https://img.shields.io/pypi/v/openrazer-win)](https://pypi.org/project/openrazer-win/)
-[![Devices: 277](https://img.shields.io/badge/devices-277-orange)](https://ar4ikov.github.io/openrazer-win/#devices)
+[![Upstream PyPI package](https://img.shields.io/pypi/v/openrazer-win)](https://pypi.org/project/openrazer-win/)
+[![Devices: 277](https://img.shields.io/badge/devices-277-orange)](docs/devices.json)
 
-[Documentation](https://ar4ikov.github.io/openrazer-win/) ·
-[Supported devices](https://ar4ikov.github.io/openrazer-win/#devices) ·
+[Documentation](README.zh-CN.md) ·
+[Supported devices](docs/devices.json) ·
 [Upstream OpenRazer](https://github.com/openrazer/openrazer)
 
 </div>
@@ -57,6 +57,11 @@ Razer Viper: dpi (3200, 3200)
 
 ## Install
 
+This fork adds Simplified Chinese to Studio and its installer. The PyPI package below is the
+upstream Python backend; it does not install the localized Studio. See the
+[Chinese guide](README.zh-CN.md) to build this branch, or the
+[fork's releases](https://github.com/imacte/openrazer-win/releases) when an installer is published.
+
 ```bash
 pip install openrazer-win
 ```
@@ -74,7 +79,7 @@ That pulls in PyWinRT, because Windows exposes Bluetooth LE through WinRT. Every
 side keeps working without it.
 
 No Python? Download **`openrazer-studio-setup.exe`** from the
-[latest release](https://github.com/Ar4ikov/openrazer-win/releases/latest) and run it: it installs
+[releases page](https://github.com/imacte/openrazer-win/releases), when available, and run it: it installs
 [OpenRazer Studio](#openrazer-studio) with the daemon, for your account only — no administrator
 prompt — and can repair or remove it again at any time. `openrazer-win-gui.exe` in the release is
 the classic control panel, a single file with the daemon inside; `openrazer-win.exe` is the command
@@ -395,8 +400,8 @@ to have a backlight it does not have.
 | eGPU enclosures | 2 |
 | **Total** | **277** |
 
-169 have addressable matrices; 83 report battery level. The full searchable list is
-[on the documentation site](https://ar4ikov.github.io/openrazer-win/#devices), or run
+169 have addressable matrices; 83 report battery level. The full list is in the
+[device data](docs/devices.json), or run
 `openrazer-win supported`.
 
 **Profiles:** up to ten named lighting snapshots per device, saved on the PC and re-applied on
@@ -512,7 +517,7 @@ each product id is in the database.
 | Symptom | Cause |
 |---|---|
 | `no Razer control interface` | Synapse is running, or another program holds the device. Close it. |
-| Device listed as `NOT IN DATABASE` | Newer than the bundled data. [Open an issue](https://github.com/Ar4ikov/openrazer-win/issues) with the product id. |
+| Device listed as `NOT IN DATABASE` | Newer than the bundled data. [Open an issue](https://github.com/imacte/openrazer-win/issues) with the product id. |
 | `device replied not supported` | The firmware refused that command; the device genuinely lacks the feature. |
 | Effects reset after sleep | Windows cuts USB power. The daemon replays the stored state when the device reappears. |
 | Device is connected but nothing is listed | It may be on a charge-only cable, or be a Bluetooth-only model. `doctor` names what Windows sees it as, and says which of the two it is. |
@@ -527,7 +532,7 @@ each product id is in the database.
 ## Development
 
 ```bash
-git clone https://github.com/Ar4ikov/openrazer-win
+git clone https://github.com/imacte/openrazer-win
 cd openrazer-win
 pip install -e ".[dev]"
 
@@ -579,6 +584,8 @@ which the generators apply to a scratch copy of the checkout. Once upstream merg
 generators say so, and the patch is deleted.
 
 ## Credits
+
+This localization fork is based on [Ar4ikov/openrazer-win](https://github.com/Ar4ikov/openrazer-win).
 
 All protocol knowledge here is [OpenRazer](https://github.com/openrazer/openrazer)'s work —
 years of reverse engineering by Terri Cain, Tim Theede and a long list of contributors. This project

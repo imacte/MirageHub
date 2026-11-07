@@ -6,7 +6,7 @@ resolver = "2"
 version = "1.6.1"
 edition = "2021"
 license = "GPL-2.0-or-later"
-repository = "https://github.com/Ar4ikov/openrazer-win"
+repository = "https://github.com/imacte/openrazer-win"
 publish = false
 
 [workspace.dependencies]

@@ -36,7 +36,7 @@ pip install openrazer-win
 are not code-signed.
 
 Device data generated from upstream OpenRazer. See the
-[documentation](https://ar4ikov.github.io/openrazer-win/) for details.
+[documentation](https://github.com/imacte/openrazer-win#readme) for details.
 """
 
 

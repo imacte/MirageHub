@@ -119,7 +119,7 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
         ui.label(RichText::new(format!("OpenRazer for Windows {VERSION}")).font(theme::bold(16.0)));
         ui.label(widgets::dim("Razer device control without Synapse and without a kernel driver — a user-space port of OpenRazer."));
         ui.horizontal(|ui| {
-            ui.hyperlink_to("github.com/Ar4ikov/openrazer-win", "https://github.com/Ar4ikov/openrazer-win");
+            ui.hyperlink_to("github.com/imacte/openrazer-win", "https://github.com/imacte/openrazer-win");
             ui.label(RichText::new("·").color(TEXT_FAINT));
             ui.hyperlink_to("OpenRazer", "https://openrazer.github.io/");
         });

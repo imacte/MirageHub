@@ -3,7 +3,7 @@
 ## Setting up
 
 ```bash
-git clone https://github.com/Ar4ikov/openrazer-win
+git clone https://github.com/imacte/openrazer-win
 cd openrazer-win
 pip install -e ".[dev]"
 ```

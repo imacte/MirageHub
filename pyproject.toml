@@ -59,10 +59,10 @@ build = [
 ]
 
 [project.urls]
-Homepage = "https://ar4ikov.github.io/openrazer-win/"
-Documentation = "https://ar4ikov.github.io/openrazer-win/"
-Source = "https://github.com/Ar4ikov/openrazer-win"
-Issues = "https://github.com/Ar4ikov/openrazer-win/issues"
+Homepage = "https://github.com/imacte/openrazer-win"
+Documentation = "https://github.com/imacte/openrazer-win#readme"
+Source = "https://github.com/imacte/openrazer-win"
+Issues = "https://github.com/imacte/openrazer-win/issues"
 Upstream = "https://github.com/openrazer/openrazer"
 
 [project.scripts]

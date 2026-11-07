@@ -26,9 +26,9 @@ const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 /// so that only one of them ever starts at sign-in.
 pub const RUN_VALUE: &str = "OpenRazerWin";
 
-pub const RELEASES: &str = "https://github.com/Ar4ikov/openrazer-win/releases/latest";
-pub const REPOSITORY: &str = "https://github.com/Ar4ikov/openrazer-win";
-pub const COMMUNITY: &str = "https://t.me/RazerRussianCommunity";
+pub const RELEASES: &str = "https://github.com/imacte/openrazer-win/releases";
+pub const REPOSITORY: &str = "https://github.com/imacte/openrazer-win";
+pub const COMMUNITY: &str = REPOSITORY;
 
 /// The choices made when Studio was installed, kept so a repair or an update
 /// makes the same ones.

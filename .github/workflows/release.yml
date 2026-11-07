@@ -173,6 +173,8 @@ jobs:
 
   pypi:
     name: Publish to PyPI
+    # The fork's releases ship on GitHub; this PyPI project belongs to upstream.
+    if: github.repository == 'Ar4ikov/openrazer-win'
     needs: build
     runs-on: ubuntu-latest
     steps:

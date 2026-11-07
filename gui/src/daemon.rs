@@ -15,7 +15,7 @@ const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 const RUN_VALUE: &str = "OpenRazerWin";
 
 /// Where to download the daemon from, for the one case it cannot be found.
-pub const RELEASES: &str = "https://github.com/Ar4ikov/openrazer-win/releases/latest";
+pub const RELEASES: &str = "https://github.com/imacte/openrazer-win/releases";
 
 /// The frozen daemon a release build carries, so the panel needs nothing else.
 #[cfg(embedded_daemon)]

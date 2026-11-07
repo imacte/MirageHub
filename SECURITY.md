@@ -20,7 +20,7 @@ other users on the machine and against local network clients, not against the us
 
 ## Reporting a vulnerability
 
-Open a [security advisory](https://github.com/Ar4ikov/openrazer-win/security/advisories/new), or an
+Open a [security advisory](https://github.com/imacte/openrazer-win/security/advisories/new), or an
 issue if the problem is not sensitive. Please include what you ran, what you expected and what
 happened.
 

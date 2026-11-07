@@ -20,9 +20,9 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 pub const CURRENT: &str = env!("CARGO_PKG_VERSION");
 
-const FEED: &str = "https://api.github.com/repos/Ar4ikov/openrazer-win/releases?per_page=10";
+const FEED: &str = "https://api.github.com/repos/imacte/openrazer-win/releases?per_page=10";
 /// Everything downloaded comes from under here.
-const DOWNLOADS: &str = "https://github.com/Ar4ikov/openrazer-win/releases/download/";
+const DOWNLOADS: &str = "https://github.com/imacte/openrazer-win/releases/download/";
 /// A build made with this set looks there for releases instead, and takes
 /// files from wherever that says: the whole path can then be tried without
 /// publishing anything. It is decided when building, so nothing on a user's
@@ -167,6 +167,8 @@ struct Ready {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 struct Saved {
+    /// Which release feed owns the cached releases and downloaded installer.
+    feed: String,
     /// Of the last answer, so an unchanged list is one short reply.
     etag: String,
     releases: Vec<Release>,
@@ -188,7 +190,19 @@ impl Saved {
     }
 
     fn load() -> Saved {
-        std::fs::read_to_string(Self::path()).ok().and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default()
+        Self::from_json(&std::fs::read_to_string(Self::path()).unwrap_or_default())
+    }
+
+    fn from_json(text: &str) -> Saved {
+        let saved: Saved = serde_json::from_str(text).unwrap_or_default();
+        let feed = TEST_FEED.unwrap_or(FEED);
+        if saved.feed == feed {
+            saved
+        } else {
+            // Older builds did not record a source. Do not reuse their ETag,
+            // release list or ready installer after switching to this fork.
+            Saved { feed: feed.to_string(), ..Default::default() }
+        }
     }
 
     fn save(&self) {
@@ -632,7 +646,7 @@ mod tests {
     fn release(tag: &str) -> Value {
         json!({
             "tag_name": tag,
-            "html_url": format!("https://github.com/Ar4ikov/openrazer-win/releases/tag/{tag}"),
+            "html_url": format!("{}/releases/tag/{tag}", install::REPOSITORY),
             "published_at": "2026-11-03T01:02:03Z",
             "body": "notes",
             "assets": [
@@ -665,8 +679,47 @@ mod tests {
     #[test]
     fn an_installer_from_anywhere_else_is_ignored() {
         let mut elsewhere = release("v1.5.4");
-        elsewhere["assets"][0]["browser_download_url"] = json!("https://example.com/openrazer-studio-setup.exe");
-        assert!(read_release(&elsewhere).unwrap().installer.is_none());
+        for base in ["https://example.com/", "https://github.com/Ar4ikov/openrazer-win/releases/download/v1.5.4/", "https://github.com/imacte/openrazer-win-other/releases/download/v1.5.4/"] {
+            elsewhere["assets"][0]["browser_download_url"] = json!(format!("{base}{SETUP_ASSET}"));
+            elsewhere["assets"][1]["browser_download_url"] = json!(format!("{base}{SUMS_ASSET}"));
+            let rejected = read_release(&elsewhere).unwrap();
+            assert!(rejected.installer.is_none());
+            assert!(rejected.sums.is_none());
+        }
+    }
+
+    #[test]
+    fn changing_release_sources_discards_cached_updates() {
+        let mut cached = json!({
+            "etag": "old-source",
+            "checked": 123,
+            "next": 456,
+            "releases": [read_release(&release("v99.0.0")).unwrap()],
+            "ready": {"version": "99.0.0", "sha256": "abc"},
+            "updating_to": "99.0.0",
+            "skipped": "99.0.0"
+        });
+        for feed in [None, Some("https://api.github.com/repos/Ar4ikov/openrazer-win/releases?per_page=10")] {
+            if let Some(feed) = feed {
+                cached["feed"] = json!(feed);
+            }
+            let saved = Saved::from_json(&cached.to_string());
+            assert_eq!(saved.feed, TEST_FEED.unwrap_or(FEED));
+            assert!(saved.etag.is_empty());
+            assert!(saved.releases.is_empty());
+            assert!(saved.ready.is_none());
+            assert!(saved.updating_to.is_empty());
+            assert!(saved.skipped.is_empty());
+            assert_eq!(saved.checked, 0);
+            assert!(saved.due(0));
+        }
+        cached["feed"] = json!(TEST_FEED.unwrap_or(FEED));
+        let saved = Saved::from_json(&cached.to_string());
+        assert_eq!(saved.etag, "old-source");
+        assert_eq!(saved.releases.len(), 1);
+        assert_eq!(saved.ready.unwrap().version, "99.0.0");
+        assert_eq!(saved.checked, 123);
+        assert_eq!(saved.next, 456);
     }
 
     #[test]

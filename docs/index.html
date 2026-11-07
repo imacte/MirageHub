@@ -8,7 +8,7 @@
 <meta property="og:title" content="OpenRazer for Windows">
 <meta property="og:description" content="Razer device control on Windows 10/11 — no Synapse, no kernel driver, no dependencies. 279 devices.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://ar4ikov.github.io/openrazer-win/">
+<meta property="og:url" content="https://github.com/imacte/openrazer-win#readme">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%90%8D%3C/text%3E%3C/svg%3E">
 <style>
 :root {
@@ -181,7 +181,7 @@ footer p { margin: 0 0 8px; }
       <a href="#how" class="opt">How it works</a>
       <a href="#devices">Devices</a>
       <a href="#help" class="opt">Troubleshooting</a>
-      <a href="https://github.com/Ar4ikov/openrazer-win">GitHub</a>
+      <a href="https://github.com/imacte/openrazer-win">GitHub</a>
     </div>
   </div>
 </nav>
@@ -205,7 +205,7 @@ footer p { margin: 0 0 8px; }
     </div>
     <div class="cta">
       <a class="btn primary" href="#install">Get started</a>
-      <a class="btn" href="https://github.com/Ar4ikov/openrazer-win">View source</a>
+      <a class="btn" href="https://github.com/imacte/openrazer-win">View source</a>
       <a class="btn" href="#devices">Is my device supported?</a>
     </div>
   </div>
@@ -223,7 +223,7 @@ footer p { margin: 0 0 8px; }
       The entire port runs on the standard library — no compiler, no <code>hidapi</code> wheel,
       no driver signing, no reboot. Prefer a single file? Download
       <code>openrazer-win.exe</code> from the
-      <a href="https://github.com/Ar4ikov/openrazer-win/releases/latest">latest release</a>; it
+      <a href="https://github.com/imacte/openrazer-win/releases">releases page</a> when a build is published; it
       needs no Python at all.
     </p>
     <div class="note">
@@ -544,7 +544,7 @@ headset.set_colour_zones([(<span class="c-str">255</span>, <span class="c-str">0
               <td>Synapse is running, or another program holds the device. Close it.</td></tr>
           <tr><td>Device shown as <code>NOT IN DATABASE</code></td>
               <td>Newer than the bundled data.
-                  <a href="https://github.com/Ar4ikov/openrazer-win/issues">Open an issue</a>
+                  <a href="https://github.com/imacte/openrazer-win/issues">Open an issue</a>
                   with the product id.</td></tr>
           <tr><td><code>device replied not supported</code></td>
               <td>The firmware refused that command; the device genuinely lacks the feature.</td></tr>
@@ -677,7 +677,7 @@ headset.set_colour_zones([(<span class="c-str">255</span>, <span class="c-str">0
     .catch(function () {
       rowsEl.innerHTML = '<tr><td colspan="6" style="color:var(--text-dim)">' +
         'Could not load the device list. See ' +
-        '<a href="https://github.com/Ar4ikov/openrazer-win">the repository</a>.</td></tr>';
+        '<a href="https://github.com/imacte/openrazer-win">the repository</a>.</td></tr>';
     });
 })();
 </script>
