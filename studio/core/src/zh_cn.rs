@@ -418,7 +418,7 @@ pub const ZH_CN: &[(&str, &str)] = &[
     ("Sits in the tray at sign-in and keeps your devices set up.", "登录时进入系统托盘，并保持设备设置生效。"),
     ("Start with Windows", "开机启动"),
     ("Keep running in the tray when closed", "关闭窗口后在托盘中继续运行"),
-    ("Closing the window hides it; quit from the tray icon. Needed for switching profiles by app.", "关闭窗口时仅隐藏界面，可从托盘图标退出。按应用切换配置需要此功能。"),
+    ("Closing the window frees its memory. Device control, automatic profiles and update downloads keep running in the tray.", "关闭窗口会释放界面内存。设备控制、自动配置切换和更新下载继续在托盘运行。"),
     ("Profiles linked to an app are applied while it is in front. Links are made on each device's Profiles tab.", "关联的应用位于前台时会应用对应配置。可在各设备的“配置文件”页中设置关联。"),
     ("Look for updates", "检查更新"),
     ("About once a day, asks GitHub whether a newer release is out. Nothing is sent, and nothing is downloaded until you say so.", "大约每天向 GitHub 查询一次新版本，不发送个人数据，只有你确认后才会下载。"),

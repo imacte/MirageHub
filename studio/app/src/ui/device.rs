@@ -15,7 +15,7 @@ const DPI_PRESETS: [i64; 8] = [400, 800, 1200, 1600, 3200, 6400, 12800, 25600];
 /// Below this width the panels of a tab stack instead of standing side by side.
 pub const TWO_COLUMNS: f32 = 820.0;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub enum Tab {
     #[default]
     Performance,
@@ -53,15 +53,18 @@ impl Tab {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct DeviceUi {
     pub tab: Tab,
     pub profile_name: String,
     /// The profile an app is being chosen for.
     pub linking: Option<String>,
     pub app_name: String,
+    #[serde(skip)]
     apps: Vec<String>,
     /// When the sound page last asked the headset how it stands.
+    #[serde(skip)]
     pub audio_read: Option<std::time::Instant>,
 }
 
@@ -452,7 +455,7 @@ pub fn profile_switcher(app: &mut App, ui: &mut egui::Ui, device: &Device, snap:
         });
     });
     if let Some(name) = chosen {
-        app.send(Command::Profile { action: "load", serial: device.serial.clone(), name, quiet: false });
+        app.send(Command::Profile { action: "load".into(), serial: device.serial.clone(), name, quiet: false });
     }
 }
 
@@ -472,7 +475,7 @@ fn profiles(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapshot) 
                     let enter = field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
                     let save = ui.add(Button::primary(t("Save")).icon(icon::SAVE).width(save_width).enabled(!name.is_empty()));
                     if (save.clicked() || enter) && !name.is_empty() {
-                        app.send(Command::Profile { action: "save", serial: serial.clone(), name, quiet: false });
+                        app.send(Command::Profile { action: "save".into(), serial: serial.clone(), name, quiet: false });
                         app.device_ui.profile_name.clear();
                     }
                 });
@@ -527,7 +530,7 @@ fn profile_row(app: &mut App, ui: &mut egui::Ui, serial: &str, profile: &serde_j
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 ui.spacing_mut().item_spacing.x = 6.0;
                 if ui.add(IconButton::new(icon::DELETE, t("Delete")).danger().size(32.0)).clicked() {
-                    app.send(Command::Profile { action: "delete", serial: serial.to_string(), name: name.clone(), quiet: false });
+                    app.send(Command::Profile { action: "delete".into(), serial: serial.to_string(), name: name.clone(), quiet: false });
                     app.settings.app_rules.retain(|r| !(r.serial == serial && r.profile == name));
                     if is_default {
                         app.settings.default_profiles.remove(serial);
@@ -545,7 +548,7 @@ fn profile_row(app: &mut App, ui: &mut egui::Ui, serial: &str, profile: &serde_j
                     app.save_settings();
                 }
                 if ui.add(Button::secondary(t("Apply")).icon(icon::CHECK).min_width(110.0)).clicked() {
-                    app.send(Command::Profile { action: "load", serial: serial.to_string(), name: name.clone(), quiet: false });
+                    app.send(Command::Profile { action: "load".into(), serial: serial.to_string(), name: name.clone(), quiet: false });
                 }
             });
         });

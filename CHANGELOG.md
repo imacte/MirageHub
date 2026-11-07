@@ -8,6 +8,9 @@ uses [semantic versioning](https://semver.org/).
 
 ### Fixed
 
+- The endpoint ACL test now verifies the current token's SID directly. Elevated
+  CI accounts can create files owned by Administrators while granting access to
+  the actual user; comparing SDDL owner text incorrectly rejected that case.
 - Fixed the tray window busy-looping on one CPU core when Windows suppresses
   hidden-window paint events. Hidden/minimized Studio releases device preview
   caches and stops redrawing; device polling and automatic profiles stay active.
@@ -17,6 +20,10 @@ uses [semantic versioning](https://semver.org/).
 
 ### Changed
 
+- Studio now uses a lightweight tray process and a separate UI process started
+  on demand. Closing the window saves its page and editor drafts, hands queued
+  device operations to the tray, and exits the UI to release all graphics memory.
+  Device polling, automatic profiles and update downloads continue in the tray.
 - Reduced native UI memory use by sharing read-only system fonts instead of
   copying complete CJK font collections into every DPI cache. Font coverage and
   rendering stay unchanged; a single-copy fallback handles unavailable mappings.

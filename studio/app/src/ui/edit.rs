@@ -24,7 +24,8 @@ pub const DEFAULT_COLOURS: [Color32; 3] = [
     Color32::from_rgb(0x8A, 0x3C, 0xFF),
 ];
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct ZoneEdit {
     pub effect: String,
     pub colours: [Color32; 3],
@@ -41,7 +42,8 @@ impl Default for ZoneEdit {
 }
 
 /// A headset's sound settings as the controls show them.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct AudioEdit {
     pub sidetone: bool,
     pub sidetone_level: f64,
@@ -64,7 +66,8 @@ impl AudioEdit {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct DeviceEdit {
     pub zone: Option<String>,
     pub zones: HashMap<String, ZoneEdit>,
@@ -77,6 +80,7 @@ pub struct DeviceEdit {
     pub audio: AudioEdit,
     generation: u64,
     detail_seen: bool,
+    #[serde(skip)]
     touched: Option<Instant>,
 }
 

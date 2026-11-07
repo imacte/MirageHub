@@ -11,6 +11,7 @@ pub mod integrations;
 pub mod lighting;
 pub mod macros;
 pub mod settings;
+mod session;
 pub mod setup;
 pub mod updates;
 pub mod widgets;

@@ -1,11 +1,20 @@
-//! The window's life outside egui: one instance, the tray icon, show and hide.
+//! The window's life outside egui: one instance, the tray icon and activation.
 //!
-//! Showing and hiding go straight through Win32 rather than egui viewport
-//! commands, so tray and second-instance actions can restore a sleeping UI.
+//! Asynchronous Win32 activation can restore a sleeping UI without blocking
+//! the tray thread or applying the tray process's hidden startup state.
 
 use rsrazer_core::t;
 
 pub const WINDOW_TITLE: &str = "RsRazer";
+
+/// External tools must not inherit the UI's private pipes. Otherwise an open
+/// log viewer could keep the closed UI's command pipe alive indefinitely.
+pub fn external(program: impl AsRef<std::ffi::OsStr>) -> std::process::Command {
+    use std::process::{Command, Stdio};
+    let mut command = Command::new(program);
+    command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    command
+}
 
 #[cfg(windows)]
 mod win {
@@ -13,7 +22,7 @@ mod win {
     use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS, HWND};
     use windows_sys::Win32::System::Threading::CreateMutexW;
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        FindWindowW, IsIconic, IsWindowVisible, SetForegroundWindow, ShowWindow, SW_HIDE, SW_RESTORE, SW_SHOW,
+        FindWindowW, IsIconic, IsWindowVisible, SetForegroundWindow, ShowWindowAsync, SW_RESTORE, SW_SHOW,
     };
 
     fn wide(text: &str) -> Vec<u16> {
@@ -44,19 +53,11 @@ mod win {
         if let Some(hwnd) = window() {
             unsafe {
                 if IsIconic(hwnd) != 0 {
-                    ShowWindow(hwnd, SW_RESTORE);
+                    ShowWindowAsync(hwnd, SW_RESTORE);
                 } else {
-                    ShowWindow(hwnd, SW_SHOW);
+                    ShowWindowAsync(hwnd, SW_SHOW);
                 }
                 SetForegroundWindow(hwnd);
-            }
-        }
-    }
-
-    pub fn hide() {
-        if let Some(hwnd) = window() {
-            unsafe {
-                ShowWindow(hwnd, SW_HIDE);
             }
         }
     }
@@ -72,11 +73,10 @@ mod win {
         true
     }
     pub fn show() {}
-    pub fn hide() {}
     pub fn is_visible() -> bool { true }
 }
 
-pub use win::{claim_single_instance, hide, is_visible, show};
+pub use win::{claim_single_instance, is_visible, show};
 
 pub use rsrazer_core::branding::icon_rgba;
 

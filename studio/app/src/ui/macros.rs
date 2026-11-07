@@ -55,7 +55,7 @@ fn t_key(name: &'static str) -> &'static str {
 }
 
 /// One step of a key macro, as the editor shows it.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Step {
     /// Press and let go.
     Tap(u8),
@@ -110,7 +110,7 @@ pub fn from_events(events: &[Value]) -> Vec<Step> {
     steps
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 enum Kind {
     Keys,
     Text,
@@ -118,6 +118,7 @@ enum Kind {
     Disabled,
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
 struct Draft {
     /// Index in the library; None for one not saved yet.
     index: Option<usize>,
@@ -127,6 +128,7 @@ struct Draft {
     text: String,
     target: String,
     /// When recording started, and when the last key came.
+    #[serde(skip)]
     recording: Option<(Instant, Instant, egui::Modifiers)>,
     pick: u8,
 }
@@ -168,7 +170,8 @@ impl Draft {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct MacrosUi {
     draft: Option<Draft>,
     selected: Option<usize>,
@@ -744,6 +747,24 @@ fn truncate(text: &str, limit: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn closing_the_ui_preserves_an_unsaved_macro_and_stops_local_recording() {
+        let mut draft = Draft::new();
+        draft.name = "未保存的宏".into();
+        draft.steps = vec![Step::Down(0xA2), Step::Tap(0x43), Step::Up(0xA2)];
+        draft.text = "草稿\n第二行".into();
+        draft.recording = Some((Instant::now(), Instant::now(), egui::Modifiers::default()));
+        let ui = MacrosUi { draft: Some(draft), selected: Some(2) };
+        let restored: MacrosUi = serde_json::from_slice(&serde_json::to_vec(&ui).unwrap()).unwrap();
+        let draft = restored.draft.unwrap();
+        assert_eq!(draft.name, "未保存的宏");
+        assert_eq!(draft.text, "草稿\n第二行");
+        assert_eq!(draft.steps, vec![Step::Down(0xA2), Step::Tap(0x43), Step::Up(0xA2)]);
+        assert!(draft.index.is_none());
+        assert!(draft.recording.is_none());
+        assert_eq!(restored.selected, Some(2));
+    }
 
     #[test]
     fn steps_become_events_and_back() {

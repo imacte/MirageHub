@@ -28,20 +28,25 @@ use std::time::{Duration, Instant};
 const LAYERS_WIDTH: f32 = 240.0;
 const PROPERTIES_WIDTH: f32 = 284.0;
 
-#[derive(Default)]
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct LightingUi {
     pub studio: bool,
     stacks: HashMap<String, Stack>,
 }
 
 /// The layers being edited for one device.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 struct Stack {
     layers: Vec<Layer>,
     current: usize,
     generation: u64,
     /// Edited since it was sent to the daemon.
     dirty: bool,
+    #[serde(skip, default = "Instant::now")]
     started: Instant,
+    #[serde(skip)]
     presses: Vec<(Instant, (u8, u8))>,
     /// Which of the chosen layer's colours is being edited.
     slot: usize,

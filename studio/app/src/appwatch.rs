@@ -1,19 +1,17 @@
 //! Switching profiles when a game or app comes to the front.
 //!
-//! Runs on its own thread: the window is often hidden in the tray, and a
-//! hidden window draws no frames, so nothing on the UI thread would notice.
+//! Runs in the tray host, so rules keep working while the UI process is closed.
 
 use crate::settings::Settings;
-use crate::worker::Command;
+use crate::worker::{Command, Sender};
 use std::collections::HashMap;
-use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 /// The rules, shared with the window that edits them.
 pub type Rules = Arc<Mutex<Settings>>;
 
-pub fn spawn(rules: Rules, tx: Sender<Command>, serials: Arc<Mutex<Vec<String>>>) {
+pub fn spawn(rules: Rules, tx: Sender, serials: Arc<Mutex<Vec<String>>>) {
     std::thread::Builder::new()
         .name("app-watch".into())
         .spawn(move || {
@@ -45,7 +43,7 @@ pub fn spawn(rules: Rules, tx: Sender<Command>, serials: Arc<Mutex<Vec<String>>>
                         applied.insert(serial.clone(), (profile, by_rule));
                         continue;
                     }
-                    let _ = tx.send(Command::Profile { action: "load", serial: serial.clone(), name: profile.clone(), quiet: true });
+                    let _ = tx.send(Command::Profile { action: "load".into(), serial: serial.clone(), name: profile.clone(), quiet: true });
                     applied.insert(serial, (profile, by_rule));
                 }
             }

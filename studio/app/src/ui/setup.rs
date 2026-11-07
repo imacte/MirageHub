@@ -34,7 +34,7 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot, reason: &str) {
         if let Some(installed) = app.installed.clone() {
             widgets::banner(ui, theme::WARN, icon::WRENCH, t("RsRazer may be damaged"), t("Repair puts back the daemon and every other file RsRazer was installed with. Profiles and macros are kept."), |ui| {
                 if ui.add(Button::primary(t("Repair RsRazer")).icon(icon::WRENCH)).clicked() {
-                    let _ = std::process::Command::new(installed.setup()).arg("--repair").spawn();
+                    let _ = crate::shell::external(installed.setup()).arg("--repair").spawn();
                 }
             });
         } else if error.missing {
@@ -63,7 +63,7 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot, reason: &str) {
                     if ui.add(Button::ghost(t("Open the log folder")).icon(icon::FOLDER)).clicked() {
                         let dir = rsrazer_core::paths::data_dir();
                         let _ = std::fs::create_dir_all(&dir);
-                        let _ = std::process::Command::new("explorer").arg(&dir).spawn();
+                        let _ = crate::shell::external("explorer").arg(&dir).spawn();
                     }
                 });
             },

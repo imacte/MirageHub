@@ -77,7 +77,7 @@ fn general(app: &mut App, ui: &mut egui::Ui) {
         }
         widgets::divider(ui);
         let mut tray = app.settings.close_to_tray;
-        if widgets::toggle_row(ui, t("Keep running in the tray when closed"), t("Closing the window hides it; quit from the tray icon. Needed for switching profiles by app."), &mut tray) {
+        if widgets::toggle_row(ui, t("Keep running in the tray when closed"), t("Closing the window frees its memory. Device control, automatic profiles and update downloads keep running in the tray."), &mut tray) {
             app.settings.close_to_tray = tray;
             app.save_settings();
         }
@@ -158,10 +158,10 @@ fn daemon(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
             let dir = rsrazer_core::paths::data_dir();
             if ui.add(Button::ghost(t("Open the data folder")).icon(icon::FOLDER).small()).clicked() {
                 let _ = std::fs::create_dir_all(&dir);
-                let _ = std::process::Command::new("explorer").arg(&dir).spawn();
+                let _ = crate::shell::external("explorer").arg(&dir).spawn();
             }
             if ui.add(Button::ghost(t("Open the daemon log")).icon(icon::TEXT).small()).clicked() {
-                let _ = std::process::Command::new("notepad").arg(crate::daemon::log_path()).spawn();
+                let _ = crate::shell::external("notepad").arg(crate::daemon::log_path()).spawn();
             }
         });
     });
@@ -223,7 +223,7 @@ fn support(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
 
 /// Start the installed setup to repair or remove RsRazer, which closes this window.
 fn run_setup(app: &mut App, installed: &install::Installed, action: &str) {
-    match std::process::Command::new(installed.setup()).arg(action).spawn() {
+    match crate::shell::external(installed.setup()).arg(action).spawn() {
         Ok(_) => {}
         Err(error) => app.toast(tf("Could not start {}: {}", &[&installed.setup().display(), &error]), true),
     }

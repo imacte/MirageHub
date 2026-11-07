@@ -3,6 +3,7 @@
 [简体中文](README.zh-CN.md) · English
 
 Control Razer devices on Windows 10 / 11 with a native Rust application and background service.
+
 No Synapse, custom kernel driver or Python runtime is required.
 
 [![CI](https://github.com/imacte/RsRazer/actions/workflows/ci.yml/badge.svg)](https://github.com/imacte/RsRazer/actions/workflows/ci.yml)
@@ -16,6 +17,10 @@ Use **`rsrazer-setup.exe`** from [Releases](https://github.com/imacte/RsRazer/re
 It contains the application, native daemon and 32/64-bit Chroma SDK DLLs.
 The installer works per user and supports repair and removal.
 `rsrazer-setup-zh-CN.exe` contains the same multilingual package: English, Simplified Chinese and Russian.
+
+The tray and UI run in separate processes. Closing the window saves the current page and editor drafts,
+then exits the UI process to release its memory. Device communication, automatic profiles and update
+downloads continue in the tray; click its icon to reopen the window.
 
 | File | Purpose |
 |---|---|

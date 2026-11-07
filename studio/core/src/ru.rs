@@ -418,7 +418,7 @@ pub const RU: &[(&str, &str)] = &[
     ("Sits in the tray at sign-in and keeps your devices set up.", "При входе в систему сидит в трее и держит устройства настроенными."),
     ("Start with Windows", "Запускать вместе с Windows"),
     ("Keep running in the tray when closed", "Сворачивать в трей при закрытии"),
-    ("Closing the window hides it; quit from the tray icon. Needed for switching profiles by app.", "Закрытие окна прячет его; выйти можно через значок в трее. Нужно для смены профилей по программам."),
+    ("Closing the window frees its memory. Device control, automatic profiles and update downloads keep running in the tray.", "Закрытие окна освобождает его память. Управление устройствами, смена профилей и загрузка обновлений продолжаются в трее."),
     ("Profiles linked to an app are applied while it is in front. Links are made on each device's Profiles tab.", "Профили, привязанные к программе, включаются, пока она на переднем плане. Привязки — на вкладке «Профили» каждого устройства."),
     ("Look for updates", "Проверять обновления"),
     ("About once a day, asks GitHub whether a newer release is out. Nothing is sent, and nothing is downloaded until you say so.", "Примерно раз в день спрашивает у GitHub, не вышла ли новая версия. Ничего не отправляется, а скачивается только по вашей команде."),

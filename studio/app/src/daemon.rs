@@ -12,7 +12,7 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 /// Why the daemon could not be started.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct StartError {
     pub message: String,
     /// Nothing on this machine can run the daemon at all: the case for

@@ -3,37 +3,24 @@
 
 use super::device::Tab;
 use super::edit::{DeviceEdit, Pending};
-use crate::appwatch::Rules;
 use crate::images::Images;
 use crate::settings::Settings;
-use crate::shell::{self, Tray, TrayAction};
+use crate::shell;
 use crate::updates::{Phase, Status, Updater};
 use crate::worker::{self, Command, DaemonState, Device, Shared, Snapshot};
 use egui::{pos2, vec2, Align, Align2, Color32, CornerRadius, Frame, Layout, Margin, Rect, RichText, Sense, Stroke, StrokeKind};
 use rsrazer_core::theme::{self, icon, ACCENT, BORDER_HI, NAV, SURFACE, SURFACE_HI, TEXT, TEXT_DIM, TEXT_FAINT};
 use rsrazer_core::{install, t, tf, widgets};
 use std::collections::HashMap;
-use std::sync::mpsc::Sender;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
-
-/// The tray icon, kept here so Quit can take it down before the process
-/// exits rather than leave a ghost in the tray. Quit does not always come on
-/// the UI thread: the installer's signal arrives on a thread of its own.
-static TRAY: Mutex<Option<TrayIcon>> = Mutex::new(None);
-
-struct TrayIcon(#[allow(dead_code)] Tray);
-
-// It is not `Send` for an `Rc` inside it, but it is only ever put here on the
-// UI thread and then dropped, once, by whichever thread ends the process; and
-// removing an icon from the tray is a call to the shell that any thread can make.
-unsafe impl Send for TrayIcon {}
 
 /// The width of the navigation column.
 const NAV_WIDTH: f32 = 224.0;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub enum Page {
+    #[default]
     Home,
     /// One device, the one in `App::selected`.
     Device,
@@ -68,7 +55,7 @@ impl Page {
 
 pub struct App {
     pub shared: Shared,
-    pub tx: Sender<Command>,
+    pub tx: worker::Sender,
     pub images: Images,
     pub page: Page,
     /// The device the device page shows.
@@ -76,24 +63,20 @@ pub struct App {
     pub edits: HashMap<String, DeviceEdit>,
     pending: Vec<Pending>,
     pub settings: Settings,
-    /// A copy for the thread that switches profiles by app.
-    rules: Rules,
+    ipc: Option<crate::ipc::Sender>,
     pub autostart: bool,
     pub device_ui: super::device::DeviceUi,
     pub lighting: super::lighting::LightingUi,
     pub macros: super::macros::MacrosUi,
     pub arts: super::canvas::Arts,
-    pub updates: Updater,
+    pub updates: Arc<Updater>,
     pub notes: super::updates::NotesCache,
     pub installed: Option<install::Installed>,
     pub started: Instant,
-    tray_ok: bool,
+    closing: bool,
     capture: Option<Capture>,
     /// The library macro the screenshot hook opened, so it is opened once.
     macros_opened: Option<usize>,
-    /// eframe shows the window after its first frame whatever the viewport
-    /// asked for, so a background start hides it again for a few frames.
-    hide_frames: u8,
     suspended: bool,
     custom_frame: bool,
 }
@@ -114,12 +97,10 @@ struct Capture {
 
 impl App {
     pub fn refresh_tray_language(&self) {
-        if let Some(tray) = TRAY.lock().unwrap().as_ref() {
-            tray.0.refresh_language();
-        }
+        if let Some(sender) = &self.ipc { let _ = sender.send(&crate::ipc::Request::Settings(self.settings.clone())); }
     }
 
-    pub fn new(cc: &eframe::CreationContext<'_>, background: bool) -> App {
+    pub fn new(cc: &eframe::CreationContext<'_>, managed: bool) -> App {
         #[cfg(not(windows))]
         let custom_frame = false;
         #[cfg(windows)]
@@ -136,48 +117,28 @@ impl App {
             });
         }
         let shared: Shared = Default::default();
-        let serials = Arc::new(Mutex::new(Vec::new()));
-        let ctx = cc.egui_ctx.clone();
-        let tx = worker::spawn(shared.clone(), serials.clone(), move || {
-            if shell::is_visible() { ctx.request_repaint(); }
-        });
-        // RsRazer is how most people start the daemon; do it for them.
-        let _ = tx.send(Command::StartDaemon);
-        if std::env::var_os("OPENRAZER_STUDIO_CAPTURE").is_none() {
-            crate::daemon::refresh_autostart();
-        }
-        rsrazer_core::process::listen_for_quit(quit);
-
-        let ctx = cc.egui_ctx.clone();
-        let tray_tx = tx.clone();
-        let tray = Tray::new(move |action| match action {
-            TrayAction::Open => {
-                shell::show();
-                ctx.request_repaint();
-            }
-            TrayAction::RestartDaemon => {
-                let _ = tray_tx.send(Command::RestartDaemon);
-            }
-            TrayAction::Quit => quit(),
-        });
-        let tray_ok = tray.is_some();
-        *TRAY.lock().unwrap() = tray.map(TrayIcon);
-        if background && !tray_ok {
-            // Nowhere to live but the window, so show it after all.
-            shell::show();
-        }
-
-        let rules: Rules = Arc::new(Mutex::new(settings.clone()));
-        crate::appwatch::spawn(rules.clone(), tx.clone(), serials);
+        let ipc = managed.then(crate::ipc::Sender::stdout);
+        let tx = if let Some(sender) = &ipc {
+            worker::Sender::Remote(sender.clone())
+        } else {
+            let ctx = cc.egui_ctx.clone();
+            let tx = worker::spawn(shared.clone(), Default::default(), move || ctx.request_repaint());
+            let _ = tx.send(Command::StartDaemon);
+            tx
+        };
         let capture = std::env::var_os("OPENRAZER_STUDIO_CAPTURE").map(|path| Capture {
             path: path.into(),
             page: std::env::var("OPENRAZER_STUDIO_PAGE").unwrap_or_default(),
             started: Instant::now(),
             requested: false,
         });
-        let updates = Updater::start(cc.egui_ctx.clone(), settings.check_updates && capture.is_none());
+        let updates = Arc::new(if let Some(sender) = &ipc { Updater::remote(sender.clone()) } else {
+            let ctx = cc.egui_ctx.clone();
+            Updater::start(move || ctx.request_repaint(), settings.check_updates && capture.is_none())
+        });
+        if managed { crate::ipc::attach(cc.egui_ctx.clone(), shared.clone(), updates.clone()); }
 
-        App {
+        let mut app = App {
             shared,
             tx,
             images: Images::default(),
@@ -186,7 +147,7 @@ impl App {
             edits: HashMap::new(),
             pending: Vec::new(),
             settings,
-            rules,
+            ipc,
             autostart: crate::daemon::autostart_enabled(),
             device_ui: Default::default(),
             lighting: Default::default(),
@@ -196,13 +157,14 @@ impl App {
             notes: Default::default(),
             installed: install::installed(),
             started: Instant::now(),
-            tray_ok,
-            hide_frames: if background && tray_ok { 4 } else { 0 },
+            closing: false,
             suspended: false,
             custom_frame,
             capture,
             macros_opened: None,
-        }
+        };
+        if app.capture.is_none() { super::session::restore(&mut app); }
+        app
     }
 
     pub fn send(&self, command: Command) {
@@ -216,7 +178,7 @@ impl App {
     /// Save the settings, and hand the app-switching thread its copy.
     pub fn save_settings(&mut self) {
         self.settings.save();
-        *self.rules.lock().unwrap() = self.settings.clone();
+        self.refresh_tray_language();
         self.updates.set_enabled(self.settings.check_updates);
     }
 
@@ -275,20 +237,25 @@ impl App {
 }
 
 fn quit() {
-    drop(TRAY.lock().unwrap().take());
     std::process::exit(0);
 }
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if self.hide_frames > 0 {
-            self.hide_frames -= 1;
-            shell::hide();
-            ctx.request_repaint();
-        }
-        if ctx.input(|i| i.viewport().close_requested()) && self.settings.close_to_tray && self.tray_ok && self.capture.is_none() {
-            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
-            shell::hide();
+        if ctx.input(|i| i.viewport().close_requested()) && !self.closing && self.capture.is_none() {
+            match super::session::save(self) {
+                Ok(()) => {
+                    for pending in std::mem::take(&mut self.pending) { self.send(pending.command); }
+                    if let Some(sender) = &self.ipc { let _ = sender.send(&crate::ipc::Request::Closing { quit_host: !self.settings.close_to_tray }); }
+                    self.closing = true;
+                    return;
+                }
+                Err(error) => {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+                    if let Some(sender) = &self.ipc { let _ = sender.send(&crate::ipc::Request::CancelQuit); }
+                    self.toast(error.to_string(), true);
+                }
+            }
         }
         if self.capture.is_none() && !shell::is_visible() {
             // Apply the last slider movement even if its debounce timer has
@@ -310,7 +277,7 @@ impl eframe::App for App {
             self.send(Command::Refresh);
         }
         let snap = self.shared.lock().unwrap().clone();
-        self.sync(&snap);
+        if !matches!(snap.daemon, DaemonState::Connecting) { self.sync(&snap); }
         self.flush_pending(ctx);
         if let Some(version) = self.updates.just_updated() {
             self.toast(tf("Updated to {}", &[&version]), false);
@@ -337,7 +304,7 @@ impl eframe::App for App {
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
-        drop(TRAY.lock().unwrap().take());
+        if !self.closing && self.capture.is_none() { let _ = super::session::save(self); }
     }
 }
 

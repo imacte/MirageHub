@@ -219,14 +219,14 @@ impl Saved {
 
 // -- what the window sees -----------------------------------------------------------------
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Progress {
     pub done: u64,
     pub total: u64,
     pub per_second: f64,
 }
 
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub enum Phase {
     #[default]
     Idle,
@@ -239,7 +239,7 @@ pub enum Phase {
     Installing,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Status {
     pub phase: Phase,
     /// What went wrong with the last thing asked for.
@@ -274,6 +274,11 @@ enum Order {
     Skip(String),
 }
 
+#[derive(Serialize, Deserialize)]
+pub enum Action {
+    Enable(bool), Check, Download, Cancel, Install(PathBuf), Skip(String),
+}
+
 /// The window's handle on the thread that does all this.
 pub struct Updater {
     status: Arc<Mutex<Status>>,
@@ -281,10 +286,11 @@ pub struct Updater {
     enabled: Arc<AtomicBool>,
     cancel: Arc<AtomicBool>,
     just_updated: Mutex<Option<String>>,
+    remote: Option<crate::ipc::Sender>,
 }
 
 impl Updater {
-    pub fn start(ctx: egui::Context, enabled: bool) -> Updater {
+    pub fn start(notify: impl Fn() + Send + 'static, enabled: bool) -> Updater {
         let mut saved = Saved::load();
         let just_updated = (saved.updating_to == CURRENT).then(|| CURRENT.to_string());
         if !saved.updating_to.is_empty() {
@@ -295,10 +301,35 @@ impl Updater {
         let (orders, inbox) = mpsc::channel();
         let enabled = Arc::new(AtomicBool::new(enabled));
         let cancel = Arc::new(AtomicBool::new(false));
-        let mut worker = Worker { saved, status: status.clone(), enabled: enabled.clone(), cancel: cancel.clone(), ctx };
+        let mut worker = Worker { saved, status: status.clone(), enabled: enabled.clone(), cancel: cancel.clone(), notify: Box::new(notify) };
         worker.publish();
         std::thread::Builder::new().name("updates".into()).spawn(move || worker.run(inbox)).ok();
-        Updater { status, orders, enabled, cancel, just_updated: Mutex::new(just_updated) }
+        Updater { status, orders, enabled, cancel, just_updated: Mutex::new(just_updated), remote: None }
+    }
+
+    pub fn remote(sender: crate::ipc::Sender) -> Self {
+        let (orders, _) = mpsc::channel();
+        Self { status: Default::default(), orders, enabled: Default::default(), cancel: Default::default(), just_updated: Default::default(), remote: Some(sender) }
+    }
+
+    pub fn receive(&self, status: Status, just_updated: Option<String>) {
+        *self.status.lock().unwrap() = status;
+        if just_updated.is_some() { *self.just_updated.lock().unwrap() = just_updated; }
+    }
+
+    pub fn dispatch(&self, action: Action) {
+        match action {
+            Action::Enable(enabled) => self.set_enabled(enabled), Action::Check => self.check(),
+            Action::Download => self.download(), Action::Cancel => self.cancel(),
+            Action::Install(dir) => self.install(dir), Action::Skip(version) => self.skip(&version),
+        }
+    }
+
+    fn forward(&self, action: Action) -> bool {
+        if let Some(remote) = &self.remote {
+            if let Err(error) = remote.send(&crate::ipc::Request::Update(action)) { self.status.lock().unwrap().error = Some(error.to_string()); }
+            true
+        } else { false }
     }
 
     pub fn status(&self) -> Status {
@@ -306,31 +337,37 @@ impl Updater {
     }
 
     pub fn set_enabled(&self, enabled: bool) {
+        if self.forward(Action::Enable(enabled)) { return; }
         self.enabled.store(enabled, Ordering::Relaxed);
     }
 
     pub fn check(&self) {
+        if self.forward(Action::Check) { return; }
         self.status.lock().unwrap().phase = Phase::Checking;
         let _ = self.orders.send(Order::Check);
     }
 
     pub fn download(&self) {
+        if self.forward(Action::Download) { return; }
         self.cancel.store(false, Ordering::Relaxed);
         let _ = self.orders.send(Order::Download);
     }
 
     /// Stop the download; what has arrived stays, for carrying on later.
     pub fn cancel(&self) {
+        if self.forward(Action::Cancel) { return; }
         self.cancel.store(true, Ordering::Relaxed);
     }
 
     pub fn install(&self, dir: PathBuf) {
+        if self.forward(Action::Install(dir.clone())) { return; }
         self.status.lock().unwrap().phase = Phase::Installing;
         let _ = self.orders.send(Order::Install(dir));
     }
 
     /// Stop mentioning `version`.
     pub fn skip(&self, version: &str) {
+        if self.forward(Action::Skip(version.to_string())) { return; }
         self.status.lock().unwrap().skipped = version.to_string();
         let _ = self.orders.send(Order::Skip(version.to_string()));
     }
@@ -400,7 +437,7 @@ struct Worker {
     status: Arc<Mutex<Status>>,
     enabled: Arc<AtomicBool>,
     cancel: Arc<AtomicBool>,
-    ctx: egui::Context,
+    notify: Box<dyn Fn() + Send>,
 }
 
 impl Worker {
@@ -451,13 +488,13 @@ impl Worker {
         status.skipped = self.saved.skipped.clone();
         status.phase = phase;
         drop(status);
-        self.ctx.request_repaint();
+        (self.notify)();
     }
 
     fn fail(&mut self, message: String) {
         self.publish();
         self.status.lock().unwrap().error = Some(message);
-        self.ctx.request_repaint();
+        (self.notify)();
     }
 
     /// Take away installers for versions already reached. Not at start: the
@@ -508,7 +545,7 @@ impl Worker {
 
     fn set_progress(&self, progress: Progress) {
         self.status.lock().unwrap().phase = Phase::Downloading(progress);
-        self.ctx.request_repaint();
+        (self.notify)();
     }
 
     fn download(&mut self) {

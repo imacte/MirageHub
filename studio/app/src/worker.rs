@@ -9,7 +9,8 @@ use rsrazer_core::rpc::{Client, RpcError};
 use rsrazer_core::{t, tf};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
+use std::sync::mpsc::{Receiver, RecvTimeoutError};
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -34,7 +35,7 @@ const SYNAPSE: [&str; 9] = [
     "gamemanagerservice3.exe",
 ];
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub enum DaemonState {
     #[default]
     Connecting,
@@ -42,7 +43,7 @@ pub enum DaemonState {
     Running(Value),
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Device {
     pub serial: String,
     pub name: String,
@@ -54,7 +55,7 @@ pub struct Device {
     pub firmware: Option<String>,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Detail {
     pub caps: Option<Value>,
     pub battery: Option<f64>,
@@ -72,14 +73,15 @@ pub struct Detail {
     pub audio: Option<Value>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Toast {
     pub text: String,
     pub error: bool,
+    #[serde(with = "crate::ipc::elapsed")]
     pub at: Instant,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Snapshot {
     pub daemon: DaemonState,
     pub devices: Vec<Device>,
@@ -105,6 +107,7 @@ pub struct Snapshot {
     pub integrations: Value,
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum Command {
     Refresh,
     Rescan,
@@ -114,7 +117,7 @@ pub enum Command {
     Software { serial: String, effect: String, options: Value },
     /// `quiet` for the automatic switch, which should not pop a toast every
     /// time a game comes to the front.
-    Profile { action: &'static str, serial: String, name: String, quiet: bool },
+    Profile { #[serde(deserialize_with = "profile_action")] action: String, serial: String, name: String, quiet: bool },
     MacroSet { serial: String, key: String, action: Value },
     MacroDelete { serial: String, key: String },
     MacroRecordStart { serial: String, key: String },
@@ -127,10 +130,36 @@ pub enum Command {
     CloseSynapse,
     /// Switch one of the daemon's integrations on or off.
     Integration { name: String, enabled: bool },
+    /// A local shutdown barrier, never accepted over the UI pipe.
+    #[serde(skip)]
+    Drain(std::sync::mpsc::Sender<()>),
+}
+
+fn profile_action<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    let action = String::deserialize(deserializer)?;
+    match action.as_str() {
+        "load" | "save" | "delete" => Ok(action),
+        _ => Err(serde::de::Error::custom("unknown profile action")),
+    }
+}
+
+#[derive(Clone)]
+pub enum Sender {
+    Local(std::sync::mpsc::Sender<Command>),
+    Remote(crate::ipc::Sender),
+}
+
+impl Sender {
+    pub fn send(&self, command: Command) -> Result<(), String> {
+        match self {
+            Self::Local(tx) => tx.send(command).map_err(|e| e.to_string()),
+            Self::Remote(tx) => tx.send(&crate::ipc::Request::Command(command)).map_err(|e| e.to_string()),
+        }
+    }
 }
 
 /// What to re-read after a call succeeds.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Then {
     Nothing,
     Lighting,
@@ -142,7 +171,7 @@ pub enum Then {
 
 pub type Shared = Arc<Mutex<Snapshot>>;
 
-pub fn spawn(shared: Shared, serials: Arc<Mutex<Vec<String>>>, repaint: impl Fn() + Send + 'static) -> Sender<Command> {
+pub fn spawn(shared: Shared, serials: Arc<Mutex<Vec<String>>>, repaint: impl Fn() + Send + 'static) -> Sender {
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::Builder::new()
         .name("daemon".into())
@@ -150,7 +179,7 @@ pub fn spawn(shared: Shared, serials: Arc<Mutex<Vec<String>>>, repaint: impl Fn(
             Worker { shared, serials, client: None, battery_at: HashMap::new(), slow_at: None, repaint: Box::new(repaint) }.run(rx)
         })
         .expect("the worker thread starts");
-    tx
+    Sender::Local(tx)
 }
 
 struct Worker {
@@ -442,6 +471,7 @@ impl Worker {
 
     fn handle(&mut self, command: Command) {
         match command {
+            Command::Drain(done) => { let _ = done.send(()); }
             Command::Refresh => self.poll(),
             Command::Rescan => {
                 let result = self.with(|c| c.call("daemon.rescan", json!({})));
@@ -498,7 +528,7 @@ impl Worker {
             Command::Profile { action, serial, name, quiet } => {
                 let method = format!("profile.{action}");
                 let result = self.with(|c| c.call(&method, json!({ "serial": serial, "name": name })));
-                let text = match action {
+                let text = match action.as_str() {
                     "save" => tf("Profile “{}” saved", &[&name]),
                     "load" => tf("Profile “{}” applied", &[&name]),
                     _ => tf("Profile “{}” deleted", &[&name]),

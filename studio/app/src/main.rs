@@ -12,6 +12,9 @@ mod art;
 mod chroma;
 mod daemon;
 mod images;
+mod ipc;
+#[cfg(windows)]
+mod host;
 mod layout;
 mod notes;
 mod outline;
@@ -25,7 +28,7 @@ mod worker;
 
 use std::sync::Arc;
 
-fn main() -> eframe::Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.iter().any(|a| a == "--version" || a == "-V") {
         attach_console();
@@ -43,12 +46,9 @@ fn main() -> eframe::Result<()> {
 
     // A run that only takes a screenshot leaves a RsRazer already open alone.
     let capturing = std::env::var_os("OPENRAZER_STUDIO_CAPTURE").is_some();
-    if !capturing && !shell::claim_single_instance() {
-        if !background {
-            shell::show();
-        }
-        return Ok(());
-    }
+    let managed_ui = args.iter().any(|a| a == "--ui") && std::env::var_os("RSRAZER_UI_CHILD").is_some();
+    #[cfg(windows)]
+    if !capturing && !managed_ui { return host::run(background).map_err(Into::into); }
 
     let icon = egui::IconData { rgba: shell::icon_rgba(64), width: 64, height: 64 };
     // For checking the design at other sizes, with the screenshot hook in
@@ -63,11 +63,12 @@ fn main() -> eframe::Result<()> {
             .with_decorations(!cfg!(windows))
             .with_inner_size(size)
             .with_min_inner_size([1000.0, 660.0])
-            .with_visible(!background)
+            .with_visible(true)
             .with_icon(Arc::new(icon)),
         ..Default::default()
     };
-    eframe::run_native(shell::WINDOW_TITLE, options, Box::new(move |cc| Ok(Box::new(ui::App::new(cc, background)))))
+    eframe::run_native(shell::WINDOW_TITLE, options, Box::new(move |cc| Ok(Box::new(ui::App::new(cc, managed_ui)))))?;
+    Ok(())
 }
 
 /// Print to the console that started us, if any: this is a windowed program.

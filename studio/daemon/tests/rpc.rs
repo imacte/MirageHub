@@ -320,59 +320,113 @@ fn native_mutex_excludes_a_second_daemon_until_the_first_handle_is_closed() {
 #[cfg(windows)]
 #[test]
 fn endpoint_has_a_protected_dacl_for_the_current_user_and_system() {
-    use std::{os::windows::ffi::OsStrExt, ptr};
+    use std::{
+        os::windows::{
+            ffi::OsStrExt,
+            io::{AsRawHandle, FromRawHandle, OwnedHandle},
+        },
+        ptr,
+    };
     use windows_sys::Win32::{
         Foundation::LocalFree,
         Security::{
-            Authorization::{
-                ConvertSecurityDescriptorToStringSecurityDescriptorW, GetNamedSecurityInfoW,
-                SE_FILE_OBJECT,
-            },
-            DACL_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION,
+            Authorization::{GetNamedSecurityInfoW, SE_FILE_OBJECT},
+            CreateWellKnownSid, EqualSid, GetAce, GetSecurityDescriptorControl,
+            GetTokenInformation, TokenUser, WinLocalSystemSid, ACCESS_ALLOWED_ACE,
+            DACL_SECURITY_INFORMATION, SE_DACL_PROTECTED, TOKEN_QUERY, TOKEN_USER,
         },
+        Storage::FileSystem::FILE_ALL_ACCESS,
+        System::Threading::{GetCurrentProcess, OpenProcessToken},
     };
     let dir = Directory::new();
     let path = dir.0.join("daemon.json");
     let server = RpcServer::start(Arc::new(Echo::default()), 0).unwrap();
     let _published = server.endpoint().publish(&path).unwrap();
     let wide: Vec<_> = path.as_os_str().encode_wide().chain(Some(0)).collect();
-    let sddl = unsafe {
+    unsafe {
+        let mut token = ptr::null_mut();
+        assert_ne!(
+            OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token),
+            0
+        );
+        let token = OwnedHandle::from_raw_handle(token);
+        let mut size = 0;
+        GetTokenInformation(
+            token.as_raw_handle(),
+            TokenUser,
+            ptr::null_mut(),
+            0,
+            &mut size,
+        );
+        let mut user_data = vec![0usize; (size as usize).div_ceil(size_of::<usize>())];
+        assert_ne!(
+            GetTokenInformation(
+                token.as_raw_handle(),
+                TokenUser,
+                user_data.as_mut_ptr().cast(),
+                size,
+                &mut size
+            ),
+            0
+        );
+        let user = &*user_data.as_ptr().cast::<TOKEN_USER>();
+        let mut system = [0u32; 17];
+        let mut system_size = size_of_val(&system) as u32;
+        assert_ne!(
+            CreateWellKnownSid(
+                WinLocalSystemSid,
+                ptr::null_mut(),
+                system.as_mut_ptr().cast(),
+                &mut system_size
+            ),
+            0
+        );
         let mut descriptor = ptr::null_mut();
-        let flags = DACL_SECURITY_INFORMATION | OWNER_SECURITY_INFORMATION;
+        let mut acl = ptr::null_mut();
         assert_eq!(
             GetNamedSecurityInfoW(
                 wide.as_ptr(),
                 SE_FILE_OBJECT,
-                flags,
+                DACL_SECURITY_INFORMATION,
                 ptr::null_mut(),
                 ptr::null_mut(),
-                ptr::null_mut(),
+                &mut acl,
                 ptr::null_mut(),
                 &mut descriptor
             ),
             0
         );
-        let mut text = ptr::null_mut();
-        let converted = ConvertSecurityDescriptorToStringSecurityDescriptorW(
-            descriptor,
-            1,
-            flags,
-            &mut text,
-            ptr::null_mut(),
+        let mut control = 0;
+        let mut revision = 0;
+        assert_ne!(
+            GetSecurityDescriptorControl(descriptor, &mut control, &mut revision),
+            0
         );
-        LocalFree(descriptor);
-        assert_ne!(converted, 0);
-        let mut len = 0;
-        while *text.add(len) != 0 {
-            len += 1;
+        assert_ne!(control & SE_DACL_PROTECTED, 0);
+        assert!(!acl.is_null());
+        assert_eq!((*acl).AceCount, 2);
+        let (mut found_user, mut found_system) = (false, false);
+        for index in 0..2 {
+            let mut entry = ptr::null_mut();
+            assert_ne!(GetAce(acl, index, &mut entry), 0);
+            let ace = &*entry.cast::<ACCESS_ALLOWED_ACE>();
+            assert_eq!(ace.Header.AceType, 0); // ACCESS_ALLOWED_ACE_TYPE
+            assert_eq!(ace.Header.AceFlags, 0);
+            assert_eq!(ace.Mask, FILE_ALL_ACCESS);
+            let sid = (&ace.SidStart as *const u32).cast_mut().cast();
+            let is_user = EqualSid(sid, user.User.Sid) != 0;
+            let is_system = EqualSid(sid, system.as_mut_ptr().cast()) != 0;
+            assert!(
+                is_user || is_system,
+                "endpoint grants access to an unexpected principal"
+            );
+            found_user |= is_user;
+            found_system |= is_system;
         }
-        let result = String::from_utf16_lossy(std::slice::from_raw_parts(text, len));
-        LocalFree(text.cast());
-        result
-    };
-    let (owner, acl) = sddl.strip_prefix("O:").unwrap().split_once("D:").unwrap();
-    assert!(acl.starts_with('P'), "{sddl}");
-    assert_eq!(acl.matches("(A;").count(), 2, "{sddl}");
-    assert!(acl.contains("(A;;FA;;;SY)"), "{sddl}");
-    assert!(acl.contains(&format!("(A;;FA;;;{owner})")), "{sddl}");
+        // An elevated process may create a file owned by Administrators (BA),
+        // while its TokenUser is the local administrator (LA). Compare the
+        // actual SID values, not owner text or Windows' optional SDDL aliases.
+        assert!(found_user && found_system);
+        LocalFree(descriptor);
+    }
 }
