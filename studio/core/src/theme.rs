@@ -6,7 +6,7 @@
 //! Nothing changes size between states: hover and selection only change colour.
 
 use egui::{Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Margin, Stroke, TextStyle};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 // -- surfaces -------------------------------------------------------------------------
 /// The window behind the pages.
@@ -97,18 +97,55 @@ pub fn logo(painter: &egui::Painter, centre: egui::Pos2, size: f32) {
 /// lacks; Chinese text uses Windows' CJK fonts, including in editable fields.
 /// The icon family comes from Segoe's symbol fonts.
 pub fn install_fonts(ctx: &egui::Context) {
+    ctx.set_fonts(font_definitions().clone());
+}
+
+fn font_definitions() -> &'static FontDefinitions {
+    static FONTS: OnceLock<FontDefinitions> = OnceLock::new();
+    FONTS.get_or_init(build_fonts)
+}
+
+/// Borrow one process-lifetime copy of each system font. Owned font data is
+/// copied again by epaint for each DPI cache; CJK collections make that costly.
+fn load_font(path: &std::path::Path) -> Option<FontData> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        use windows_sys::Win32::Storage::FileSystem::FILE_SHARE_READ;
+        struct MappedFont {
+            _file: std::fs::File,
+            mapping: memmap2::Mmap,
+        }
+        if let Ok(file) = std::fs::File::options().read(true).share_mode(FILE_SHARE_READ).open(path) {
+            // SAFETY: retain the read-only file handle, denying write/delete
+            // sharing, for the mapping's entire lifetime. Only Windows system
+            // font files are mapped, never downloaded or user-editable assets.
+            if let Ok(mapping) = unsafe { memmap2::Mmap::map(&file) } {
+                // Called only by the OnceLock initializer for a bounded set of
+                // fonts. epaint's borrowed font API requires a static lifetime.
+                let font = Box::leak(Box::new(MappedFont { _file: file, mapping }));
+                return Some(FontData::from_static(&font.mapping));
+            }
+        }
+    }
+    // Keep fonts available when mapping is unsupported or sharing is denied.
+    // This still avoids epaint's duplicate owned buffers and repeated reads.
+    std::fs::read(path).ok().map(|bytes| FontData::from_static(Box::leak(bytes.into_boxed_slice())))
+}
+
+fn build_fonts() -> FontDefinitions {
     let mut fonts = FontDefinitions::default();
     let fonts_dir = std::env::var_os("WINDIR")
         .map(|w| std::path::PathBuf::from(w).join("Fonts"))
         .unwrap_or_else(|| std::path::PathBuf::from(r"C:\Windows\Fonts"));
-    let load = |name: &str| std::fs::read(fonts_dir.join(name)).ok();
+    let load = |name: &str| load_font(&fonts_dir.join(name));
 
     if let Some(regular) = load("segoeui.ttf") {
-        fonts.font_data.insert("segoe".into(), Arc::new(FontData::from_owned(regular)));
+        fonts.font_data.insert("segoe".into(), Arc::new(regular));
         fonts.families.entry(FontFamily::Proportional).or_default().insert(0, "segoe".into());
     }
     if let Some(chinese) = load("msyh.ttc").or_else(|| load("simhei.ttf")).or_else(|| load("simsun.ttc")) {
-        fonts.font_data.insert("cjk".into(), Arc::new(FontData::from_owned(chinese)));
+        fonts.font_data.insert("cjk".into(), Arc::new(chinese));
         for family in [FontFamily::Proportional, FontFamily::Monospace] {
             fonts.families.entry(family).or_default().push("cjk".into());
         }
@@ -119,7 +156,7 @@ pub fn install_fonts(ctx: &egui::Context) {
         for file in files {
             if let Some(bytes) = load(file) {
                 let key = format!("{family}-{file}");
-                fonts.font_data.insert(key.clone(), Arc::new(FontData::from_owned(bytes)));
+                fonts.font_data.insert(key.clone(), Arc::new(bytes));
                 chain.push(key);
                 break;
             }
@@ -131,7 +168,7 @@ pub fn install_fonts(ctx: &egui::Context) {
     add_family("heavy", &["segoeuib.ttf", "seguisb.ttf"]);
     add_family("light", &["segoeuil.ttf", "segoeuisl.ttf"]);
     if let Some(chinese_bold) = load("msyhbd.ttc") {
-        fonts.font_data.insert("cjk-bold".into(), Arc::new(FontData::from_owned(chinese_bold)));
+        fonts.font_data.insert("cjk-bold".into(), Arc::new(chinese_bold));
         for family in ["bold", "heavy"] {
             let chain = fonts.families.entry(FontFamily::Name(family.into())).or_default();
             let at = chain.iter().position(|name| name == "cjk").unwrap_or(chain.len());
@@ -139,12 +176,12 @@ pub fn install_fonts(ctx: &egui::Context) {
         }
     }
     if let Some(icons) = load("SegoeIcons.ttf").or_else(|| load("segmdl2.ttf")) {
-        fonts.font_data.insert("icons".into(), Arc::new(FontData::from_owned(icons)));
+        fonts.font_data.insert("icons".into(), Arc::new(icons));
         fonts.families.insert(FontFamily::Name("icons".into()), vec!["icons".into()]);
     } else {
         fonts.families.insert(FontFamily::Name("icons".into()), proportional.clone());
     }
-    ctx.set_fonts(fonts);
+    fonts
 }
 
 pub fn body(size: f32) -> FontId {
@@ -308,4 +345,34 @@ pub fn apply(ctx: &egui::Context) {
     widgets.open.fg_stroke = Stroke::new(1.0_f32, TEXT);
     style.visuals = visuals;
     ctx.set_style(style);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shared_fonts_stay_borrowed_and_support_text_at_multiple_scales() {
+        let definitions = font_definitions();
+        assert!(definitions.font_data.values().all(|data| matches!(data.font, std::borrow::Cow::Borrowed(_))),
+            "owned font bytes are duplicated by epaint for every DPI cache");
+        let ctx = egui::Context::default();
+        install_fonts(&ctx);
+        for scale in [1.0, 1.5, 2.0, 1.0] {
+            ctx.set_pixels_per_point(scale);
+            let _ = ctx.run(egui::RawInput::default(), |ctx| {
+                ctx.fonts(|fonts| {
+                    for font in [body(14.0), bold(16.0), heavy(22.0), light(14.0)] {
+                        assert!(fonts.has_glyphs(&font, "RsRazer 123 Привет"));
+                        if definitions.font_data.contains_key("cjk") {
+                            assert!(fonts.has_glyphs(&font, "汉字输入，鼠标键盘"));
+                        }
+                    }
+                    if definitions.font_data.contains_key("icons") {
+                        assert!(fonts.has_glyphs(&icon_font(16.0), icon::HOME));
+                    }
+                });
+            });
+        }
+    }
 }

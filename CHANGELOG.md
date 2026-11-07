@@ -14,6 +14,9 @@ uses [semantic versioning](https://semver.org/).
 
 ### Changed
 
+- Reduced native UI memory use by sharing read-only system fonts instead of
+  copying complete CJK font collections into every DPI cache. Font coverage and
+  rendering stay unchanged; a single-copy fallback handles unavailable mappings.
 - Removed the separate system title bar from Studio and its installer. Window
   controls blend into the dark interface, with native dragging and edge resizing.
 - Renamed the application and repository to RsRazer. UI links and update downloads
