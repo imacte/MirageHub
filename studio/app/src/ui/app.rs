@@ -112,6 +112,12 @@ struct Capture {
 }
 
 impl App {
+    pub fn refresh_tray_language(&self) {
+        if let Some(tray) = TRAY.lock().unwrap().as_ref() {
+            tray.0.refresh_language();
+        }
+    }
+
     pub fn new(cc: &eframe::CreationContext<'_>, background: bool) -> App {
         let settings = Settings::load();
         openrazer_studio_core::i18n::set(settings.language);

@@ -33,7 +33,11 @@ fn section<'a>(body: &'a str, language: &str) -> Option<&'a str> {
 /// out each one. English stands in for a translation not written, and the
 /// whole text for a release not made that way.
 pub fn for_language(body: &str, language: Lang) -> &str {
-    let wanted = if language == Lang::Ru { section(body, "ru") } else { None };
+    let wanted = match language {
+        Lang::Ru => section(body, "ru"),
+        Lang::ZhCn => section(body, "zh-cn").or_else(|| section(body, "zh-CN")).or_else(|| section(body, "zh")),
+        _ => None,
+    };
     wanted.or_else(|| section(body, "en")).unwrap_or(body.trim())
 }
 
@@ -180,6 +184,16 @@ mod tests {
     #[test]
     fn english_stands_in_for_a_missing_translation() {
         assert_eq!(for_language("<!-- notes:en -->\n- One\n<!-- /notes -->", Lang::Ru), "- One");
+        assert_eq!(for_language(BODY, Lang::ZhCn), "### Added\n\n- One");
+    }
+
+    #[test]
+    fn chinese_notes_are_selected_when_available() {
+        for tag in ["zh-cn", "zh-CN", "zh"] {
+            let body = format!("{BODY}\n<!-- notes:{tag} -->\n### 新增\n\n- 简体中文\n<!-- /notes -->");
+            assert_eq!(for_language(&body, Lang::ZhCn), "### 新增\n\n- 简体中文");
+            assert_eq!(for_language(&body, Lang::En), "### Added\n\n- One");
+        }
     }
 
     #[test]

@@ -88,7 +88,8 @@ pub fn logo(painter: &egui::Painter, centre: egui::Pos2, size: f32) {
 }
 
 /// Segoe UI if Windows has it, with egui's own fonts behind for anything it
-/// lacks (Cyrillic included); an icon family from Segoe's symbol fonts.
+/// lacks; Chinese text uses Windows' CJK fonts, including in editable fields.
+/// The icon family comes from Segoe's symbol fonts.
 pub fn install_fonts(ctx: &egui::Context) {
     let mut fonts = FontDefinitions::default();
     let fonts_dir = std::env::var_os("WINDIR")
@@ -99,6 +100,12 @@ pub fn install_fonts(ctx: &egui::Context) {
     if let Some(regular) = load("segoeui.ttf") {
         fonts.font_data.insert("segoe".into(), Arc::new(FontData::from_owned(regular)));
         fonts.families.entry(FontFamily::Proportional).or_default().insert(0, "segoe".into());
+    }
+    if let Some(chinese) = load("msyh.ttc").or_else(|| load("simhei.ttf")).or_else(|| load("simsun.ttc")) {
+        fonts.font_data.insert("cjk".into(), Arc::new(FontData::from_owned(chinese)));
+        for family in [FontFamily::Proportional, FontFamily::Monospace] {
+            fonts.families.entry(family).or_default().push("cjk".into());
+        }
     }
     let proportional = fonts.families.get(&FontFamily::Proportional).cloned().unwrap_or_default();
     let mut add_family = |family: &str, files: &[&str]| {
@@ -117,6 +124,14 @@ pub fn install_fonts(ctx: &egui::Context) {
     add_family("bold", &["seguisb.ttf", "segoeuib.ttf"]);
     add_family("heavy", &["segoeuib.ttf", "seguisb.ttf"]);
     add_family("light", &["segoeuil.ttf", "segoeuisl.ttf"]);
+    if let Some(chinese_bold) = load("msyhbd.ttc") {
+        fonts.font_data.insert("cjk-bold".into(), Arc::new(FontData::from_owned(chinese_bold)));
+        for family in ["bold", "heavy"] {
+            let chain = fonts.families.entry(FontFamily::Name(family.into())).or_default();
+            let at = chain.iter().position(|name| name == "cjk").unwrap_or(chain.len());
+            chain.insert(at, "cjk-bold".into());
+        }
+    }
     if let Some(icons) = load("SegoeIcons.ttf").or_else(|| load("segmdl2.ttf")) {
         fonts.font_data.insert("icons".into(), Arc::new(FontData::from_owned(icons)));
         fonts.families.insert(FontFamily::Name("icons".into()), vec!["icons".into()]);

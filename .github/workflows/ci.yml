@@ -139,7 +139,7 @@ jobs:
             ~/.cargo/git
             studio/target
           key: studio-${{ runner.os }}-${{ hashFiles('studio/Cargo.lock') }}
-      - name: Every string has a Russian translation
+      - name: Every string has Russian and Simplified Chinese translations
         run: python tools/check_translations.py
       - name: Lint
         run: cargo clippy --workspace --all-targets --locked -- -D warnings

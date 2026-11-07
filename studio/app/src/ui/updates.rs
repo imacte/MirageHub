@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Notes read once, by version and language: they are drawn every frame.
-pub type NotesCache = HashMap<(String, bool), Arc<Vec<Block>>>;
+pub type NotesCache = HashMap<(String, Lang), Arc<Vec<Block>>>;
 
 /// `23520256` as Explorer would put it: `22.4`.
 fn megabytes(bytes: u64) -> String {
@@ -28,13 +28,21 @@ fn megabytes(bytes: u64) -> String {
 
 /// `2026-11-03` as a reader would write it.
 fn date(published: &str) -> String {
+    date_for_language(published, i18n::current())
+}
+
+fn date_for_language(published: &str, language: Lang) -> String {
     const EN: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const RU: [&str; 12] = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
     let parts: Vec<&str> = published.split('-').collect();
     let [year, month, day] = parts.as_slice() else { return published.to_string() };
     let (Ok(month), Ok(day)) = (month.parse::<usize>(), day.parse::<u32>()) else { return published.to_string() };
     let Some(index) = month.checked_sub(1).filter(|i| *i < 12) else { return published.to_string() };
-    format!("{day} {} {year}", if i18n::current() == Lang::Ru { RU[index] } else { EN[index] })
+    if language == Lang::ZhCn {
+        format!("{year}年{month}月{day}日")
+    } else {
+        format!("{day} {} {year}", if language == Lang::Ru { RU[index] } else { EN[index] })
+    }
 }
 
 fn ago(checked: u64) -> String {
@@ -202,9 +210,9 @@ fn what_is_new(app: &mut App, ui: &mut egui::Ui, status: &Status) {
         widgets::plain_panel(ui, |ui| widgets::empty_state(ui, t("No notes here yet"), t("The notes of each release appear here after the first check."), |_| {}));
         return;
     }
-    let russian = i18n::current() == Lang::Ru;
+    let language = i18n::current();
     for release in shown {
-        let blocks = app.notes.entry((release.version.clone(), russian)).or_insert_with(|| Arc::new(notes::parse(notes::for_language(&release.notes, i18n::current())))).clone();
+        let blocks = app.notes.entry((release.version.clone(), language)).or_insert_with(|| Arc::new(notes::parse(notes::for_language(&release.notes, language)))).clone();
         let is_new = newer(&release.version, CURRENT);
         widgets::panel_with(ui, &tf("Version {}", &[&release.version]), |ui| {
             if ui.add(IconButton::new(icon::OPEN, t("Open the release page"))).clicked() {
@@ -225,17 +233,17 @@ fn what_is_new(app: &mut App, ui: &mut egui::Ui, status: &Status) {
     }
 }
 
-/// The colour of a changelog heading: what kind of change it is, in either language.
+/// The colour of a changelog heading in each supported language.
 fn heading_colour(heading: &str) -> Color32 {
     let heading = heading.to_lowercase();
     let starts = |words: &[&str]| words.iter().any(|w| heading.starts_with(w));
-    if starts(&["add", "new", "добав", "нов"]) {
+    if starts(&["add", "new", "добав", "нов", "新增"]) {
         ACCENT
-    } else if starts(&["fix", "исправ"]) {
+    } else if starts(&["fix", "исправ", "修复"]) {
         theme::WARN
-    } else if starts(&["remov", "deprecat", "удал", "убран"]) {
+    } else if starts(&["remov", "deprecat", "удал", "убран", "移除", "弃用"]) {
         theme::DANGER
-    } else if starts(&["chang", "измен"]) {
+    } else if starts(&["chang", "измен", "变更"]) {
         theme::INFO
     } else {
         TEXT_DIM
@@ -352,17 +360,22 @@ mod tests {
 
     #[test]
     fn dates_read_as_written() {
-        i18n::set(Lang::En);
-        assert_eq!(date("2026-11-03"), "3 Nov 2026");
-        assert_eq!(date("not a date"), "not a date");
-        assert_eq!(date("2026-13-03"), "2026-13-03");
+        assert_eq!(date_for_language("2026-11-03", Lang::En), "3 Nov 2026");
+        assert_eq!(date_for_language("2026-11-03", Lang::Ru), "3 ноября 2026");
+        assert_eq!(date_for_language("2026-11-03", Lang::ZhCn), "2026年11月3日");
+        assert_eq!(date_for_language("not a date", Lang::ZhCn), "not a date");
+        assert_eq!(date_for_language("2026-13-03", Lang::ZhCn), "2026-13-03");
     }
 
     #[test]
-    fn a_heading_is_coloured_by_kind_in_both_languages() {
+    fn a_heading_is_coloured_by_kind_in_all_languages() {
         assert_eq!(heading_colour("Added"), heading_colour("Добавлено"));
         assert_eq!(heading_colour("Fixed"), heading_colour("Исправлено"));
         assert_eq!(heading_colour("Changed"), heading_colour("Изменено"));
         assert_eq!(heading_colour("Removed"), heading_colour("Удалено"));
+        assert_eq!(heading_colour("Added"), heading_colour("新增"));
+        assert_eq!(heading_colour("Fixed"), heading_colour("修复"));
+        assert_eq!(heading_colour("Changed"), heading_colour("变更"));
+        assert_eq!(heading_colour("Removed"), heading_colour("移除"));
     }
 }

@@ -109,6 +109,9 @@ pub enum TrayAction {
 /// The tray icon and its menu.  Must be built on the UI thread and kept alive.
 pub struct Tray {
     _icon: tray_icon::TrayIcon,
+    open: tray_icon::menu::MenuItem,
+    restart: tray_icon::menu::MenuItem,
+    quit: tray_icon::menu::MenuItem,
 }
 
 impl Tray {
@@ -147,6 +150,12 @@ impl Tray {
                 on_action(TrayAction::Open);
             }
         }));
-        Some(Tray { _icon: tray })
+        Some(Tray { _icon: tray, open, restart, quit })
+    }
+
+    pub fn refresh_language(&self) {
+        self.open.set_text(t("Open OpenRazer Studio"));
+        self.restart.set_text(t("Restart the daemon"));
+        self.quit.set_text(t("Quit"));
     }
 }
