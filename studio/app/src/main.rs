@@ -60,6 +60,7 @@ fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title(shell::WINDOW_TITLE)
+            .with_decorations(!cfg!(windows))
             .with_inner_size(size)
             .with_min_inner_size([1000.0, 660.0])
             .with_visible(!background)

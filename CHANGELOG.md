@@ -14,6 +14,8 @@ uses [semantic versioning](https://semver.org/).
 
 ### Changed
 
+- Removed the separate system title bar from Studio and its installer. Window
+  controls blend into the dark interface, with native dragging and edge resizing.
 - Renamed the application and repository to RsRazer. UI links and update downloads
   now point to `imacte/RsRazer`; existing configuration and startup entries remain compatible.
 - Replaced the application, tray and installer icons with the shared RsRazer mark,

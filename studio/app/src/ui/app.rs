@@ -95,6 +95,7 @@ pub struct App {
     /// eframe shows the window after its first frame whatever the viewport
     /// asked for, so a background start hides it again for a few frames.
     hide_frames: u8,
+    custom_frame: bool,
 }
 
 /// For checking the design: `OPENRAZER_STUDIO_CAPTURE=path.png` saves one
@@ -119,6 +120,11 @@ impl App {
     }
 
     pub fn new(cc: &eframe::CreationContext<'_>, background: bool) -> App {
+        #[cfg(not(windows))]
+        let custom_frame = false;
+        #[cfg(windows)]
+        let custom_frame = rsrazer_core::window::install(cc, true);
+        if !custom_frame { cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(true)); }
         let settings = Settings::load();
         rsrazer_core::i18n::set(settings.language);
         theme::apply(&cc.egui_ctx);
@@ -191,6 +197,7 @@ impl App {
             started: Instant::now(),
             tray_ok,
             hide_frames: if background && tray_ok { 4 } else { 0 },
+            custom_frame,
             capture,
             macros_opened: None,
         }
@@ -294,12 +301,17 @@ impl eframe::App for App {
             .show_separator_line(true)
             .frame(Frame::new().fill(NAV).inner_margin(Margin { left: 12, right: 12, top: 18, bottom: 14 }))
             .show(ctx, |ui| self.nav(ui, &snap));
-        egui::CentralPanel::default().frame(Frame::new().fill(theme::BG).inner_margin(Margin { left: 32, right: 28, top: 20, bottom: 0 })).show(ctx, |ui| {
+        egui::CentralPanel::default().frame(Frame::new().fill(theme::BG).inner_margin(Margin { left: 32, right: 28, top: if self.custom_frame { 40 } else { 20 }, bottom: 0 })).show(ctx, |ui| {
             ui.set_max_width(ui.available_width().min(1480.0));
             self.page(ui, &snap)
         });
 
         self.toast_area(ctx, &snap);
+        if self.custom_frame {
+            #[cfg(windows)]
+            rsrazer_core::window::sync(_frame, ctx.pixels_per_point(), true);
+            rsrazer_core::chrome::show(ctx, true, true);
+        }
         self.capture(ctx, &snap);
     }
 

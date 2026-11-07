@@ -53,12 +53,14 @@ struct Setup {
     /// For checking the design: `OPENRAZER_SETUP_CAPTURE=path.png` saves a
     /// screenshot of the first page and exits.
     capture: Option<(PathBuf, u32)>,
+    custom_frame: bool,
 }
 
 pub fn run(args: Args) -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title(t("RsRazer Setup"))
+            .with_decorations(!cfg!(windows))
             .with_inner_size([720.0, 560.0])
             .with_resizable(false)
             .with_maximize_button(false)
@@ -66,8 +68,17 @@ pub fn run(args: Args) -> eframe::Result<()> {
         ..Default::default()
     };
     eframe::run_native("RsRazer Setup", options, Box::new(move |cc| {
+        #[cfg(not(windows))]
+        let custom_frame = false;
+        #[cfg(windows)]
+        let custom_frame = rsrazer_core::window::install(cc, false);
+        if !custom_frame { cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(true)); }
         theme::apply(&cc.egui_ctx);
-        let installed = args.dir.clone().filter(|_| args.from_temp).map(|dir| Installed { version: install::Manifest::read(&dir).map(|m| m.version).unwrap_or_default(), dir }).or_else(install::installed);
+        // Documentation captures use their explicit demo directory, not the
+        // current user's installation from the registry.
+        let installed = if std::env::var_os("OPENRAZER_SETUP_CAPTURE").is_some() { None } else {
+            args.dir.clone().filter(|_| args.from_temp).map(|dir| Installed { version: install::Manifest::read(&dir).map(|m| m.version).unwrap_or_default(), dir }).or_else(install::installed)
+        };
         let dir = installed.as_ref().map(|i| i.dir.clone()).or(args.dir.clone()).unwrap_or_else(rsrazer_core::paths::default_install_dir);
         let saved = installed.as_ref().and_then(|i| install::Manifest::read(&i.dir)).map(|m| m.options);
         let updating = args.action == Some(Action::Update) && installed.is_some();
@@ -86,6 +97,7 @@ pub fn run(args: Args) -> eframe::Result<()> {
             shared: Default::default(),
             from_temp: args.from_temp,
             capture: std::env::var_os("OPENRAZER_SETUP_CAPTURE").map(|p| (PathBuf::from(p), 0)),
+            custom_frame,
         };
         match args.action {
             Some(Action::Uninstall) if setup.installed.is_some() => setup.page = Page::ConfirmRemoval,
@@ -206,6 +218,11 @@ impl eframe::App for Setup {
                 ui.add_space(12.0);
             });
         });
+        if self.custom_frame {
+            #[cfg(windows)]
+            rsrazer_core::window::sync(_frame, ctx.pixels_per_point(), false);
+            rsrazer_core::chrome::show(ctx, false, !matches!(self.page, Page::Working(_)));
+        }
     }
 }
 

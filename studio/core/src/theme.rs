@@ -235,6 +235,7 @@ pub mod icon {
 }
 
 pub fn apply(ctx: &egui::Context) {
+    ctx.send_viewport_cmd(egui::ViewportCommand::SetTheme(egui::SystemTheme::Dark));
     install_fonts(ctx);
     let mut style = (*ctx.style()).clone();
     style.text_styles = [

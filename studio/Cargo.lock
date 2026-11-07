@@ -2511,6 +2511,7 @@ name = "rsrazer-core"
 version = "1.6.1"
 dependencies = [
  "egui",
+ "raw-window-handle",
  "serde",
  "serde_json",
  "windows-sys 0.59.0",

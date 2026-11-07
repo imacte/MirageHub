@@ -11,6 +11,9 @@ pub mod process;
 pub mod rpc;
 pub mod theme;
 pub mod widgets;
+pub mod chrome;
+#[cfg(windows)]
+pub mod window;
 
 pub use i18n::{t, tf};
 #[path = "../../../assets/branding.rs"]
