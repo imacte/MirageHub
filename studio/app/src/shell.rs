@@ -1,9 +1,7 @@
 //! The window's life outside egui: one instance, the tray icon, show and hide.
 //!
 //! Showing and hiding go straight through Win32 rather than egui viewport
-//! commands. A hidden window gets no paint messages, so egui never runs a
-//! frame for it and a "show yourself" command would wait forever; ShowWindow
-//! does not care.
+//! commands, so tray and second-instance actions can restore a sleeping UI.
 
 use rsrazer_core::t;
 
@@ -15,7 +13,7 @@ mod win {
     use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS, HWND};
     use windows_sys::Win32::System::Threading::CreateMutexW;
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        FindWindowW, IsIconic, SetForegroundWindow, ShowWindow, SW_HIDE, SW_RESTORE, SW_SHOW,
+        FindWindowW, IsIconic, IsWindowVisible, SetForegroundWindow, ShowWindow, SW_HIDE, SW_RESTORE, SW_SHOW,
     };
 
     fn wide(text: &str) -> Vec<u16> {
@@ -62,6 +60,10 @@ mod win {
             }
         }
     }
+
+    pub fn is_visible() -> bool {
+        window().is_some_and(|hwnd| unsafe { IsWindowVisible(hwnd) != 0 && IsIconic(hwnd) == 0 })
+    }
 }
 
 #[cfg(not(windows))]
@@ -71,9 +73,10 @@ mod win {
     }
     pub fn show() {}
     pub fn hide() {}
+    pub fn is_visible() -> bool { true }
 }
 
-pub use win::{claim_single_instance, hide, show};
+pub use win::{claim_single_instance, hide, is_visible, show};
 
 pub use rsrazer_core::branding::icon_rgba;
 

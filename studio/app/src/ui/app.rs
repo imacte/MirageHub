@@ -78,7 +78,6 @@ pub struct App {
     pub settings: Settings,
     /// A copy for the thread that switches profiles by app.
     rules: Rules,
-    serials: Arc<Mutex<Vec<String>>>,
     pub autostart: bool,
     pub device_ui: super::device::DeviceUi,
     pub lighting: super::lighting::LightingUi,
@@ -95,6 +94,7 @@ pub struct App {
     /// eframe shows the window after its first frame whatever the viewport
     /// asked for, so a background start hides it again for a few frames.
     hide_frames: u8,
+    suspended: bool,
     custom_frame: bool,
 }
 
@@ -136,8 +136,11 @@ impl App {
             });
         }
         let shared: Shared = Default::default();
+        let serials = Arc::new(Mutex::new(Vec::new()));
         let ctx = cc.egui_ctx.clone();
-        let tx = worker::spawn(shared.clone(), move || ctx.request_repaint());
+        let tx = worker::spawn(shared.clone(), serials.clone(), move || {
+            if shell::is_visible() { ctx.request_repaint(); }
+        });
         // RsRazer is how most people start the daemon; do it for them.
         let _ = tx.send(Command::StartDaemon);
         if std::env::var_os("OPENRAZER_STUDIO_CAPTURE").is_none() {
@@ -165,8 +168,7 @@ impl App {
         }
 
         let rules: Rules = Arc::new(Mutex::new(settings.clone()));
-        let serials = Arc::new(Mutex::new(Vec::new()));
-        crate::appwatch::spawn(rules.clone(), tx.clone(), serials.clone());
+        crate::appwatch::spawn(rules.clone(), tx.clone(), serials);
         let capture = std::env::var_os("OPENRAZER_STUDIO_CAPTURE").map(|path| Capture {
             path: path.into(),
             page: std::env::var("OPENRAZER_STUDIO_PAGE").unwrap_or_default(),
@@ -185,7 +187,6 @@ impl App {
             pending: Vec::new(),
             settings,
             rules,
-            serials,
             autostart: crate::daemon::autostart_enabled(),
             device_ui: Default::default(),
             lighting: Default::default(),
@@ -197,6 +198,7 @@ impl App {
             started: Instant::now(),
             tray_ok,
             hide_frames: if background && tray_ok { 4 } else { 0 },
+            suspended: false,
             custom_frame,
             capture,
             macros_opened: None,
@@ -288,6 +290,25 @@ impl eframe::App for App {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             shell::hide();
         }
+        if self.capture.is_none() && !shell::is_visible() {
+            // Apply the last slider movement even if its debounce timer has
+            // not expired. The sleeping window will no longer service it.
+            for pending in std::mem::take(&mut self.pending) {
+                self.send(pending.command);
+            }
+            if !self.suspended {
+                // Recreate only disposable graphics when the window reopens;
+                // keep edits, macro recording state and settings intact.
+                self.images = Images::default();
+                self.arts = Default::default();
+                self.suspended = true;
+            }
+            return;
+        }
+        if self.suspended {
+            self.suspended = false;
+            self.send(Command::Refresh);
+        }
         let snap = self.shared.lock().unwrap().clone();
         self.sync(&snap);
         self.flush_pending(ctx);
@@ -333,7 +354,6 @@ impl App {
                 edit.refresh(device, detail, snap);
             }
         }
-        *self.serials.lock().unwrap() = snap.devices.iter().map(|d| d.serial.clone()).collect();
     }
 
     // -- the navigation column ------------------------------------------------------------

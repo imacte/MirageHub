@@ -142,12 +142,12 @@ pub enum Then {
 
 pub type Shared = Arc<Mutex<Snapshot>>;
 
-pub fn spawn(shared: Shared, repaint: impl Fn() + Send + 'static) -> Sender<Command> {
+pub fn spawn(shared: Shared, serials: Arc<Mutex<Vec<String>>>, repaint: impl Fn() + Send + 'static) -> Sender<Command> {
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::Builder::new()
         .name("daemon".into())
         .spawn(move || {
-            Worker { shared, client: None, battery_at: HashMap::new(), slow_at: None, repaint: Box::new(repaint) }.run(rx)
+            Worker { shared, serials, client: None, battery_at: HashMap::new(), slow_at: None, repaint: Box::new(repaint) }.run(rx)
         })
         .expect("the worker thread starts");
     tx
@@ -155,6 +155,8 @@ pub fn spawn(shared: Shared, repaint: impl Fn() + Send + 'static) -> Sender<Comm
 
 struct Worker {
     shared: Shared,
+    /// Auto profile switching must keep discovering devices while the UI sleeps.
+    serials: Arc<Mutex<Vec<String>>>,
     client: Option<Client>,
     battery_at: HashMap<String, Instant>,
     slow_at: Option<Instant>,
@@ -224,6 +226,7 @@ impl Worker {
                 let mut shared = self.shared.lock().unwrap();
                 shared.daemon = DaemonState::NotRunning(error.to_string());
                 shared.devices.clear();
+                self.serials.lock().unwrap().clear();
                 return;
             }
         };
@@ -232,6 +235,7 @@ impl Worker {
         let effects = self.with(|c| c.call("effect.status", json!({}))).unwrap_or(Value::Null);
         let integrations = self.with(|c| c.call("integration.status", json!({}))).unwrap_or(Value::Null);
         let devices: Vec<Device> = devices.as_array().map(|rows| rows.iter().map(parse_device).collect()).unwrap_or_default();
+        *self.serials.lock().unwrap() = devices.iter().map(|device| device.serial.clone()).collect();
         let software = effects
             .get("active")
             .and_then(Value::as_object)

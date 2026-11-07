@@ -1,6 +1,11 @@
 [workspace]
 members = ["core", "app", "setup", "chroma", "daemon", "tools"]
+exclude = ["vendor/eframe"]
 resolver = "2"
+
+[patch.crates-io]
+# Backport the hidden-window event-loop fix without changing egui's API.
+eframe = { path = "vendor/eframe" }
 
 [workspace.package]
 version = "1.6.1"

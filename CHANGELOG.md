@@ -8,6 +8,9 @@ uses [semantic versioning](https://semver.org/).
 
 ### Fixed
 
+- Fixed the tray window busy-looping on one CPU core when Windows suppresses
+  hidden-window paint events. Hidden/minimized Studio releases device preview
+  caches and stops redrawing; device polling and automatic profiles stay active.
 - Fixed the native daemon crashing on a subsequent Bluetooth scan and disconnecting
   Studio with error 10054. The Windows Runtime now stays alive between BLE workers;
   an isolated regression test covers repeated worker startup and teardown.
