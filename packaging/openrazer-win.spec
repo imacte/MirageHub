@@ -1,9 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller recipe for the standalone Windows executables.
+"""Legacy Python reference build; not used by the native release workflows.
 
 Produces ``openrazer-win.exe``, a one-file binary holding the CLI and the
-daemon.  The control panel in the release, ``openrazer-win-gui.exe``, is the
-Rust program in ``gui/``, built separately.
+daemon. Native releases instead use ``studio/tools/build-native.ps1`` to build
+the Rust daemon, Studio and installer without Python or PyInstaller.
 
 Build with::
 

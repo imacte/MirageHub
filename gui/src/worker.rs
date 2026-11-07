@@ -75,10 +75,6 @@ pub struct Snapshot {
     pub busy: bool,
     /// Why the daemon could not be started, until it is.
     pub start_error: Option<crate::daemon::StartError>,
-    /// A Python that could run the daemon once openrazer-win is in it.
-    pub python: Option<std::path::PathBuf>,
-    /// Installing Python or the package: what is happening, and how far.
-    pub setup: Option<(String, Option<f32>)>,
 }
 
 pub enum Command {
@@ -96,10 +92,6 @@ pub enum Command {
     StartDaemon,
     StopDaemon,
     RestartDaemon,
-    /// Fetch and open the Python installer, then install openrazer-win.
-    InstallPython,
-    /// Install openrazer-win into the Python already here.
-    InstallPackage,
 }
 
 /// What to re-read after a call succeeds.
@@ -462,17 +454,6 @@ impl Worker {
                 self.poll();
             }
             Command::RestartDaemon => self.start_daemon(true),
-            Command::InstallPython => {
-                let result = self.install_python().and_then(|python| self.install_package(&python));
-                self.finish_setup(result);
-            }
-            Command::InstallPackage => {
-                let result = match crate::setup::find_python() {
-                    Some(python) => self.install_package(&python),
-                    None => Err("No Python 3.9 or newer was found.".to_string()),
-                };
-                self.finish_setup(result);
-            }
         }
     }
 
@@ -491,55 +472,13 @@ impl Worker {
                 self.toast(if restart { "Daemon restarted" } else { "Daemon started" }, false);
             }
             Err(error) => {
-                let python = if error.missing { crate::setup::find_python() } else { None };
                 let mut shared = self.shared.lock().unwrap();
-                shared.python = python;
                 shared.start_error = Some(error);
                 drop(shared);
                 self.toast("The daemon could not be started", true);
             }
         }
         self.poll();
-    }
-
-    fn stage(&self, text: impl Into<String>, progress: Option<f32>) {
-        self.shared.lock().unwrap().setup = Some((text.into(), progress));
-        (self.repaint)();
-    }
-
-    fn install_python(&mut self) -> Result<std::path::PathBuf, String> {
-        let version = crate::setup::PYTHON_VERSION;
-        self.stage(format!("Downloading Python {version} from python.org…"), Some(0.0));
-        let shared = self.shared.clone();
-        let repaint = &self.repaint;
-        let installer = crate::setup::download_installer(&|fraction| {
-            if let Some(stage) = shared.lock().unwrap().setup.as_mut() {
-                stage.1 = Some(fraction);
-            }
-            repaint();
-        })?;
-        self.stage(format!("Finish the Python {version} installer; this continues once it closes."), None);
-        crate::setup::run_installer(&installer)?;
-        let _ = std::fs::remove_file(&installer);
-        crate::setup::find_python().ok_or_else(|| "Python was installed, but cannot be found; start this program again.".to_string())
-    }
-
-    fn install_package(&mut self, python: &std::path::Path) -> Result<(), String> {
-        self.stage("Installing openrazer-win with pip…", None);
-        crate::setup::install_package(python)
-    }
-
-    fn finish_setup(&mut self, result: Result<(), String>) {
-        self.shared.lock().unwrap().setup = None;
-        match result {
-            Ok(()) => self.start_daemon(false),
-            Err(message) => {
-                let python = crate::setup::find_python();
-                let mut shared = self.shared.lock().unwrap();
-                shared.python = python;
-                shared.start_error = Some(crate::daemon::StartError { message, missing: true });
-            }
-        }
     }
 
     fn reload_macros(&mut self, serial: &str) {

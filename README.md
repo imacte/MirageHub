@@ -4,13 +4,13 @@
 
 [简体中文说明](README.zh-CN.md) · English
 
-**Control your Razer keyboard, mouse and mousepad on Windows 10 / 11 — without Synapse, without a kernel driver, without a single third-party package.**
+**Control your Razer devices on Windows 10 / 11 with a native Rust application and daemon — no Synapse, kernel driver or Python runtime.**
 
 [![CI](https://github.com/imacte/openrazer-win/actions/workflows/ci.yml/badge.svg)](https://github.com/imacte/openrazer-win/actions/workflows/ci.yml)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/downloads/)
+[![Rust backend](https://img.shields.io/badge/backend-Rust-orange)](studio/daemon)
 [![License: GPL-2.0-or-later](https://img.shields.io/badge/license-GPL--2.0--or--later-green)](LICENSE)
 [![Upstream PyPI package](https://img.shields.io/pypi/v/openrazer-win)](https://pypi.org/project/openrazer-win/)
-[![Devices: 277](https://img.shields.io/badge/devices-277-orange)](docs/devices.json)
+[![Devices: 279](https://img.shields.io/badge/devices-279-orange)](docs/devices.json)
 
 [Documentation](README.zh-CN.md) ·
 [Supported devices](docs/devices.json) ·
@@ -57,33 +57,21 @@ Razer Viper: dpi (3200, 3200)
 
 ## Install
 
-This fork adds Simplified Chinese to Studio and its installer. The PyPI package below is the
-upstream Python backend; it does not install the localized Studio. See the
-[Chinese guide](README.zh-CN.md) to build this branch, or the
-[fork's releases](https://github.com/imacte/openrazer-win/releases) when an installer is published.
-
-```bash
-pip install openrazer-win
-```
-
-There is no dependency list to speak of — the port runs on the Python standard library alone. No
-compiler, no `hidapi` wheel, no driver signing, no administrator rights, no reboot.
-
-One optional extra exists, for Bluetooth-only devices such as the Kraken Kitty V2 BT:
-
-```bash
-pip install "openrazer-win[ble]"
-```
-
-That pulls in PyWinRT, because Windows exposes Bluetooth LE through WinRT. Everything on the USB
-side keeps working without it.
-
-No Python? Download **`openrazer-studio-setup.exe`** from the
+This fork includes Simplified Chinese and a native Rust backend. Download
+**`openrazer-studio-setup.exe`** (also named `openrazer-studio-setup-zh-CN.exe`) from the
 [releases page](https://github.com/imacte/openrazer-win/releases), when available, and run it: it installs
 [OpenRazer Studio](#openrazer-studio) with the daemon, for your account only — no administrator
 prompt — and can repair or remove it again at any time. `openrazer-win-gui.exe` in the release is
 the classic control panel, a single file with the daemon inside; `openrazer-win.exe` is the command
-line, for scripts and terminals. `SHA256SUMS.txt` lists every file's checksum.
+line and native daemon, for scripts and terminals. `SHA256SUMS.txt` lists every file's checksum.
+Bluetooth LE support is built in using Windows WinRT. The released executables require neither
+Python nor a separate Visual C++ runtime installation. Both installer names contain the same
+application and retain English, Russian and Simplified Chinese.
+
+The upstream PyPI package (`pip install openrazer-win`, optionally `[ble]`) remains a Python
+client and reference implementation; it does not install this fork's native Studio or daemon.
+Its JSON-RPC client can talk to the Rust daemon. Existing lighting, profile, macro and integration
+configuration files remain compatible.
 
 > **Close Razer Synapse before using this.** Synapse holds the device open and will fight you for
 > control of the LEDs. `openrazer-win doctor` tells you if that is happening.
@@ -282,11 +270,10 @@ still shipped as a single file with the daemon inside. Pick a device on the left
 - **Macro keys** — what each key does, editing, recording and trying it out.
 - **Profiles** — save what is showing under a name, apply it later.
 
-It starts the daemon itself if it is not running — the one built into it, or one beside it or
-installed with pip — and *Settings → Start with Windows* has it come up in the tray at sign-in,
-keeping the daemon running; closing the window leaves it in the tray. If no daemon can be found at
-all, it offers to download Python from python.org, opens the installer, and installs openrazer-win
-into it.
+It starts the native daemon itself if it is not running: the one beside it, embedded in it, or
+on PATH. *Settings → Start with Windows* has it come up in the tray at sign-in,
+keeping the daemon running; closing the window leaves it in the tray. A development build without
+a daemon links to the complete application download.
 Settings also shows the daemon's state — version, devices still being set up — with start, stop and
 restart.
 
@@ -376,8 +363,9 @@ against every known product id, and emits a small program per (attribute, device
  {"op": "send"}]
 ```
 
-609 distinct recipes cover all 276 USB devices. `openrazer_win/devices/recipes.py` interprets them at
-runtime. Tracking a new upstream release means re-running the transpiler, not rewriting Python.
+The native interpreter in `studio/daemon/src/recipes` executes these recipes at runtime; the
+Python interpreter remains the regression oracle. Tracking an upstream release means regenerating
+the shared device data and comparing both implementations.
 
 **The device database** comes from the same place: `tools/extract_device_db.py` imports upstream's
 `openrazer_daemon.hardware` package with the Linux-only dependencies stubbed out, and dumps every
@@ -521,7 +509,7 @@ each product id is in the database.
 | `device replied not supported` | The firmware refused that command; the device genuinely lacks the feature. |
 | Effects reset after sleep | Windows cuts USB power. The daemon replays the stored state when the device reappears. |
 | Device is connected but nothing is listed | It may be on a charge-only cable, or be a Bluetooth-only model. `doctor` names what Windows sees it as, and says which of the two it is. |
-| A Bluetooth device is powered on but not listed | Install the extra: `pip install "openrazer-win[ble]"`. `doctor` ends with a Bluetooth section that says whether support is present and what the radio can hear. |
+| A Bluetooth device is powered on but not listed | Bluetooth LE support is built into the native daemon. Run `openrazer-win doctor` to see what Windows and the radio can detect. The old Python distribution separately needs its `[ble]` extra. |
 | The BlackShark's mute button leaves the microphone at zero in Windows | Synapse 4, by the accounts on Razer's forum, not the headset: with Synapse closed the button simply mutes. Raise the level once in *Sound settings* and close Synapse. |
 | Nothing at all listed | Only Razer devices (vendor `1532`) are handled. |
 | The control panel says the daemon did not start | It shows what the daemon printed; the same is in `%LOCALAPPDATA%\openrazer-win\daemon-start.log`. |
@@ -541,32 +529,50 @@ ruff check .
 python tools/simulate_devices.py    # every capability of all 276 USB devices
 ```
 
-OpenRazer Studio and its installer are a Rust workspace in `studio/` — `core` (the daemon's
-protocol, the look, English, Russian and Simplified Chinese), `app` and `setup`:
+The native application is a Rust workspace in `studio/`: `daemon` (HID, Bluetooth, effects,
+keys/macros, Chroma REST, authenticated JSON-RPC and CLI), `core` (the client, settings and
+translations), `app`, `chroma` (game SDK DLLs), and `setup`. Building it requires Rust, MSVC build
+tools and the Windows SDK. Python is only used for data generation and reference comparisons:
 
 ```bash
 cd studio
-cargo run -p openrazer-studio      # talks to whichever daemon is running
+cargo build --locked -p openrazer-daemon -p openrazer-studio
+./target/debug/openrazer-studio.exe # starts the native daemon beside it
 cargo clippy --workspace -- -D warnings && cargo test --workspace
 python tools/check_translations.py # every string has Russian and Simplified Chinese translations
 ```
 
+From the repository root, `./studio/tools/build-native.ps1` builds the daemon, both Chroma DLLs,
+Studio and its complete installer into `dist/`, with a statically linked CRT. Add `-IncludeClassic`
+to build the classic panel too, or `-DaemonOnly` for just the native CLI/backend. This build needs
+no Python or PyInstaller.
+
 The installer carries what it installs: set `OPENRAZER_STUDIO_PAYLOAD` to a folder holding
 `openrazer-studio.exe` and `openrazer-win.exe` before `cargo build -p openrazer-studio-setup`, then
-`tools/installer-cycle.ps1` installs, breaks, repairs and removes it, checking every step.
+`tools/installer-cycle.ps1` installs, breaks, repairs and removes it, checking every step. Run that
+destructive test only in a clean Windows account; changing LOCALAPPDATA does not isolate HKCU.
 `OPENRAZER_STUDIO_CAPTURE=shot.png OPENRAZER_STUDIO_PAGE=lighting:0:studio` has Studio screenshot a
 page and exit.
 
 The classic control panel is the Rust crate in `gui/` (`cargo run` there).
-`openrazer-win-daemon --emulate` gives either one emulated devices to show.
+The native daemon has an isolated simulated-device mode for development and testing.
 
 The test suite runs against a built-in device emulator that validates CRCs and answers the protocol,
 so the whole stack — transport, recipes, daemon, client, CLI — is exercised without plugging anything
 in. `--emulate` does the same for the daemon:
 
 ```bash
-openrazer-win-daemon --emulate
+openrazer-win daemon start --emulate
+openrazer-win list --emulate --json
+openrazer-win daemon stop --emulate
 ```
+
+Simulation uses a separate `demo` configuration directory and a separate instance lock. Pass
+`--config-dir PATH` to both daemon and CLI for a custom isolated directory. It never sends real
+keyboard input, launches programs, or writes to attached hardware. `--direct` accesses devices
+without the daemon and refuses to compete with a running instance; continuous effects need the
+daemon. The Python implementation remains in the repository as a compatibility client and as the
+oracle for native protocol, device, lighting, key and Chroma regression tests.
 
 ### Re-syncing with upstream
 

@@ -10,6 +10,16 @@ param([Parameter(Mandatory)] [string]$Setup, [Parameter(Mandatory)] [string]$Dir
 $ErrorActionPreference = 'Stop'
 $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenRazerStudio'
 $menu = Join-Path ([Environment]::GetFolderPath('Programs')) 'OpenRazer Studio'
+$runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+$Setup = (Resolve-Path -LiteralPath $Setup).Path
+$Dir = [IO.Path]::GetFullPath($Dir)
+# This is a destructive install/repair/uninstall test for a clean CI account.
+# LOCALAPPDATA alone does not isolate HKCU or the user's real Start menu.
+if ((Test-Path -LiteralPath $Dir) -or (Test-Path $key) -or (Test-Path -LiteralPath $menu) -or
+    (Get-ItemProperty $runKey -ErrorAction SilentlyContinue).OpenRazerWin) {
+    throw 'Use a clean Windows account with no OpenRazer installation, startup entry or existing target directory.'
+}
+if ($Dir -eq [IO.Path]::GetPathRoot($Dir)) { throw 'The install test target cannot be a drive root.' }
 $failed = $false
 function Check($what, $ok) { if ($ok) { "ok   $what" } else { "FAIL $what"; $script:failed = $true } }
 $version = (& $Setup --version | Out-String).Trim().Split(' ')[-1]
@@ -25,6 +35,30 @@ Check 'start menu entry' (Test-Path (Join-Path $menu 'OpenRazer Studio.lnk'))
 Check 'start menu repair entry' ((Get-ChildItem $menu -Filter '*.lnk').Count -eq 2)
 $run = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue).OpenRazerWin
 Check 'autostart left alone' (-not ($run -like "*$Dir*"))
+
+# Exercise the installed payload, using only simulated devices and isolated data.
+$daemon = Join-Path $Dir 'openrazer-win.exe'
+$daemonVersion = (& $daemon --version | Out-String).Trim()
+Check 'native Rust daemon installed' ($LASTEXITCODE -eq 0 -and $daemonVersion -like '*Rust backend*')
+$demoConfig = Join-Path $env:LOCALAPPDATA 'openrazer-install-test'
+try {
+    & $daemon daemon start --emulate --config-dir $demoConfig | Out-Host
+    Check 'installed daemon starts' ($LASTEXITCODE -eq 0)
+    # Startup publishes its endpoint before discovery; wait for its ready state.
+    $ready = $false
+    for ($i = 0; $i -lt 60; $i++) {
+        $state = & $daemon daemon status --emulate --config-dir $demoConfig | ConvertFrom-Json
+        if ($state.state -eq 'ready') { $ready = $true; break }
+        Start-Sleep -Milliseconds 100
+    }
+    Check 'installed daemon becomes ready' $ready
+    $devices = & $daemon list --emulate --config-dir $demoConfig --json | ConvertFrom-Json
+    Check 'installed daemon enumerates simulated devices' ($LASTEXITCODE -eq 0 -and $devices.Count -eq 4)
+    & $daemon effect static red --device 0203 --emulate --config-dir $demoConfig --quiet | Out-Host
+    Check 'installed daemon accepts lighting controls' ($LASTEXITCODE -eq 0)
+} finally {
+    & $daemon daemon stop --emulate --config-dir $demoConfig | Out-Host
+}
 
 # Break it: a missing daemon, a truncated app, unreadable settings, no Start menu.
 Remove-Item (Join-Path $Dir 'openrazer-win.exe')
@@ -45,7 +79,6 @@ Check 'broken settings set aside' (-not (Test-Path $settings) -and (Get-ChildIte
 Check 'repaired app runs' ($LASTEXITCODE -eq 0)
 
 # Update it, as Studio does: what was changed since installing has to survive.
-$runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 Set-ItemProperty $runKey -Name OpenRazerWin -Value "`"$(Join-Path $Dir 'openrazer-studio.exe')`" --background"
 Remove-Item -Recurse (Join-Path ([Environment]::GetFolderPath('Programs')) 'OpenRazer Studio')
 & $Setup --update --silent --dir $Dir | Out-Host

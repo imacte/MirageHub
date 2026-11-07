@@ -4,7 +4,7 @@
 
 在 Windows 10 / 11 上控制 Razer 键盘、鼠标、鼠标垫和受支持的耳机，无需 Razer Synapse、内核驱动或 Razer 账户。
 
-本分支为 **OpenRazer Studio 及其安装器**加入简体中文，保留英文和俄文。覆盖首页、设备、灯光、宏、集成、更新、设置、系统托盘，以及安装、修复和卸载流程。经典控制面板 `gui/`、旧版 Tk 界面和 Python 命令行暂未汉化；设备型号、协议标识、命令和 API 保持原样。
+本分支为 **OpenRazer Studio 及其安装器**加入简体中文，保留英文和俄文。覆盖首页、设备、灯光、宏、集成、更新、设置、系统托盘，以及安装、修复和卸载流程。Studio、后台服务、命令行和安装器均使用 **Rust**，运行时无需 Python。经典控制面板 `gui/`、旧版 Tk 界面和命令行暂未汉化；设备型号、协议标识、命令和 API 保持原样。
 
 ![OpenRazer Studio 简体中文灯光编辑器（模拟设备）](docs/images/studio-lighting-zh-CN.png)
 
@@ -35,32 +35,33 @@ GitHub、社区和问题反馈入口均指向本仓库；问题请提交到 [Iss
 
 ## 从源码运行汉化版
 
-需要 Python 3.9 或更高版本、Rust，以及 Visual Studio 的 C++ 构建工具和 Windows SDK。Rust 版本由 `studio/rust-toolchain.toml` 指定。
+需要 Rust、Visual Studio 的 C++ 构建工具和 Windows SDK。Rust 版本由 `studio/rust-toolchain.toml` 指定。Python 仅用于可选的翻译检查、设备数据生成和与旧实现的对照测试。
 
 ```powershell
 git clone https://github.com/imacte/openrazer-win.git
 cd openrazer-win
-# 请使用包含汉化改动的分支或提交；本地开发分支为 feat/zh-cn-localization。
-python -m pip install -e .
-
 cd studio
-cargo run --locked -p openrazer-studio
+cargo build --locked -p openrazer-daemon -p openrazer-studio
+.\target\debug\openrazer-studio.exe
 ```
 
-Studio 会尝试自动启动已安装的后台服务。也可以先在另一个终端运行：
+Studio 会自动启动同目录下的 `openrazer-win.exe`。也可以手动启动后台：
 
 ```powershell
-openrazer-win daemon start
+.\target\debug\openrazer-win.exe daemon start
 ```
 
-构建可执行文件：
+在仓库根目录构建完整安装包：
 
 ```powershell
-cd studio
-cargo build --release --locked -p openrazer-studio
+.\studio\tools\build-native.ps1
+# 可选：同时构建内嵌后台的经典控制面板
+.\studio\tools\build-native.ps1 -IncludeClassic
 ```
 
-输出为 `studio/target/release/openrazer-studio.exe`。单独构建此程序不包含 Python 后台服务或 Chroma DLL；开发环境可使用上面安装的 Python 后台服务。完整安装包的构建流程见 [.github/workflows/release.yml](.github/workflows/release.yml)。上游发布页的安装包不会自动包含本分支尚未发布的汉化改动。
+输出位于 `dist/`：`openrazer-studio-setup-zh-CN.exe` 是完整安装包，内含 Studio 和 Rust 后台；`openrazer-studio.exe` 是主程序，单独运行时需同目录放置 `openrazer-win.exe`。安装包的普通名称与 `-zh-CN` 名称内容相同，均保留三种界面语言。Studio 内嵌 32/64 位 Chroma DLL，发布构建静态链接 C 运行库。构建和运行均无需安装 Python。
+
+发布流程见 [.github/workflows/release.yml](.github/workflows/release.yml)。旧 Python 实现仍保留，供兼容客户端、数据生成和回归对照使用，不打入原生安装包。
 
 ## 命令行常用操作
 
@@ -80,11 +81,16 @@ openrazer-win profile load night         # 应用配置
 openrazer-win doctor                     # 诊断设备连接问题
 ```
 
-蓝牙设备需要额外安装：
+蓝牙 LE 支持已内置，通过 Windows 原生 WinRT 接口访问，无需额外安装包。使用模拟设备测试命令时，可运行：
 
 ```powershell
-python -m pip install "openrazer-win[ble]"
+openrazer-win daemon start --emulate
+openrazer-win list --emulate --json
+openrazer-win effect static red --emulate --device 0203
+openrazer-win daemon stop --emulate
 ```
+
+模拟模式默认使用独立的 `demo` 配置目录，不会操作真实设备。`--direct` 可在后台停止时直接控制硬件；需要持续运行的灯效、宏和集成使用后台服务。旧版 `persistence.json`、`profiles.json`、`macros.json` 和 `integrations.json` 格式及 JSON-RPC 接口保持兼容。
 
 ## 翻译维护与检查
 

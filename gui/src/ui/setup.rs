@@ -13,18 +13,6 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot, reason: &str) {
     ui.label(widgets::dim("It is the background service that owns your devices; this window only talks to it."));
     ui.add_space(14.0);
 
-    if let Some((stage, progress)) = &snap.setup {
-        widgets::card(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.add(egui::Spinner::new().size(18.0).color(ACCENT));
-                ui.label(RichText::new(stage).font(theme::bold(15.0)));
-            });
-            if let Some(fraction) = progress {
-                ui.add(egui::ProgressBar::new(*fraction).desired_height(8.0).fill(ACCENT).show_percentage());
-            }
-        });
-        return;
-    }
     if snap.busy {
         widgets::card(ui, |ui| {
             ui.horizontal(|ui| {
@@ -48,31 +36,7 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot, reason: &str) {
     if error.missing {
         widgets::card(ui, |ui| {
             ui.label(RichText::new("Set it up").font(theme::bold(16.0)));
-            match &snap.python {
-                Some(python) => {
-                    ui.label(format!("Python is installed ({}), but openrazer-win is not in it yet.", python.display()));
-                    ui.label(widgets::dim("This installs it with pip, then starts the daemon."));
-                    ui.add_space(4.0);
-                    if widgets::primary_button(ui, "Install openrazer-win").clicked() {
-                        app.send(Command::InstallPackage);
-                    }
-                }
-                None => {
-                    let version = crate::setup::PYTHON_VERSION;
-                    ui.label(format!(
-                        "The daemon runs on Python, which this computer does not have. This downloads Python {version} \
-                         from python.org and opens its installer — click Install Now there — then installs \
-                         openrazer-win into it and starts the daemon."
-                    ));
-                    ui.add_space(4.0);
-                    ui.horizontal(|ui| {
-                        if widgets::primary_button(ui, &format!("Install Python {version}")).clicked() {
-                            app.send(Command::InstallPython);
-                        }
-                        ui.hyperlink_to(RichText::new("the installer, to run yourself").size(13.0), crate::setup::installer_url());
-                    });
-                }
-            }
+            ui.label(widgets::dim("Download the complete application from the releases page. It includes the background service."));
             ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
                 ui.label(RichText::new("Or put openrazer-win.exe from").size(12.5).color(TEXT_FAINT));

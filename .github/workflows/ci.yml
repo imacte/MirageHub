@@ -105,7 +105,7 @@ jobs:
       - name: Test
         run: cargo test --locked
       - name: Check the build that carries the daemon
-        # Any file stands in for the frozen daemon; this only compiles that path.
+        # Any file stands in for the daemon; this only compiles that path.
         env:
           OPENRAZER_EMBED_DAEMON: ${{ github.workspace }}/gui/Cargo.toml
         run: cargo check --locked
@@ -114,7 +114,7 @@ jobs:
       - name: Smoke-test the executable
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath target/release/openrazer-win-gui.exe -ArgumentList '--self-test' -Wait -PassThru
+          $p = Start-Process -FilePath target/release/openrazer-win-gui.exe -ArgumentList '--self-test' -WindowStyle Hidden -Wait -PassThru
           if ($p.ExitCode -ne 0) { exit 1 }
           exit 0
 
@@ -172,39 +172,19 @@ jobs:
         run: cargo test --workspace --locked
       - name: Test the Chroma DLL as 32-bit games load it
         run: cargo test --locked -p openrazer-chroma --target i686-pc-windows-msvc
-      - name: Build the Chroma DLL for 64- and 32-bit games
-        # Studio carries both, and puts them beside the games it is asked to.
+      - name: Build the native daemon, Studio, Chroma DLLs and installer
+        shell: pwsh
+        run: ./tools/build-native.ps1
+      - name: Test the shipped daemon and embedded Chroma DLLs
         shell: pwsh
         run: |
-          cargo build --release --locked -p openrazer-chroma
-          cargo build --release --locked -p openrazer-chroma --target i686-pc-windows-msvc
-          New-Item -ItemType Directory -Force target/chroma | Out-Null
-          Copy-Item target/release/rzchromasdk.dll target/chroma/RzChromaSDK64.dll
-          Copy-Item target/i686-pc-windows-msvc/release/rzchromasdk.dll target/chroma/RzChromaSDK.dll
-      - name: Build
-        shell: pwsh
-        run: |
-          $env:OPENRAZER_STUDIO_CHROMA = "$PWD/target/chroma"
-          cargo build --release --locked -p openrazer-studio
+          $env:OPENRAZER_TEST_DAEMON = "$PWD/../dist/openrazer-win.exe"
+          cargo test --locked -p openrazer-daemon --test executable
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:OPENRAZER_STUDIO_CHROMA = "$PWD/target/native-chroma"
           cargo test --locked -p openrazer-studio chroma
-      - name: Smoke-test the executable
-        shell: pwsh
-        run: |
-          $p = Start-Process -FilePath target/release/openrazer-studio.exe -ArgumentList '--self-test' -Wait -PassThru
-          if ($p.ExitCode -ne 0) { exit 1 }
-          exit 0
-      - name: Build the installer
-        # Any program stands in for the frozen daemon here; the release
-        # workflow puts the real one in.
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force target/payload | Out-Null
-          Copy-Item target/release/openrazer-studio.exe target/payload/
-          Copy-Item target/release/openrazer-studio.exe target/payload/openrazer-win.exe
-          $env:OPENRAZER_STUDIO_PAYLOAD = "$PWD/target/payload"
-          cargo build --release --locked -p openrazer-studio-setup
       - name: Install, repair and remove
         shell: pwsh
         run: |
           $env:LOCALAPPDATA = "$env:RUNNER_TEMP\lad"
-          ./tools/installer-cycle.ps1 -Setup target/release/openrazer-studio-setup.exe -Dir "$env:RUNNER_TEMP\studio-install"
+          ./tools/installer-cycle.ps1 -Setup ../dist/openrazer-studio-setup.exe -Dir "$env:RUNNER_TEMP\studio-install"

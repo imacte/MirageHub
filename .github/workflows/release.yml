@@ -27,6 +27,7 @@ jobs:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
       - uses: actions/setup-python@v5
+        if: matrix.artifact == 'wheel'
         with:
           python-version: '3.12'
           cache: pip
@@ -37,17 +38,22 @@ jobs:
           pip install build
           python -m build
 
-      - name: Build standalone executables
+      - name: Install Rust
         if: matrix.artifact == 'exe'
-        # A regular install, not editable: PyInstaller cannot follow imports
-        # through a PEP 660 editable finder, and silently produced a binary
-        # that could not import openrazer_win.cli.  The [ble] extra is included
-        # so the standalone binary can drive Bluetooth devices too -- there is
-        # no "pip install the extra" answer for someone using the exe.
-        run: |
-          pip install ".[ble]"
-          pip install pyinstaller
-          pyinstaller --clean --noconfirm packaging/openrazer-win.spec
+        working-directory: studio
+        run: rustup toolchain install
+
+      - name: Build the native daemon and CLI
+        if: matrix.artifact == 'exe'
+        shell: pwsh
+        run: ./studio/tools/build-native.ps1 -DaemonOnly
+
+      - name: Test the shipped native daemon with simulated devices
+        if: matrix.artifact == 'exe'
+        working-directory: studio
+        env:
+          OPENRAZER_TEST_DAEMON: ${{ github.workspace }}/dist/openrazer-win.exe
+        run: cargo test --locked -p openrazer-daemon --test executable
 
       - name: Smoke-test the executable
         if: matrix.artifact == 'exe'
@@ -77,7 +83,7 @@ jobs:
 
   gui:
     name: Build the control panel
-    # It carries the frozen daemon inside it, so it is built after that.
+    # It carries the native daemon inside it, so it is built after that.
     needs: build
     runs-on: windows-latest
     steps:
@@ -96,16 +102,17 @@ jobs:
         working-directory: gui
         env:
           OPENRAZER_EMBED_DAEMON: ${{ github.workspace }}/daemon/openrazer-win.exe
-        run: cargo build --release --locked
+          RUSTFLAGS: -C target-feature=+crt-static
+        run: cargo build --release --locked --target x86_64-pc-windows-msvc
       - name: Smoke-test the executable
         shell: pwsh
         run: |
           # --self-test also fails a build whose embedded daemon is missing or broken.
-          $p = Start-Process -FilePath gui/target/release/openrazer-win-gui.exe -ArgumentList '--self-test' -Wait -PassThru
+          $p = Start-Process -FilePath gui/target/x86_64-pc-windows-msvc/release/openrazer-win-gui.exe -ArgumentList '--self-test','--require-daemon' -WindowStyle Hidden -Wait -PassThru
           if ($p.ExitCode -ne 0) { exit 1 }
-          if ((Get-Item gui/target/release/openrazer-win-gui.exe).Length -lt 10MB) { Write-Error 'no daemon inside'; exit 1 }
+          ./studio/tools/check-native.ps1 -Files gui/target/x86_64-pc-windows-msvc/release/openrazer-win-gui.exe
           New-Item -ItemType Directory -Force dist | Out-Null
-          Copy-Item gui/target/release/openrazer-win-gui.exe dist/
+          Copy-Item gui/target/x86_64-pc-windows-msvc/release/openrazer-win-gui.exe dist/
           exit 0
       - uses: actions/upload-artifact@v4
         with:
@@ -115,7 +122,7 @@ jobs:
 
   studio:
     name: Build OpenRazer Studio and its installer
-    # The installer carries the frozen daemon, so it is built after that.
+    # The installer carries the native daemon, so it is built after that.
     needs: build
     runs-on: windows-latest
     defaults:
@@ -132,43 +139,23 @@ jobs:
       - name: Install Rust
         # The version pinned in studio/rust-toolchain.toml.
         run: rustup toolchain install
-      - name: Build the Chroma DLL for 64- and 32-bit games
-        # Studio carries both, and puts them beside the games it is asked to.
+      - name: Build Studio, both Chroma DLLs and the installer
         shell: pwsh
-        run: |
-          cargo build --release --locked -p openrazer-chroma
-          cargo build --release --locked -p openrazer-chroma --target i686-pc-windows-msvc
-          New-Item -ItemType Directory -Force target/chroma | Out-Null
-          Copy-Item target/release/rzchromasdk.dll target/chroma/RzChromaSDK64.dll
-          Copy-Item target/i686-pc-windows-msvc/release/rzchromasdk.dll target/chroma/RzChromaSDK.dll
-      - name: Build Studio
-        shell: pwsh
-        run: |
-          $env:OPENRAZER_STUDIO_CHROMA = "$PWD/target/chroma"
-          cargo build --release --locked -p openrazer-studio
-      - name: Build the installer
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force target/payload | Out-Null
-          Copy-Item target/release/openrazer-studio.exe target/payload/
-          Copy-Item ../daemon/openrazer-win.exe target/payload/
-          $env:OPENRAZER_STUDIO_PAYLOAD = "$PWD/target/payload"
-          cargo build --release --locked -p openrazer-studio-setup
+        run: ./tools/build-native.ps1 -DaemonPath ../daemon/openrazer-win.exe
       - name: Install, repair and remove
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath target/release/openrazer-studio-setup.exe -ArgumentList '--self-test' -Wait -PassThru
-          if ($p.ExitCode -ne 0) { Write-Error 'no program inside the installer'; exit 1 }
           $env:LOCALAPPDATA = "$env:RUNNER_TEMP\lad"
-          ./tools/installer-cycle.ps1 -Setup target/release/openrazer-studio-setup.exe -Dir "$env:RUNNER_TEMP\studio-install"
+          ./tools/installer-cycle.ps1 -Setup ../dist/openrazer-studio-setup.exe -Dir "$env:RUNNER_TEMP\studio-install"
           if ($LASTEXITCODE -ne 0) { exit 1 }
-          New-Item -ItemType Directory -Force ../dist | Out-Null
-          Copy-Item target/release/openrazer-studio-setup.exe ../dist/
           exit 0
       - uses: actions/upload-artifact@v4
         with:
           name: studio
-          path: dist/openrazer-studio-setup.exe
+          path: |
+            dist/openrazer-studio-setup.exe
+            dist/openrazer-studio-setup-zh-CN.exe
+            dist/openrazer-studio.exe
           if-no-files-found: error
 
   pypi:

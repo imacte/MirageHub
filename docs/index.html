@@ -196,12 +196,12 @@ footer p { margin: 0 0 8px; }
     </p>
     <div class="badges">
       <span class="badge on">279 devices</span>
-      <span class="badge">Zero dependencies</span>
+      <span class="badge">Native Rust backend</span>
       <span class="badge">No kernel driver</span>
       <span class="badge">No admin rights</span>
       <span class="badge">No telemetry</span>
       <span class="badge">GPL-2.0-or-later</span>
-      <span class="badge on">on PyPI</span>
+      <span class="badge on">No Python runtime</span>
     </div>
     <div class="cta">
       <a class="btn primary" href="#install">Get started</a>
@@ -214,17 +214,17 @@ footer p { margin: 0 0 8px; }
 <section id="install">
   <div class="wrap">
     <h2><span class="num">01</span>Install</h2>
-    <p class="sub">Python 3.9 or newer on Windows 10 / 11 (amd64). Nothing else.</p>
-<pre><code><span class="c-cmd">pip install</span> openrazer-win
-
-<span class="c-com"># optional, for Bluetooth-only devices such as the Kraken Kitty V2 BT</span>
-<span class="c-cmd">pip install</span> <span class="c-str">"openrazer-win[ble]"</span></code></pre>
+    <p class="sub">Windows 10 / 11 (amd64). Studio, the background service and installer are native Rust programs.</p>
+<pre><code><span class="c-com"># After installing, start the service and list connected devices</span>
+<span class="c-cmd">openrazer-win</span> daemon start
+<span class="c-cmd">openrazer-win</span> list</code></pre>
     <p class="sub" style="margin-bottom:14px">
-      The entire port runs on the standard library — no compiler, no <code>hidapi</code> wheel,
-      no driver signing, no reboot. Prefer a single file? Download
-      <code>openrazer-win.exe</code> from the
-      <a href="https://github.com/imacte/openrazer-win/releases">releases page</a> when a build is published; it
-      needs no Python at all.
+      Download <code>openrazer-studio-setup.exe</code> or <code>openrazer-studio-setup-zh-CN.exe</code>
+      from the <a href="https://github.com/imacte/openrazer-win/releases">releases page</a> when a build
+      is published. Both contain Studio and the Rust background service, with English, Russian and
+      Simplified Chinese. Bluetooth LE is built in; no Python, extra packages or driver installation
+      is required. <code>openrazer-win.exe</code> is the standalone CLI and daemon. The upstream PyPI
+      distribution remains the Python client and reference implementation.
     </p>
     <div class="note">
       <strong>Close Razer Synapse first.</strong> Synapse holds the device open and will fight you
@@ -382,7 +382,7 @@ headset.set_colour_zones([(<span class="c-str">255</span>, <span class="c-str">0
         <rect class="box-a" x="500" y="166" width="370" height="62"/>
         <text class="lbl" x="516" y="188">openrazer_win.devices</text>
         <text class="lbl-s" x="516" y="206">565 recipes transpiled from the same C</text>
-        <text class="lbl-s" x="516" y="221">user space — pip install, no reboot</text>
+        <text class="lbl-s" x="516" y="221">user space — native Rust, no reboot</text>
 
         <rect class="box" x="500" y="240" width="370" height="46"/>
         <text class="lbl" x="516" y="262">hid.dll + setupapi.dll via ctypes</text>
@@ -414,7 +414,7 @@ headset.set_colour_zones([(<span class="c-str">255</span>, <span class="c-str">0
  {<span class="c-str">"op"</span>: <span class="c-str">"send"</span>}]</code></pre>
     <p class="sub">
       609 distinct recipes cover all 276 USB devices, and a runtime interpreter executes them. Tracking
-      a new upstream release means re-running the transpiler, not rewriting Python.
+      a new upstream release means regenerating shared data for the native Rust interpreter.
     </p>
 
     <div class="grid" style="margin-top:26px">
@@ -551,9 +551,8 @@ headset.set_colour_zones([(<span class="c-str">255</span>, <span class="c-str">0
           <tr><td>Effects reset after sleep</td>
               <td>Windows cuts USB power. The daemon replays stored state on reconnect.</td></tr>
           <tr><td>A Bluetooth device is on, but not listed</td>
-              <td>Install the extra: <code>pip install "openrazer-win[ble]"</code>.
-                  <code>doctor</code> ends with a Bluetooth section saying whether support is
-                  present and what the radio can hear.</td></tr>
+              <td>Bluetooth LE support is built into the Rust daemon. Run
+                  <code>openrazer-win doctor</code> to inspect paired devices and radio advertisements.</td></tr>
           <tr><td>Nothing listed at all</td>
               <td>Only Razer devices (vendor <code>1532</code>) are handled.</td></tr>
         </tbody>
@@ -562,7 +561,6 @@ headset.set_colour_zones([(<span class="c-str">255</span>, <span class="c-str">0
 
     <h3>Not ported</h3>
     <ul class="plain">
-      <li><strong>Macro recording and playback</strong> — upstream implements this on Linux input events.</li>
       <li><strong>Reading state back from a Kraken headset</strong> — the kernel collects it from
         unsolicited HID input reports; the daemon serves those values from its persistence file
         instead. Setting effects works.</li>

@@ -6,6 +6,23 @@ uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The Windows background service and CLI now run natively in Rust. HID and Bluetooth
+  discovery, hardware and software lighting, DPI, headset audio, profiles, macros,
+  Windows accent colour and Chroma REST retain the existing device protocols and
+  JSON-RPC interface. Existing configuration files continue to work.
+- Studio and the classic panel start the native daemon and no longer offer Python
+  installation. The complete Studio installer includes both programs and the
+  32/64-bit Chroma SDK DLLs; native release builds statically link the CRT.
+- `studio/tools/build-native.ps1` builds the complete package without Python or
+  PyInstaller. CI tests the actual native daemon and installed payload with isolated
+  simulated devices. Python remains available as a compatibility client and as the
+  reference implementation for protocol regression comparisons.
+- `openrazer-win daemon start --emulate` uses separate demo data and instance locks.
+  Native CLI commands include device controls, profiles, macros, diagnostics and
+  Windows startup management; `--direct` refuses to race a running daemon.
+
 ## [1.6.1] - 2026-11-06
 
 ### Added
