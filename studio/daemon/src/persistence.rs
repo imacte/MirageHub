@@ -128,6 +128,9 @@ impl Persistence {
     pub fn get_device(&mut self, serial: &str, key: &str, default: Value) -> Value {
         self.device(serial).get(key).cloned().unwrap_or(default)
     }
+    pub fn device_values(&mut self, serial: &str) -> Map<String, Value> {
+        self.device(serial).clone()
+    }
     pub fn set_device(&mut self, serial: &str, key: &str, value: Value) {
         if self.held.contains(serial) && key == "zone_colours" {
             return;

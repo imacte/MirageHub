@@ -18,7 +18,9 @@ sys.path.insert(0, str(ROOT))
 from openrazer_win.core.device import RazerDevice, EFFECTS
 from openrazer_win.core.kraken import KrakenDevice
 from openrazer_win.core.blackshark import BlackSharkDevice
+from openrazer_win.core.ble_device import BleDevice
 from openrazer_win.core.persistence import Persistence, ZONES
+from openrazer_win.core.profiles import snapshot, apply_profile
 from openrazer_win.devices import get_database, get_recipes
 from openrazer_win.hid.base import HidDeviceInfo
 from openrazer_win.protocol import blackshark
@@ -82,6 +84,26 @@ class Channel:
             reply[62] ^= byte
         assert accept(reply)
         return bytes(reply)
+
+    def close(self):
+        pass
+
+
+class Ble:
+    address = 0xaabbccddeeff
+
+    def __init__(self):
+        self.sent = []
+
+    def write(self, payload, hold=False):
+        self.sent.append({'ble': list(payload), 'hold': hold})
+
+    def read(self, opcode):
+        self.sent.append({'read': opcode, 'payload': []})
+        return bytes([{0x41: 127, 0x21: 87}.get(opcode, 1)])
+
+    def release(self):
+        self.sent.append({'release': True})
 
     def close(self):
         pass
@@ -157,12 +179,20 @@ def commands():
     add('set_do_not_disturb', False)
     add('set_dongle_led', 'battery')
     add('restore')
+    add('profile_snapshot')
+    add('profile_apply', {'device': {'zone_colours': [1, 2, 3, 4, 5, 6]},
+                          'zones': {'backlight': {'effect': 'static', 'colors': [1, 2, 3, 4, 5, 6, 0, 0, 0], 'brightness': 73}}})
+    add('profile_snapshot')
     return result
 
 
 def reference(meta, argb, plan, scratch):
     store = Persistence(str(scratch / 'not-written.json'))
-    if meta.pid in blackshark.PRODUCT_IDS:
+    if meta.transport == 'ble':
+        transport = Ble()
+        device = BleDevice(meta, transport, store)
+        device.classic_address = 0xaabbccddeefe
+    elif meta.pid in blackshark.PRODUCT_IDS:
         transport = Channel(meta)
         device = BlackSharkDevice(meta, transport, store)
     else:
@@ -179,7 +209,11 @@ def reference(meta, argb, plan, scratch):
         transport.sent.clear()
         ok = True
         try:
-            if command['method'] == 'leave_driver_mode' and not hasattr(device, 'leave_driver_mode'):
+            if command['method'] == 'profile_snapshot':
+                result = snapshot(device, store)
+            elif command['method'] == 'profile_apply':
+                result = apply_profile(device, store, command['args'][0])
+            elif command['method'] == 'leave_driver_mode' and not hasattr(device, 'leave_driver_mode'):
                 result = None
             else:
                 result = getattr(device, command['method'])(*command['args'], **command['kwargs'])
@@ -200,14 +234,14 @@ def main():
                                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0)
     plan = commands()
     devices = 0
+    operations = 0
     try:
         with tempfile.TemporaryDirectory(prefix='openrazer-rust-oracle-') as directory:
             for meta in get_database():
-                if meta.transport != 'hid':
-                    continue
+                device_plan = plan + ble_commands() if meta.transport == 'ble' else plan
                 argb = meta.pid == 0x0f1f
-                expected = reference(meta, argb, plan, Path(directory))
-                process.stdin.write(json.dumps({'pid': meta.pid, 'argb': argb, 'commands': plan}) + '\n')
+                expected = reference(meta, argb, device_plan, Path(directory))
+                process.stdin.write(json.dumps({'pid': meta.pid, 'argb': argb, 'commands': device_plan}) + '\n')
                 process.stdin.flush()
                 line = process.stdout.readline()
                 if not line:
@@ -218,10 +252,11 @@ def main():
                         raise AssertionError(f'{meta.pid:04x} {meta.name} {key}: {difference(actual[key], expected[key])}')
                 for index, (a, e) in enumerate(zip(actual['steps'], expected['steps'])):
                     if a != e:
-                        raise AssertionError(f'{meta.pid:04x} {meta.name} step {index} {plan[index]}: {difference(a, e)}')
+                        raise AssertionError(f'{meta.pid:04x} {meta.name} step {index} {device_plan[index]}: {difference(a, e)}')
                 if len(actual['steps']) != len(expected['steps']):
                     raise AssertionError('incomplete native reply')
                 devices += 1
+                operations += len(device_plan)
         process.stdin.close()
         if process.wait(timeout=10):
             raise RuntimeError('Rust oracle failed')
@@ -229,7 +264,32 @@ def main():
         if process.poll() is None:
             process.terminate()
             process.wait(timeout=10)
-    print(f'{devices} HID devices, {devices * len(plan)} API operations: Python/Rust results, packets and persistence match')
+    print(f'{devices} HID/BLE devices, {operations} API operations: Python/Rust results, packets and persistence match')
+
+
+def ble_commands():
+    commands = []
+
+    def add(method, *args, **kwargs):
+        commands.append({'method': method, 'args': args, 'kwargs': kwargs})
+
+    add('zone_colours_now')
+    add('set_zone_colours', [[1, 2, 3]])
+    add('zone_colours_now')
+    add('set_static', 20, 30, 40, zone='left')
+    add('set_none', zone='right')
+    add('restore')
+    add('set_zone_colours', [[-2, 300, 90], [7, 8, 9]], hold=False)
+    add('zone_colours_now')
+    add('set_zone_colours', [])
+    add('set_zone_colours', [['invalid', 2, 3]])
+    add('set_zone_colours', [[1, 2, 3]] * 3)
+    for payload in [[0], [0, 1, 1, 9, 8, 7], [99, 0, 1, 4, 5, 6], [0, 3, 4, 1, 2, 3], [0, 2, 1]]:
+        add('set_key_row', payload)
+    add('set_none')
+    add('restore')
+    add('zone_colours_now')
+    return commands
 
 
 def difference(actual, expected, path=''):

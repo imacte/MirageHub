@@ -201,7 +201,9 @@ impl Device for BlackSharkDevice {
     fn leave_driver_mode(&mut self) -> Result<()> {
         Ok(())
     }
-    fn restore(&mut self) {}
+    fn restore(&mut self) -> Result<()> {
+        Ok(())
+    }
     fn close(&mut self) {
         self.channel.close();
     }

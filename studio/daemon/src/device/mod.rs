@@ -1,9 +1,11 @@
 //! Device API shared by the RPC service, effects engine and hardware backends.
 
 mod blackshark;
+mod ble;
 mod kraken;
 mod standard;
 pub use blackshark::BlackSharkDevice;
+pub use ble::BleDevice;
 pub use kraken::KrakenDevice;
 pub use standard::StandardDevice;
 
@@ -19,7 +21,7 @@ pub trait Device: Send {
     fn call(&mut self, method: &str, args: &[Value], kwargs: &Map<String, Value>) -> Result<Value>;
     fn enter_driver_mode(&mut self, keys_handled: bool) -> Result<()>;
     fn leave_driver_mode(&mut self) -> Result<()>;
-    fn restore(&mut self);
+    fn restore(&mut self) -> Result<()>;
     fn close(&mut self);
     fn is_connected(&self) -> bool {
         true

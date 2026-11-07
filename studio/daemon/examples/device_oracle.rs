@@ -1,9 +1,11 @@
 //! Development-only differential runner. It never opens hardware or user files.
 use openrazer_daemon::{
+    ble::BleChannel,
     database,
-    device::{BlackSharkDevice, Device, KrakenDevice, StandardDevice},
+    device::{BlackSharkDevice, BleDevice, Device, KrakenDevice, StandardDevice},
     hid::HidInfo,
     persistence::Persistence,
+    profiles,
     protocol::{blackshark, report::Report},
     recipes::{self, Sender},
     transport::{CommandChannel, DeviceTransport},
@@ -124,6 +126,43 @@ impl CommandChannel for RecordingChannel {
     }
 }
 
+struct RecordingBle {
+    sent: Arc<Mutex<Vec<Value>>>,
+}
+impl BleChannel for RecordingBle {
+    fn address(&self) -> u64 {
+        0xaabbccddeeff
+    }
+    fn write(&mut self, payload: &[u8], hold: bool) -> Result<()> {
+        self.sent
+            .lock()
+            .unwrap()
+            .push(json!({"ble":payload,"hold":hold}));
+        Ok(())
+    }
+    fn request(&mut self, opcode: u8, payload: &[u8]) -> Result<Vec<u8>> {
+        self.sent
+            .lock()
+            .unwrap()
+            .push(json!({"read":opcode,"payload":payload}));
+        Ok(vec![match opcode {
+            0x41 => 127,
+            0x21 => 87,
+            _ => 1,
+        }])
+    }
+    fn release(&mut self) {
+        self.sent.lock().unwrap().push(json!({"release":true}));
+    }
+    fn is_connected(&self) -> bool {
+        true
+    }
+    fn describe(&mut self) -> Result<Value> {
+        Ok(Value::Null)
+    }
+    fn close(&mut self) {}
+}
+
 fn run(request: Value) -> Result<Value> {
     let pid = request["pid"].as_u64().unwrap() as u16;
     let metadata = database::lookup(0x1532, pid).unwrap().clone();
@@ -153,7 +192,15 @@ fn run(request: Value) -> Result<Value> {
         .then(|| info.clone());
     let sent = Arc::new(Mutex::new(Vec::new()));
     let store = Persistence::memory().shared();
-    let mut device: Box<dyn Device> = if shark {
+    let mut device: Box<dyn Device> = if metadata.transport == "ble" {
+        let mut device = BleDevice::new(
+            metadata,
+            Box::new(RecordingBle { sent: sent.clone() }),
+            store.clone(),
+        );
+        device.classic_address = Some(0xaabbccddeefe);
+        Box::new(device)
+    } else if shark {
         Box::new(BlackSharkDevice::new(
             metadata,
             Box::new(RecordingChannel {
@@ -182,6 +229,12 @@ fn run(request: Value) -> Result<Value> {
     for command in request["commands"].as_array().unwrap() {
         sent.lock().unwrap().clear();
         let result = match command["method"].as_str().unwrap() {
+            "profile_snapshot" => Ok(serde_json::to_value(profiles::snapshot(device.as_mut()))?),
+            "profile_apply" => profiles::apply(
+                device.as_mut(),
+                &serde_json::from_value(command["args"][0].clone())?,
+            )
+            .map(|_| Value::Null),
             "enter_driver_mode" => device
                 .enter_driver_mode(command["args"][0].as_bool().unwrap())
                 .map(|_| Value::Null),

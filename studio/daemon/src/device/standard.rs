@@ -393,8 +393,9 @@ impl Device for StandardDevice {
         }
         Ok(())
     }
-    fn restore(&mut self) {
+    fn restore(&mut self) -> Result<()> {
         super::restore_lighting(self);
+        Ok(())
     }
     fn close(&mut self) {
         self.transport.close();
@@ -704,7 +705,7 @@ impl Device for StandardDevice {
                     i64::from(args.boolean("enabled", 0, None)?),
                 )?;
             }
-            "restore" => self.restore(),
+            "restore" => self.restore()?,
             _ => {
                 return Err(Error::NotSupported(format!(
                     "device method {method} is not supported"

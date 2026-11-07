@@ -92,12 +92,12 @@ impl Device for KrakenDevice {
     fn close(&mut self) {
         self.base.close();
     }
-    fn restore(&mut self) {
+    fn restore(&mut self) -> Result<()> {
         let serial = self.serial();
         let state = persistence::lock(&self.base.store).saved_zone(&serial, "backlight");
-        let Some(state) = state else { return };
+        let Some(state) = state else { return Ok(()) };
         let Some(effect) = state.get("effect").and_then(Value::as_str) else {
-            return;
+            return Ok(());
         };
         let mut colours = state
             .get("colors")
@@ -127,9 +127,10 @@ impl Device for KrakenDevice {
                 bindings(json!({"red":colours[0],"green":colours[1],"blue":colours[2]})),
             ),
             "none" | "spectrum" => (vec![], Map::new()),
-            _ => return,
+            _ => return Ok(()),
         };
         let _ = self.call(&format!("set_{effect}"), &args, &kwargs);
+        Ok(())
     }
     fn call(
         &mut self,
@@ -157,7 +158,7 @@ impl Device for KrakenDevice {
                 .unwrap_or_else(|| vec![125, 500, 1000])));
         }
         if method == "restore" {
-            self.restore();
+            self.restore()?;
             return Ok(Value::Null);
         }
         let effect = method

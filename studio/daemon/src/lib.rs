@@ -1,10 +1,13 @@
 //! The native device backend. Protocol and device data are shared with the
 //! existing port, so migrating the service does not change hardware commands.
 
+pub mod ble;
 pub mod database;
 pub mod device;
 pub mod hid;
+pub mod manager;
 pub mod persistence;
+pub mod profiles;
 pub mod protocol;
 pub mod recipes;
 pub mod transport;
