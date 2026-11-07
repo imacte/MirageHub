@@ -141,6 +141,11 @@ jobs:
           key: studio-${{ runner.os }}-${{ hashFiles('studio/Cargo.lock') }}
       - name: Every string has Russian and Simplified Chinese translations
         run: python tools/check_translations.py
+      - name: Verify native backend protocol fixtures
+        run: |
+          python ../tools/export_rust_protocol_fixtures.py --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python ../tools/export_rust_recipe_fixtures.py --check
       - name: Lint
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Test

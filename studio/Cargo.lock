@@ -2106,6 +2106,14 @@ name = "openrazer-chroma"
 version = "1.6.1"
 
 [[package]]
+name = "openrazer-daemon"
+version = "1.6.1"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "openrazer-studio"
 version = "1.6.1"
 dependencies = [

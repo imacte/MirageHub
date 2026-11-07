@@ -1,5 +1,5 @@
 [workspace]
-members = ["core", "app", "setup", "chroma"]
+members = ["core", "app", "setup", "chroma", "daemon"]
 resolver = "2"
 
 [workspace.package]
