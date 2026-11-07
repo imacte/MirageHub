@@ -4,7 +4,6 @@
 pub const RU: &[(&str, &str)] = &[
     ("{} of {}", "{} — {}"),
     // -- the daemon --------------------------------------------------------------
-    ("The daemon is not on this computer: there is no openrazer-win.exe beside this program or on PATH, and no Python with openrazer-win installed in it.", "Демона нет на этом компьютере: рядом с программой и в PATH нет openrazer-win.exe, и нет Python с установленным openrazer-win."),
     ("the daemon is not running", "демон не запущен"),
     ("the daemon is not running (its endpoint file is stale)", "демон не запущен (файл подключения устарел)"),
     ("Restart the daemon", "Перезапустить демон"),
@@ -16,11 +15,6 @@ pub const RU: &[(&str, &str)] = &[
     ("Daemon stopped", "Демон остановлен"),
     ("Daemon restarted", "Демон перезапущен"),
     ("The daemon could not be started", "Не удалось запустить демон"),
-    ("No Python 3.9 or newer was found.", "Не найден Python 3.9 или новее."),
-    ("Downloading Python {} from python.org…", "Загрузка Python {} с python.org…"),
-    ("Finish the Python {} installer; this continues once it closes.", "Завершите установку Python {} — продолжим, когда установщик закроется."),
-    ("Python was installed, but cannot be found; start this program again.", "Python установлен, но не найден: запустите программу ещё раз."),
-    ("Installing openrazer-win with pip…", "Установка openrazer-win через pip…"),
     // -- layers ------------------------------------------------------------------------
     ("Static", "Статичный"),
     ("Gradient", "Градиент"),
@@ -471,12 +465,6 @@ pub const RU: &[(&str, &str)] = &[
     ("Studio may be damaged", "Возможно, Студия повреждена"),
     ("Repair puts back the daemon and every other file Studio was installed with. Profiles and macros are kept.", "Восстановление вернёт демон и все остальные установленные файлы. Профили и макросы сохранятся."),
     ("Set it up", "Установка"),
-    ("Python is installed ({}), but openrazer-win is not in it yet.", "Python установлен ({}), но openrazer-win в нём пока нет."),
-    ("This installs it with pip, then starts the daemon.", "Установим его через pip и запустим демон."),
-    ("Install openrazer-win", "Установить openrazer-win"),
-    ("The daemon runs on Python, which this computer does not have. This downloads Python {} from python.org and opens its installer (click Install Now there), then installs openrazer-win into it and starts the daemon.", "Демону нужен Python, а его на компьютере нет. Скачаем Python {} с python.org и откроем установщик (нажмите там Install Now), затем установим в него openrazer-win и запустим демон."),
-    ("Install Python {}", "Установить Python {}"),
-    ("Easier: install Studio with its installer, which brings the daemon along.", "Проще: установите Студию установщиком — демон идёт в комплекте."),
     ("What happened", "Что случилось"),
     ("Try again", "Попробовать снова"),
     ("Open the log folder", "Открыть папку журналов"),
@@ -628,7 +616,6 @@ pub const RU: &[(&str, &str)] = &[
     ("Report", "Отчёт"),
     ("Save a report…", "Сохранить отчёт…"),
     ("Reset…", "Сбросить…"),
-    ("Setting up", "Установка"),
     ("Drawn by the daemon, frame by frame", "Рисует демон, кадр за кадром"),
     ("None yet", "Пока нет"),
     // -- the redesigned window ----------------------------------------------------
@@ -659,4 +646,6 @@ pub const RU: &[(&str, &str)] = &[
     ("Updated or moved: add it again", "Игру обновили или перенесли: добавьте её снова"),
     ("Removed from beside the game", "Убрано из папки игры"),
     ("Could not remove it: {}", "Не удалось убрать: {}"),
+    ("The daemon is not on this computer: openrazer-win.exe was not found beside Studio or on PATH.", "Фоновая служба не найдена: openrazer-win.exe отсутствует рядом со Studio и в PATH."),
+    ("Studio includes the background service. Download the installer to set up both together.", "Фоновая служба входит в Studio. Скачайте установщик, чтобы установить их вместе."),
 ];

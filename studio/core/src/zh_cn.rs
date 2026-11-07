@@ -4,7 +4,6 @@
 pub const ZH_CN: &[(&str, &str)] = &[
     ("{} of {}", "{} / {}"),
     // -- the daemon --------------------------------------------------------------
-    ("The daemon is not on this computer: there is no openrazer-win.exe beside this program or on PATH, and no Python with openrazer-win installed in it.", "此电脑上未找到后台服务：程序所在目录和 PATH 中均没有 openrazer-win.exe，也没有安装了 openrazer-win 的 Python 环境。"),
     ("the daemon is not running", "后台服务未运行"),
     ("the daemon is not running (its endpoint file is stale)", "后台服务未运行（连接信息文件已失效）"),
     ("Restart the daemon", "重启后台服务"),
@@ -16,11 +15,6 @@ pub const ZH_CN: &[(&str, &str)] = &[
     ("Daemon stopped", "后台服务已停止"),
     ("Daemon restarted", "后台服务已重启"),
     ("The daemon could not be started", "无法启动后台服务"),
-    ("No Python 3.9 or newer was found.", "未找到 Python 3.9 或更高版本。"),
-    ("Downloading Python {} from python.org…", "正在从 python.org 下载 Python {}…"),
-    ("Finish the Python {} installer; this continues once it closes.", "请完成 Python {} 的安装；安装窗口关闭后将继续。"),
-    ("Python was installed, but cannot be found; start this program again.", "Python 已安装，但未能找到；请重新启动本程序。"),
-    ("Installing openrazer-win with pip…", "正在通过 pip 安装 openrazer-win…"),
     // -- layers ------------------------------------------------------------------------
     ("Static", "常亮"),
     ("Gradient", "渐变"),
@@ -471,12 +465,6 @@ pub const ZH_CN: &[(&str, &str)] = &[
     ("Studio may be damaged", "Studio 可能已损坏"),
     ("Repair puts back the daemon and every other file Studio was installed with. Profiles and macros are kept.", "修复会恢复后台服务及安装时附带的所有文件。配置文件和宏会保留。"),
     ("Set it up", "完成初始设置"),
-    ("Python is installed ({}), but openrazer-win is not in it yet.", "已安装 Python（{}），但该环境中尚未安装 openrazer-win。"),
-    ("This installs it with pip, then starts the daemon.", "将通过 pip 安装 openrazer-win，然后启动后台服务。"),
-    ("Install openrazer-win", "安装 openrazer-win"),
-    ("The daemon runs on Python, which this computer does not have. This downloads Python {} from python.org and opens its installer (click Install Now there), then installs openrazer-win into it and starts the daemon.", "后台服务需要 Python，但此电脑尚未安装。将从 python.org 下载 Python {} 并打开安装器（请点击 Install Now），然后安装 openrazer-win 并启动后台服务。"),
-    ("Install Python {}", "安装 Python {}"),
-    ("Easier: install Studio with its installer, which brings the daemon along.", "更简单的方式：使用 Studio 安装器，其中已包含后台服务。"),
     ("What happened", "详细情况"),
     ("Try again", "重试"),
     ("Open the log folder", "打开日志文件夹"),
@@ -628,7 +616,6 @@ pub const ZH_CN: &[(&str, &str)] = &[
     ("Report", "报告"),
     ("Save a report…", "保存报告…"),
     ("Reset…", "重置…"),
-    ("Setting up", "正在设置"),
     ("Drawn by the daemon, frame by frame", "由后台服务逐帧绘制"),
     ("None yet", "暂无"),
     // -- the redesigned window ----------------------------------------------------
@@ -659,4 +646,6 @@ pub const ZH_CN: &[(&str, &str)] = &[
     ("Updated or moved: add it again", "游戏已更新或移动，请重新添加"),
     ("Removed from beside the game", "已从游戏目录中移除"),
     ("Could not remove it: {}", "无法移除：{}"),
+    ("The daemon is not on this computer: openrazer-win.exe was not found beside Studio or on PATH.", "未找到后台程序：Studio 所在目录和 PATH 中都没有 openrazer-win.exe。"),
+    ("Studio includes the background service. Download the installer to set up both together.", "Studio 安装包包含后台服务。下载安装包即可一起安装。"),
 ];

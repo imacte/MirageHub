@@ -3,20 +3,25 @@
 
 pub mod ble;
 pub mod chroma;
+pub mod cli;
 pub mod database;
+pub mod demo;
 pub mod device;
 pub mod effects;
 pub mod hid;
 pub mod integrations;
 pub mod keyboard;
 pub mod keys;
+pub mod logging;
 pub mod manager;
 mod net;
 pub mod persistence;
+mod process;
 pub mod profiles;
 pub mod protocol;
 pub mod recipes;
 pub mod rpc;
+pub mod runtime;
 pub mod service;
 pub mod transport;
 mod worker;

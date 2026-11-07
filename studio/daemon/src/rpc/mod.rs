@@ -1,8 +1,10 @@
 //! Studio's existing JSON-RPC interface. A token is checked on every message;
 //! the endpoint is published with owner-only access before hardware discovery.
+mod client;
 mod endpoint;
 mod instance;
 mod server;
+pub use client::Client;
 pub use endpoint::{new_token, Endpoint, PublishedEndpoint};
 pub use instance::SingleInstance;
 pub use server::{RpcServer, Service};

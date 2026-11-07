@@ -2110,6 +2110,7 @@ name = "openrazer-daemon"
 version = "1.6.1"
 dependencies = [
  "getrandom 0.3.4",
+ "log",
  "openrazer-chroma",
  "openrazer-studio-core",
  "serde",
@@ -2118,6 +2119,7 @@ dependencies = [
  "windows-future",
  "windows-sys 0.59.0",
  "winreg",
+ "winresource",
 ]
 
 [[package]]

@@ -329,6 +329,15 @@ impl DaemonService {
     }
     #[cfg(windows)]
     pub fn native(directory: &Path, enable_effects: bool, enable_keys: bool) -> Arc<Self> {
+        Self::native_with_options(directory, enable_effects, enable_keys, Options::default())
+    }
+    #[cfg(windows)]
+    pub fn native_with_options(
+        directory: &Path,
+        enable_effects: bool,
+        enable_keys: bool,
+        options: Options,
+    ) -> Arc<Self> {
         let stores = Stores::load(directory);
         let hid: Arc<dyn crate::hid::HidBackend> = Arc::new(crate::hid::windows::NativeHid);
         let manager = Arc::new(DeviceManager::new(
@@ -338,7 +347,7 @@ impl DaemonService {
         ));
         let effects = enable_effects.then(|| EffectEngine::new(stores.persistence.clone()));
         let keys = enable_keys.then(|| KeyService::native(hid, stores.macros.clone()));
-        Self::new(manager, stores, effects, keys, Options::default())
+        Self::new(manager, stores, effects, keys, options)
     }
     pub fn chroma(&self) -> &Arc<ChromaBridge> {
         &self.chroma
@@ -347,11 +356,13 @@ impl DaemonService {
         lock(&self.warnings).iter().cloned().collect()
     }
     fn warn(&self, error: impl ToString) {
+        let error = error.to_string();
+        log::warn!("{error}");
         let mut warnings = lock(&self.warnings);
         if warnings.len() >= 64 {
             warnings.pop_front();
         }
-        warnings.push_back(error.to_string());
+        warnings.push_back(error);
     }
     pub fn start(&self) {
         let _scan = lock(&self.scan_gate);

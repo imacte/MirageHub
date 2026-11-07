@@ -1,9 +1,7 @@
 //! Finding, starting and stopping the daemon, and starting with Windows.
 //!
-//! The daemon is the Python half of openrazer-win: it owns the devices. This
-//! program is only a client, so it has to be able to bring the daemon up --
-//! without a console window -- from wherever it is: beside this executable
-//! (which is where the installer puts it), on `PATH`, or as a Python module.
+//! The native daemon owns the devices. Studio starts the copy installed beside
+//! it, or one on PATH, without opening a console window.
 
 use openrazer_studio_core::install;
 use openrazer_studio_core::paths::data_dir as config_dir;
@@ -18,7 +16,7 @@ use std::time::{Duration, Instant};
 pub struct StartError {
     pub message: String,
     /// Nothing on this machine can run the daemon at all: the case for
-    /// offering to install Python and openrazer-win, or to repair Studio.
+    /// offering the Studio installer or repairing an existing installation.
     pub missing: bool,
 }
 
@@ -29,8 +27,7 @@ impl std::fmt::Display for StartError {
 }
 
 /// Every way this machine has of running the daemon, best first: the copy
-/// installed beside this program, then whatever is on PATH, then a Python
-/// that really has openrazer-win in it.
+/// installed beside this program, then whatever is on PATH.
 fn candidates() -> Vec<Command> {
     let mut commands = Vec::new();
     let exe = |path: PathBuf| {
@@ -46,11 +43,6 @@ fn candidates() -> Vec<Command> {
         if installed.is_file() {
             commands.push(exe(installed));
         }
-    }
-    for python in crate::pysetup::pythons_with_package() {
-        let mut command = Command::new(python);
-        command.args(["-m", "openrazer_win.daemon.main"]);
-        commands.push(command);
     }
     commands
 }
@@ -87,7 +79,7 @@ pub fn tail(path: &Path, lines: usize) -> Option<String> {
 ///
 /// Each way of running it is tried in turn until one answers. Its output is
 /// kept in `daemon-start.log`: if it dies before it can open its own log -- a
-/// missing module, a blocked executable -- that is the only place the reason
+/// blocked executable, an invalid configuration -- that is the only place the reason
 /// ends up, and the error quotes it.
 pub fn start() -> Result<(), StartError> {
     if is_running() {
@@ -96,7 +88,7 @@ pub fn start() -> Result<(), StartError> {
     let commands = candidates();
     if commands.is_empty() {
         return Err(StartError {
-            message: t("The daemon is not on this computer: there is no openrazer-win.exe beside this program or on PATH, and no Python with openrazer-win installed in it.").to_string(),
+            message: t("The daemon is not on this computer: openrazer-win.exe was not found beside Studio or on PATH.").to_string(),
             missing: true,
         });
     }
@@ -118,11 +110,7 @@ fn try_start(mut command: Command) -> Result<(), String> {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        // A console of its own that has no window -- not no console at all.
-        // The frozen daemon is a one-file build whose bootloader runs the real
-        // program as a child: with DETACHED_PROCESS that child found no console
-        // to inherit and Windows opened a new, visible one for it, and closing
-        // that window killed the daemon. A windowless console is inherited.
+        // Keep the console executable invisible when started by the UI.
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
         command.creation_flags(CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP);

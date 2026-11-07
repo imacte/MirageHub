@@ -97,10 +97,6 @@ pub struct Snapshot {
     pub busy: bool,
     /// Why the daemon could not be started, until it is.
     pub start_error: Option<crate::daemon::StartError>,
-    /// A Python that could run the daemon once openrazer-win is in it.
-    pub python: Option<std::path::PathBuf>,
-    /// Installing Python or the package: what is happening, and how far.
-    pub setup: Option<(String, Option<f32>)>,
     /// Razer Synapse processes running now.
     pub synapse: Vec<(u32, String)>,
     /// Razer devices plugged in that the port has no data for.
@@ -127,10 +123,6 @@ pub enum Command {
     StartDaemon,
     StopDaemon,
     RestartDaemon,
-    /// Fetch and open the Python installer, then install openrazer-win.
-    InstallPython,
-    /// Install openrazer-win into the Python already here.
-    InstallPackage,
     /// End Razer Synapse's processes that this user may end.
     CloseSynapse,
     /// Switch one of the daemon's integrations on or off.
@@ -564,17 +556,6 @@ impl Worker {
                 self.poll();
             }
             Command::RestartDaemon => self.start_daemon(true),
-            Command::InstallPython => {
-                let result = self.install_python().and_then(|python| self.install_package(&python));
-                self.finish_setup(result);
-            }
-            Command::InstallPackage => {
-                let result = match crate::pysetup::find_python() {
-                    Some(python) => self.install_package(&python),
-                    None => Err(t("No Python 3.9 or newer was found.").to_string()),
-                };
-                self.finish_setup(result);
-            }
             Command::CloseSynapse => {
                 let running = self.shared.lock().unwrap().synapse.clone();
                 let mut refused = 0;
@@ -610,55 +591,13 @@ impl Worker {
                 }
             }
             Err(error) => {
-                let python = if error.missing { crate::pysetup::find_python() } else { None };
                 let mut shared = self.shared.lock().unwrap();
-                shared.python = python;
                 shared.start_error = Some(error);
                 drop(shared);
                 self.toast(t("The daemon could not be started"), true);
             }
         }
         self.poll();
-    }
-
-    fn stage(&self, text: impl Into<String>, progress: Option<f32>) {
-        self.shared.lock().unwrap().setup = Some((text.into(), progress));
-        (self.repaint)();
-    }
-
-    fn install_python(&mut self) -> Result<std::path::PathBuf, String> {
-        let version = crate::pysetup::PYTHON_VERSION;
-        self.stage(tf("Downloading Python {} from python.org…", &[&version]), Some(0.0));
-        let shared = self.shared.clone();
-        let repaint = &self.repaint;
-        let installer = crate::pysetup::download_installer(&|fraction| {
-            if let Some(stage) = shared.lock().unwrap().setup.as_mut() {
-                stage.1 = Some(fraction);
-            }
-            repaint();
-        })?;
-        self.stage(tf("Finish the Python {} installer; this continues once it closes.", &[&version]), None);
-        crate::pysetup::run_installer(&installer)?;
-        let _ = std::fs::remove_file(&installer);
-        crate::pysetup::find_python().ok_or_else(|| t("Python was installed, but cannot be found; start this program again.").to_string())
-    }
-
-    fn install_package(&mut self, python: &std::path::Path) -> Result<(), String> {
-        self.stage(t("Installing openrazer-win with pip…"), None);
-        crate::pysetup::install_package(python)
-    }
-
-    fn finish_setup(&mut self, result: Result<(), String>) {
-        self.shared.lock().unwrap().setup = None;
-        match result {
-            Ok(()) => self.start_daemon(false),
-            Err(message) => {
-                let python = crate::pysetup::find_python();
-                let mut shared = self.shared.lock().unwrap();
-                shared.python = python;
-                shared.start_error = Some(crate::daemon::StartError { message, missing: true });
-            }
-        }
     }
 
     fn reload_macros(&mut self, serial: &str) {

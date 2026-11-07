@@ -16,7 +16,6 @@ mod layout;
 mod notes;
 mod outline;
 mod preview;
-mod pysetup;
 mod report;
 mod settings;
 mod shell;
