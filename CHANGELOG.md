@@ -6,6 +6,12 @@ uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed the native daemon crashing on a subsequent Bluetooth scan and disconnecting
+  Studio with error 10054. The Windows Runtime now stays alive between BLE workers;
+  an isolated regression test covers repeated worker startup and teardown.
+
 ### Changed
 
 - Renamed the application and repository to RsRazer. UI links and update downloads

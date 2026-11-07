@@ -5,7 +5,7 @@ use super::{remaining, Advertisements, Advertiser, BleBackend, GattLink};
 use crate::{protocol::ble, Error, Result};
 use serde_json::{json, Value};
 use std::{
-    sync::{mpsc, Arc, Mutex},
+    sync::{mpsc, Arc, Mutex, OnceLock},
     thread,
     time::{Duration, Instant},
 };
@@ -24,7 +24,10 @@ use windows::{
     },
     Foundation::TypedEventHandler,
     Storage::Streams::{DataReader, DataWriter, IBuffer},
-    Win32::System::WinRT::{RoInitialize, RoUninitialize, RO_INIT_MULTITHREADED},
+    Win32::System::{
+        Com::CoIncrementMTAUsage,
+        WinRT::{RoInitialize, RoUninitialize, RO_INIT_MULTITHREADED},
+    },
 };
 use windows_future::IAsyncOperation;
 
@@ -37,6 +40,15 @@ impl From<windows::core::Error> for Error {
 struct Apartment;
 impl Apartment {
     fn new() -> Result<Self> {
+        // windows-rs caches agile WinRT factories for the process lifetime.
+        // Keep the MTA alive for that same lifetime: tearing it down between
+        // short-lived scan/GATT workers invalidates those cached pointers.
+        // Retain exactly one MTA usage reference until process exit, as the
+        // windows-core factory loader does for implicitly initialized callers.
+        static MTA: OnceLock<windows::core::Result<()>> = OnceLock::new();
+        MTA.get_or_init(|| unsafe { CoIncrementMTAUsage().map(|_| ()) })
+            .clone()?;
+
         // Called only by dedicated BLE threads, never by Studio's UI apartment.
         unsafe {
             RoInitialize(RO_INIT_MULTITHREADED)?;
@@ -368,6 +380,52 @@ impl Drop for Connection {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn winrt_factories_survive_between_ble_workers() {
+        const CHILD: &str = "RSRAZER_TEST_WINRT_LIFETIME";
+        if std::env::var_os(CHILD).is_none() {
+            // A separate process prevents unrelated COM users in the test suite
+            // from keeping the MTA alive and hiding a worker teardown bug.
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "ble::windows::tests::winrt_factories_survive_between_ble_workers",
+                    "--nocapture",
+                ])
+                .env(CHILD, "1")
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "WinRT worker process failed ({}):\n{}\n{}",
+                output.status,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return;
+        }
+
+        for index in 0..4 {
+            thread::spawn(move || {
+                let _apartment = Apartment::new().unwrap();
+                // Constructing a watcher exercises the same cached activation
+                // factory as scanning, without needing a Bluetooth adapter.
+                let watcher = BluetoothLEAdvertisementWatcher::new().unwrap();
+                watcher
+                    .SetScanningMode(BluetoothLEScanningMode::Active)
+                    .unwrap();
+                assert_eq!(
+                    watcher.ScanningMode().unwrap(),
+                    BluetoothLEScanningMode::Active
+                );
+                println!("BLE worker {index} completed");
+            })
+            .join()
+            .unwrap();
+        }
+    }
+
     #[test]
     fn winrt_completion_returns_results_and_a_hung_operation_respects_the_deadline() {
         let _apartment = Apartment::new().unwrap();
