@@ -83,6 +83,8 @@ pub const DEVICE_METHODS: &[&str] = &[
     "set_macro_effect",
     "set_fn_toggle",
     "get_keyboard_layout",
+    "get_keyswitch_optimization",
+    "set_keyswitch_optimization",
     "get_device_mode",
     "set_device_mode",
     "restore",

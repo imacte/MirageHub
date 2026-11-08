@@ -26,7 +26,7 @@ use std::{
     time::Duration,
 };
 
-pub const PRODUCT_IDS: [u16; 4] = [0x0203, 0x0078, 0x0c00, bs::PID_WIRELESS];
+pub const PRODUCT_IDS: [u16; 5] = [0x0203, 0x0078, 0x0c00, bs::PID_WIRELESS, 0x026b];
 struct State {
     serial: String,
     response: Vec<u8>,
@@ -40,6 +40,8 @@ struct State {
     poll_rate: u32,
     idle: u16,
     threshold: u8,
+    keyswitch: [u8; 5],
+    keyswitch_store: [u8; 6],
     headset: BTreeMap<u8, Vec<u8>>,
     last_frame: Vec<u8>,
 }
@@ -60,6 +62,8 @@ impl State {
             poll_rate: 500,
             idle: 900,
             threshold: 12,
+            keyswitch: [0, 20, 0, 40, 0],
+            keyswitch_store: [1, 0, 20, 0, 40, 0],
             headset: BTreeMap::from([
                 (bs::FIRMWARE, vec![1, 7, 0, 0]),
                 (bs::EQ_PRESET, vec![0]),
@@ -89,6 +93,9 @@ impl State {
             (0, 0x81) => response.set_bytes(0, &[1, 15]),
             (0, 0x84) => response.set_bytes(0, &self.mode),
             (0, 0x04) => self.mode.copy_from_slice(&a[..2]),
+            (2, 2) => self.keyswitch.copy_from_slice(&a[..5]),
+            (2, 0x15) => self.keyswitch_store.copy_from_slice(&a[..6]),
+            (2, 0x82) => response.set_bytes(0, &self.keyswitch),
             (3, 3) | (15, 4) => {
                 self.brightness.insert(a[1], a[2]);
             }
@@ -222,9 +229,13 @@ pub struct DemoBackend {
 }
 impl DemoBackend {
     pub fn new() -> Result<Self> {
+        Self::with_product_ids(&PRODUCT_IDS)
+    }
+    pub fn with_product_ids(product_ids: &[u16]) -> Result<Self> {
         let mut models = Vec::new();
-        for (index, pid) in PRODUCT_IDS.into_iter().enumerate() {
-            let meta = database::lookup(0x1532, pid).expect("demo model is in embedded database");
+        for (index, &pid) in product_ids.iter().enumerate() {
+            let meta = database::lookup(0x1532, pid)
+                .ok_or_else(|| Error::Invalid(format!("unknown emulated product {pid:04x}")))?;
             let params = recipes().transport_params(meta.driver(), pid)?;
             let control = HidInfo {
                 path: format!("emulated:1532:{pid:04x}"),

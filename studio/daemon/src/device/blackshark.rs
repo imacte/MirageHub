@@ -189,7 +189,7 @@ impl Device for BlackSharkDevice {
         json!({"name":i.name,"type":i.device_type,"vid":i.vid,"pid":i.pid,"image":i.image,"protocol":"blackshark","zones":{},
             "matrix":false,"matrix_dimensions":null,"dedicated_macro_keys":false,"dpi":false,"dpi_stages":false,"max_dpi":null,
             "poll_rate":false,"supported_poll_rates":[],"battery":true,"idle_time":true,"idle_time_max":15300,
-            "game_mode":false,"macro_mode":false,"keyboard_layout":false,"scroll_mode":false,"custom_frame":false,"software_effects":false,"readback":true,
+            "game_mode":false,"macro_mode":false,"keyboard_layout":false,"keyswitch_optimization":false,"scroll_mode":false,"custom_frame":false,"software_effects":false,"readback":true,
             "audio":{"sidetone_max":15,"equalizer_presets":protocol::EQ_PRESETS.iter().map(|(name,_)|*name).collect::<Vec<_>>(),
                 "equalizer_frequencies":protocol::EQ_FREQUENCIES,"equalizer_range":[-9,6],
                 "dongle_led_modes":if self.wired{vec![]}else{protocol::DONGLE_LED_MODES.iter().map(|(name,_)|*name).collect::<Vec<_>>()}},

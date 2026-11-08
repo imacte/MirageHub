@@ -161,7 +161,10 @@ fn native_cli_controls_devices_and_keeps_profiles_macros_and_integrations_compat
     let mut session = Session::new();
     session.start();
     let devices = ok(session.run(&["list", "--json"]));
-    assert_eq!(devices.as_array().unwrap().len(), 4);
+    assert_eq!(
+        devices.as_array().unwrap().len(),
+        rsrazer_daemon::demo::PRODUCT_IDS.len()
+    );
     assert!(devices
         .as_array()
         .unwrap()
@@ -230,6 +233,19 @@ fn native_cli_controls_devices_and_keeps_profiles_macros_and_integrations_compat
         .unwrap()
         .is_empty());
     success(session.run(&["headset", "sidetone", "8", "-d", "0565"]));
+    assert_eq!(
+        ok(session.run(&["keyswitch", "--json"]))[0]["keyswitch_optimization"],
+        "typing"
+    );
+    success(session.run(&["keyswitch", "gaming", "-d", "026b"]));
+    assert_eq!(
+        ok(session.run(&["keyswitch", "--json", "-d", "026b"]))[0]["keyswitch_optimization"],
+        "gaming"
+    );
+    assert!(!session
+        .run(&["keyswitch", "fast", "-d", "026b"])
+        .status
+        .success());
     assert_eq!(
         ok(session.run(&["headset", "-d", "0565", "--json"]))[0]["audio"]["sidetone_level"],
         8
@@ -318,7 +334,7 @@ fn native_cli_validates_before_io_and_direct_mode_needs_no_daemon() {
             .as_array()
             .unwrap()
             .len(),
-        4
+        rsrazer_daemon::demo::PRODUCT_IDS.len()
     );
     assert!(!session.endpoint().exists());
     success(session.run(&["--direct", "effect", "static", "red", "-d", "0203"]));
@@ -347,10 +363,13 @@ fn native_executable_serves_studio_with_devices_profiles_macros_and_restart_pers
     let mut client = session.client();
     let version = client.call("daemon.version", json!({})).unwrap();
     assert_eq!(version["backend"], "fake-rust");
-    assert_eq!(version["devices"], 4);
+    assert_eq!(version["devices"], rsrazer_daemon::demo::PRODUCT_IDS.len());
     assert_eq!(version["pid"], session.child.as_ref().unwrap().id());
     let devices = client.call("devices.list", json!({})).unwrap();
-    assert_eq!(devices.as_array().unwrap().len(), 4);
+    assert_eq!(
+        devices.as_array().unwrap().len(),
+        rsrazer_daemon::demo::PRODUCT_IDS.len()
+    );
     assert!(devices
         .as_array()
         .unwrap()
@@ -501,7 +520,7 @@ fn duplicate_process_leaves_the_live_daemon_and_endpoint_intact() {
             .as_array()
             .unwrap()
             .len(),
-        4
+        rsrazer_daemon::demo::PRODUCT_IDS.len()
     );
     session.stop();
 }
@@ -522,7 +541,7 @@ fn invalid_bind_is_rejected_before_writing_configuration_and_occupied_port_is_re
     assert!(other.directory.join("daemon.log").is_file());
     assert_eq!(
         first.client().call("daemon.version", json!({})).unwrap()["devices"],
-        4
+        rsrazer_daemon::demo::PRODUCT_IDS.len()
     );
     first.stop();
 }

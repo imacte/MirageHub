@@ -4,6 +4,11 @@ RsRazer 的简体中文更新说明，也会显示在程序的“更新”页面
 
 ## [Unreleased]
 
+### 新增
+
+- 为 Huntsman V2 和 V2 Tenkeyless 增加“打字／游戏”键轴优化模式，支持主界面、经典面板
+  和 `rsrazer-daemon keyswitch` 命令；直接解析设备回包，正确读取当前模式。移植自上游 #14。
+
 ### 改进
 
 - 将上游 openrazer-win #15 的启动优化移植到 Rust：优先发现 USB 设备，随后立即扫描蓝牙；

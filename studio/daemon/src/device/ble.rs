@@ -98,7 +98,7 @@ impl Device for BleDevice {
             "zone_order":ble::ZONES,"zone_colours":true,"matrix":true,"matrix_dimensions":[1,2],
             "dedicated_macro_keys":false,"dpi":false,"dpi_stages":false,"max_dpi":null,
             "poll_rate":false,"supported_poll_rates":[],"battery":true,"idle_time":false,
-            "game_mode":false,"macro_mode":false,"keyboard_layout":false,"scroll_mode":false,
+            "game_mode":false,"macro_mode":false,"keyboard_layout":false,"keyswitch_optimization":false,"scroll_mode":false,
             "custom_frame":true,"software_effects":true,"readback":true,
             "transport":{"path":format!("{:012X}",self.transport.address()),"interface":null,"wait_us":0},
             "bluetooth_address":self.classic_address.map(|a| format!("{a:012X}"))})

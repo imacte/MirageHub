@@ -375,6 +375,7 @@ impl Device for StandardDevice {
             "battery":self.feature("read:charge_level", &["get_battery"]),"idle_time":self.feature("read:device_idle_time", &["get_idle_time"]),
             "game_mode":self.feature("read:game_led_state", &["get_game_mode"]),"macro_mode":self.feature("read:macro_led_state", &["get_macro_mode"]),
             "keyboard_layout":self.feature("read:kbd_layout", &["get_keyboard_layout"]),"scroll_mode":self.feature("read:scroll_mode", &["get_scroll_mode"]),
+            "keyswitch_optimization":self.feature("read:keyswitch_optimization", &["get_keyswitch_optimization"]),
             "custom_frame":custom,"software_effects":custom && dims[0] * dims[1] > 1,
             "transport":{"path":self.transport.info().path,"interface":self.transport.info().interface,"wait_us":self.transport.wait().as_micros() as u64}
         })
@@ -683,6 +684,39 @@ impl Device for StandardDevice {
                     "layout_{:02x}",
                     self.read("kbd_layout")?.response.unwrap().arguments[2]
                 )))
+            }
+            "get_keyswitch_optimization" => {
+                // openrazer-win #14: the old recipe translator lost the
+                // driver's conditional assignment and always reports state=0.
+                // Decode the actual response, including nonstandard markers.
+                let response = self.read("keyswitch_optimization")?.response.unwrap();
+                return Ok(json!(if response.arguments[1] == 0x14 {
+                    "typing"
+                } else {
+                    "gaming"
+                }));
+            }
+            "set_keyswitch_optimization" => {
+                let value = args.value("mode", 0, None)?;
+                let mode = value
+                    .as_str()
+                    .ok_or_else(|| {
+                        Error::Invalid("keyswitch mode must be typing or gaming".into())
+                    })?
+                    .to_ascii_lowercase();
+                let byte = match mode.as_str() {
+                    "typing" => 0,
+                    "gaming" => 1,
+                    _ => {
+                        return Err(Error::Invalid(
+                            "keyswitch mode must be typing or gaming".into(),
+                        ))
+                    }
+                };
+                self.write_number("keyswitch_optimization", "mode", byte)?;
+                // Firmware stores this mode. Generic lighting restore must
+                // not reapply it when a Chroma game ends or the daemon starts.
+                self.remember_device("keyswitch_optimization", json!(mode));
             }
             "get_scroll_mode" => {
                 return Ok(json!(

@@ -140,7 +140,8 @@ impl Arguments {
         let command = self.positional[0].as_str();
         let (min, max) = match command {
             "list" | "battery" | "doctor" => (0, 0),
-            "info" | "supported" | "brightness" | "poll-rate" | "daemon" | "autostart" => (0, 1),
+            "info" | "supported" | "brightness" | "poll-rate" | "keyswitch" | "daemon"
+            | "autostart" => (0, 1),
             "dpi" | "profile" | "macro" | "headset" | "integration" => (0, 2),
             "effect" | "rpc" => (1, 2),
             "zones" => (0, usize::MAX),
@@ -165,6 +166,7 @@ impl Arguments {
                     "brightness",
                     "dpi",
                     "poll-rate",
+                    "keyswitch",
                     "battery",
                     "headset",
                 ]
@@ -179,6 +181,7 @@ impl Arguments {
                     "brightness",
                     "dpi",
                     "poll-rate",
+                    "keyswitch",
                     "battery",
                     "headset",
                 ]
@@ -241,7 +244,7 @@ pub fn run(raw: Vec<String>) -> Result<i32> {
         return Ok(0);
     }
     if args.flag("--help") || args.positional.is_empty() {
-        println!("RsRazer — native Rust backend\n\nUsage: rsrazer-daemon [options] <command>\n\nCommands:\n  daemon run|start|stop|restart|status\n  list                       List connected devices\n  info [device]              Device capabilities and current settings\n  effect NAME [colour]       Apply a lighting effect\n  zones [colour ...]         List zones or set their colours\n  brightness [percent]       Read or set brightness\n  dpi [x] [y]                Read or set mouse DPI\n  poll-rate [Hz]             Read or set polling rate\n  battery                    Battery level and charging state\n  headset [setting value]    Audio settings: sidetone, eq, dnd, led, sleep\n  profile [list|save|load|delete] [name]\n  macro [list|set|clear|record|play|watch] [key]\n  integration [accent|chroma on|off]\n  autostart [status|enable|disable]\n  supported [search]         Supported device models\n  doctor                     Read-only HID, Bluetooth and daemon diagnostics\n  rpc <method> [JSON]         Call a daemon method\n\nDevice options:\n  --device, -d SELECTOR      Serial, product ID, name fragment or all\n  --zone, -z NAME            Lighting zone\n  --direct                   Access hardware without the daemon\n  --speed 1..4  --direction 0..2  --colour2 RGB  --colour3 RGB\n  Colours: red, green, blue, #ff0080, 255,0,128\n\nMacro set options (choose one):\n  --keys \"ctrl+shift+esc\"  --text \"Hello\"  --launch PATH  --disable\n\nDaemon options:\n  --no-effects  --no-keys  --verbose\n  --port PORT                Loopback RPC port (default: automatic)\n  --chroma-port PORT         Chroma REST port\n  --log-file PATH            Log file (default: CONFIG/daemon.log)\n\nOther options:\n  --emulate                  Simulated devices, separate demo configuration\n  --config-dir PATH          Configuration directory\n  --json  --quiet  --version  --help\n\nEffects: {}",control::EFFECTS.join(", "));
+        println!("RsRazer — native Rust backend\n\nUsage: rsrazer-daemon [options] <command>\n\nCommands:\n  daemon run|start|stop|restart|status\n  list                       List connected devices\n  info [device]              Device capabilities and current settings\n  effect NAME [colour]       Apply a lighting effect\n  zones [colour ...]         List zones or set their colours\n  brightness [percent]       Read or set brightness\n  dpi [x] [y]                Read or set mouse DPI\n  poll-rate [Hz]             Read or set polling rate\n  keyswitch [typing|gaming]  Read or set keyboard switch mode\n  battery                    Battery level and charging state\n  headset [setting value]    Audio settings: sidetone, eq, dnd, led, sleep\n  profile [list|save|load|delete] [name]\n  macro [list|set|clear|record|play|watch] [key]\n  integration [accent|chroma on|off]\n  autostart [status|enable|disable]\n  supported [search]         Supported device models\n  doctor                     Read-only HID, Bluetooth and daemon diagnostics\n  rpc <method> [JSON]         Call a daemon method\n\nDevice options:\n  --device, -d SELECTOR      Serial, product ID, name fragment or all\n  --zone, -z NAME            Lighting zone\n  --direct                   Access hardware without the daemon\n  --speed 1..4  --direction 0..2  --colour2 RGB  --colour3 RGB\n  Colours: red, green, blue, #ff0080, 255,0,128\n\nMacro set options (choose one):\n  --keys \"ctrl+shift+esc\"  --text \"Hello\"  --launch PATH  --disable\n\nDaemon options:\n  --no-effects  --no-keys  --verbose\n  --port PORT                Loopback RPC port (default: automatic)\n  --chroma-port PORT         Chroma REST port\n  --log-file PATH            Log file (default: CONFIG/daemon.log)\n\nOther options:\n  --emulate                  Simulated devices, separate demo configuration\n  --config-dir PATH          Configuration directory\n  --json  --quiet  --version  --help\n\nEffects: {}",control::EFFECTS.join(", "));
         return Ok(0);
     }
     args.validate_command()?;
@@ -272,7 +275,7 @@ pub fn run(raw: Vec<String>) -> Result<i32> {
             Ok(0)
         }
         "list" | "info" | "effect" | "zones" | "profile" | "macro" | "brightness" | "dpi"
-        | "poll-rate" | "battery" | "headset" | "integration" => control::run(&args),
+        | "poll-rate" | "keyswitch" | "battery" | "headset" | "integration" => control::run(&args),
         "doctor" => system::doctor(&args),
         "autostart" => system::autostart(&args),
         "rpc" => {

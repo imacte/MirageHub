@@ -654,4 +654,8 @@ pub const ZH_CN: &[(&str, &str)] = &[
     ("RsRazer includes the background service. Download the installer to set up both together.", "RsRazer 安装包包含后台服务。下载安装包即可一起安装。"),
     ("Looking for devices…", "正在查找设备…"),
     ("The daemon has only just started. This takes a few seconds.", "后台服务刚刚启动，查找设备需要几秒钟。"),
+    ("Typing", "打字"),
+    ("Gaming", "游戏"),
+    ("Keyswitch optimization", "键轴优化"),
+    ("Typing keeps a short delay that filters out accidental double presses. Gaming removes it, so a key registers at once.", "打字模式保留短暂的消抖延迟，过滤意外重复按键；游戏模式移除该延迟，让按键立即响应。"),
 ];

@@ -654,4 +654,8 @@ pub const RU: &[(&str, &str)] = &[
     ("RsRazer includes the background service. Download the installer to set up both together.", "Фоновая служба входит в RsRazer. Скачайте установщик, чтобы установить их вместе."),
     ("Looking for devices…", "Поиск устройств…"),
     ("The daemon has only just started. This takes a few seconds.", "Служба только что запустилась. Поиск займёт несколько секунд."),
+    ("Typing", "Печать"),
+    ("Gaming", "Игра"),
+    ("Keyswitch optimization", "Оптимизация переключателей"),
+    ("Typing keeps a short delay that filters out accidental double presses. Gaming removes it, so a key registers at once.", "Режим печати сохраняет небольшую задержку для защиты от случайных двойных нажатий. Игровой режим убирает её для мгновенного отклика."),
 ];

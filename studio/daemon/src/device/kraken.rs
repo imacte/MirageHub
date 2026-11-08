@@ -80,7 +80,7 @@ impl Device for KrakenDevice {
             "zones":if effects.is_empty(){json!({})}else{json!({"backlight":{"effects":effects,"brightness":false}})},
             "matrix":false,"matrix_dimensions":null,"dedicated_macro_keys":false,"dpi":false,"dpi_stages":false,"max_dpi":null,
             "poll_rate":false,"supported_poll_rates":[],"battery":false,"idle_time":false,"game_mode":false,"macro_mode":false,
-            "keyboard_layout":false,"scroll_mode":false,"custom_frame":false,"software_effects":false,"readback":false,
+            "keyboard_layout":false,"keyswitch_optimization":false,"scroll_mode":false,"custom_frame":false,"software_effects":false,"readback":false,
             "transport":{"path":self.base.transport.kraken_info().map(|i|&i.path),"interface":self.base.transport.kraken_info().and_then(|i|i.interface),"wait_us":15000}})
     }
     fn enter_driver_mode(&mut self, _keys_handled: bool) -> Result<()> {

@@ -54,6 +54,7 @@ rsrazer-daemon info
 rsrazer-daemon effect static red
 rsrazer-daemon brightness 60
 rsrazer-daemon dpi 1800
+rsrazer-daemon keyswitch gaming         # Huntsman V2 / V2 Tenkeyless
 rsrazer-daemon profile save night
 rsrazer-daemon profile load night
 rsrazer-daemon integration accent on

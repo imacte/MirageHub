@@ -379,6 +379,15 @@ pub(super) fn validate(args: &Arguments) -> Result<()> {
                 integer(v)?;
             }
         }
+        "keyswitch" => {
+            if let Some(mode) = p.get(1) {
+                if !["typing", "gaming"].contains(&mode.to_ascii_lowercase().as_str()) {
+                    return Err(Error::Invalid(
+                        "keyswitch mode must be typing or gaming".into(),
+                    ));
+                }
+            }
+        }
         "headset" => {
             if let Some(setting) = p.get(1) {
                 let value = p
@@ -518,6 +527,11 @@ pub(super) fn run(args: &Arguments) -> Result<i32> {
                     ("charging", "battery", "is_charging"),
                     ("dpi", "dpi", "get_dpi"),
                     ("poll_rate", "poll_rate", "get_poll_rate"),
+                    (
+                        "keyswitch_optimization",
+                        "keyswitch_optimization",
+                        "get_keyswitch_optimization",
+                    ),
                 ] {
                     if caps[flag] == true {
                         result[key] = backend
@@ -613,6 +627,22 @@ pub(super) fn run(args: &Arguments) -> Result<i32> {
                     }
                     Ok(Some(
                         json!({flag:backend.device(serial,&format!("get_{flag}"),json!([]),None)?}),
+                    ))
+                }
+                "keyswitch" => {
+                    if caps["keyswitch_optimization"] != true {
+                        return Ok(None);
+                    }
+                    if let Some(mode) = args.positional.get(1) {
+                        backend.device(
+                            serial,
+                            "set_keyswitch_optimization",
+                            json!([mode]),
+                            None,
+                        )?;
+                    }
+                    Ok(Some(
+                        json!({"keyswitch_optimization":backend.device(serial, "get_keyswitch_optimization", json!([]), None)?}),
                     ))
                 }
                 "battery" => {

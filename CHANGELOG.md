@@ -6,6 +6,13 @@ uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Typing and Gaming keyswitch optimization modes for Huntsman V2 and V2
+  Tenkeyless, in both panels and `rsrazer-daemon keyswitch`. Reads decode the
+  keyboard response directly. Ported from [openrazer-win #14](https://github.com/Ar4ikov/openrazer-win/pull/14)
+  at `9fe3e5dba5899e0eb6e58beda0b4f732a92210af`.
+
 ### Changed
 
 - Port [openrazer-win #15](https://github.com/Ar4ikov/openrazer-win/pull/15)
