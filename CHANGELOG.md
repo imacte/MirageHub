@@ -8,7 +8,7 @@ uses [semantic versioning](https://semver.org/).
 
 ### Changed
 
-- Replace the documentation website's emoji favicon with a custom green serpent
+- Replace the documentation website's emoji favicon with a custom green linework
   emblem, shared with the navigation header and sized for small browser tabs.
 
 ## [1.8.1] - 2026-11-08
