@@ -61,9 +61,11 @@ impl InputReader for Reader {
 struct Backend {
     reader: Mutex<Option<Reader>>,
     info: HidInfo,
+    scans: std::sync::atomic::AtomicUsize,
 }
 impl HidBackend for Backend {
     fn enumerate(&self, _: Option<u16>, _: Option<u16>) -> Result<Vec<HidInfo>> {
+        self.scans.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Ok(vec![self.info.clone()])
     }
     fn open(&self, _: &HidInfo) -> Result<Box<dyn HidHandle>> {
@@ -133,11 +135,13 @@ struct Rig {
     output: Arc<OutputRecorder>,
     state: Arc<Mutex<DeviceState>>,
     reports: mpsc::Sender<Vec<u8>>,
+    backend: Arc<Backend>,
 }
 impl Rig {
     fn new(pid: u16) -> Self {
         let (send, receive) = mpsc::channel();
         let backend = Arc::new(Backend {
+            scans: Default::default(),
             reader: Mutex::new(Some(Reader(receive))),
             info: HidInfo {
                 usage_page: 1,
@@ -158,7 +162,7 @@ impl Rig {
             serial: "KEYBOARD".into(),
         })));
         let mut service = KeyService::new(
-            backend,
+            backend.clone(),
             Arc::new(MacroStore::memory()),
             output.clone(),
             output.clone(),
@@ -171,6 +175,7 @@ impl Rig {
             output,
             state,
             reports: send,
+            backend,
         }
     }
     fn attached() -> Self {
@@ -202,6 +207,35 @@ fn event(name: &str, down: bool, time: u32) -> KeyEvent {
         ours: false,
         time,
     }
+}
+
+#[test]
+fn attaching_reuses_only_matching_collections_from_discovery() {
+    let mut rig = Rig::new(0x0203);
+    let info = HidInfo {
+        vendor_id: 0x1532,
+        product_id: 0x0203,
+        ..rig.backend.info.clone()
+    };
+    let other = HidInfo {
+        product_id: 0x0204,
+        ..info.clone()
+    };
+    assert!(!rig
+        .service
+        .attach_with_infos(&rig.device, Some(&[other]))
+        .unwrap());
+    assert!(rig
+        .service
+        .attach_with_infos(&rig.device, Some(&[info]))
+        .unwrap());
+    assert_eq!(
+        rig.backend.scans.load(std::sync::atomic::Ordering::SeqCst),
+        0
+    );
+    rig.report(&[1]);
+    assert!(rig.service.handle_key(event("f1", true, 0)));
+    assert!(!rig.outputs().is_empty());
 }
 fn until(mut predicate: impl FnMut() -> bool) {
     let deadline = Instant::now() + Duration::from_secs(3);
@@ -386,6 +420,7 @@ fn unfinished_or_failed_macros_release_every_held_key() {
     });
     let service = KeyService::new(
         Arc::new(Backend {
+            scans: Default::default(),
             reader: Mutex::new(None),
             info: HidInfo::default(),
         }),
@@ -564,6 +599,7 @@ fn slow_input_delivery_cannot_block_the_keyboard_callback() {
     let rig = Rig::new(0x0203);
     let (_reports, receiver) = mpsc::channel();
     let backend = Arc::new(Backend {
+        scans: Default::default(),
         reader: Mutex::new(Some(Reader(receiver))),
         info: HidInfo {
             usage_page: 1,

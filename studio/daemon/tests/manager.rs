@@ -115,6 +115,63 @@ struct Radio {
     sweeps: AtomicUsize,
     block: Mutex<Option<(mpsc::SyncSender<()>, mpsc::Receiver<()>)>>,
 }
+
+#[test]
+fn usb_startup_publishes_devices_without_waiting_for_the_first_radio_sweep() {
+    let hid = Arc::new(Hid::default());
+    let info = mouse();
+    hid.devices.lock().unwrap().push(info.clone());
+    let radio = Arc::new(Radio::default());
+    let manager = Arc::new(DeviceManager::new(
+        hid,
+        Some(radio.clone()),
+        Persistence::memory().shared(),
+    ));
+    assert!(manager.first_sweep_pending());
+    assert_eq!(manager.scan_usb().unwrap().len(), 1);
+    assert_eq!(manager.hid_infos(), vec![info]);
+    assert_eq!(radio.sweeps.load(Ordering::SeqCst), 0);
+    assert!(manager.first_sweep_pending());
+
+    let (started, wait_started) = mpsc::sync_channel(1);
+    let (release, wait_release) = mpsc::channel();
+    *radio.block.lock().unwrap() = Some((started, wait_release));
+    let scanning = manager.clone();
+    let scan = thread::spawn(move || scanning.scan(false));
+    wait_started.recv_timeout(Duration::from_secs(3)).unwrap();
+    let pending = manager.first_sweep_pending();
+    let visible = manager.devices().len();
+    release.send(()).unwrap();
+    scan.join().unwrap().unwrap();
+    assert!(pending);
+    assert_eq!(visible, 1);
+    assert!(!manager.first_sweep_pending());
+    assert_eq!(radio.sweeps.load(Ordering::SeqCst), 1);
+    assert_eq!(manager.scan(false).unwrap().len(), 1);
+    assert_eq!(radio.sweeps.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn disabled_or_failed_bluetooth_cannot_leave_startup_pending() {
+    let manager = DeviceManager::new(
+        Arc::new(Hid::default()),
+        None,
+        Persistence::memory().shared(),
+    );
+    assert!(!manager.first_sweep_pending());
+    let radio = Arc::new(Radio::default());
+    radio.failure.store(true, Ordering::SeqCst);
+    let manager = DeviceManager::new(
+        Arc::new(Hid::default()),
+        Some(radio),
+        Persistence::memory().shared(),
+    );
+    manager.scan_usb().unwrap();
+    assert!(manager.first_sweep_pending());
+    manager.scan(false).unwrap();
+    assert!(!manager.first_sweep_pending());
+    assert!(manager.warnings()[0].contains("radio unavailable"));
+}
 impl BleBackend for Radio {
     fn scan(&self, _: Duration, _: Option<u16>) -> Result<Vec<Advertiser>> {
         self.sweeps.fetch_add(1, Ordering::SeqCst);

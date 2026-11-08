@@ -14,7 +14,8 @@ use std::time::Duration;
 
 /// Long enough for a Bluetooth call, which can take seconds on a cold link.
 const READ_TIMEOUT: Duration = Duration::from_secs(40);
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
+#[path = "../../studio/core/src/daemon_connect.rs"]
+mod daemon_connect;
 
 /// `%LOCALAPPDATA%\rsrazer`, where the daemon keeps everything.
 pub fn config_dir() -> PathBuf {
@@ -30,6 +31,8 @@ pub struct Endpoint {
     pub host: String,
     pub port: u16,
     pub token: String,
+    #[serde(default)]
+    pub pid: Option<u32>,
 }
 
 impl Endpoint {
@@ -77,7 +80,7 @@ impl Client {
             .map_err(|e| RpcError::Unavailable(e.to_string()))?
             .next()
             .ok_or_else(|| RpcError::Unavailable("bad endpoint address".into()))?;
-        let stream = TcpStream::connect_timeout(&address, CONNECT_TIMEOUT).map_err(|_| {
+        let stream = daemon_connect::connect(&address, endpoint.pid).map_err(|_| {
             RpcError::Unavailable("the daemon is not running (its endpoint file is stale)".into())
         })?;
         stream.set_read_timeout(Some(READ_TIMEOUT)).ok();

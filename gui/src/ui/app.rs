@@ -112,8 +112,6 @@ impl App {
         let shared: Shared = Default::default();
         let ctx = cc.egui_ctx.clone();
         let tx = worker::spawn(shared.clone(), move || ctx.request_repaint());
-        // The control panel is how most people start the daemon; do it for them.
-        let _ = tx.send(Command::StartDaemon);
         if std::env::var_os("OPENRAZER_GUI_CAPTURE").is_none() {
             crate::daemon::refresh_autostart();
         }
@@ -344,6 +342,7 @@ impl App {
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
             if snap.devices.is_empty() {
                 let text = match &snap.daemon {
+                    DaemonState::Running(info) if info["state"] == "starting" || info["first_sweep_pending"] == true => "Looking for devices…",
                     DaemonState::Running(_) => "No Razer devices found",
                     DaemonState::Connecting => "Connecting…",
                     DaemonState::NotRunning(_) => "Waiting for the daemon",
@@ -446,6 +445,9 @@ impl App {
             DaemonState::Running(_) => {}
         }
         let Some(device) = self.selected_device(snap).cloned() else {
+            if matches!(&snap.daemon, DaemonState::Running(info) if info["state"] == "starting" || info["first_sweep_pending"] == true) {
+                return empty_state(ui, "Looking for devices…", "The daemon has only just started. This takes a few seconds.", None::<fn(&mut egui::Ui)>);
+            }
             let tx = self.tx.clone();
             return empty_state(
                 ui,

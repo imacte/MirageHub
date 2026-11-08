@@ -652,4 +652,6 @@ pub const RU: &[(&str, &str)] = &[
     ("Could not remove it: {}", "Не удалось убрать: {}"),
     ("The daemon is not on this computer: rsrazer-daemon.exe was not found beside RsRazer or on PATH.", "Фоновая служба не найдена: rsrazer-daemon.exe отсутствует рядом со RsRazer и в PATH."),
     ("RsRazer includes the background service. Download the installer to set up both together.", "Фоновая служба входит в RsRazer. Скачайте установщик, чтобы установить их вместе."),
+    ("Looking for devices…", "Поиск устройств…"),
+    ("The daemon has only just started. This takes a few seconds.", "Служба только что запустилась. Поиск займёт несколько секунд."),
 ];

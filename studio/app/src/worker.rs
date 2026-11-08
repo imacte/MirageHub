@@ -183,8 +183,15 @@ pub enum Then {
 
 pub type Shared = Arc<Mutex<Snapshot>>;
 
-pub fn spawn(shared: Shared, serials: Arc<Mutex<Vec<String>>>, repaint: impl Fn() + Send + 'static) -> Sender {
+/// Enqueue startup before spawning the worker, ahead of its first poll.
+fn startup_queue() -> (std::sync::mpsc::Sender<Command>, Receiver<Command>) {
     let (tx, rx) = std::sync::mpsc::channel();
+    let _ = tx.send(Command::StartDaemon);
+    (tx, rx)
+}
+
+pub fn spawn(shared: Shared, serials: Arc<Mutex<Vec<String>>>, repaint: impl Fn() + Send + 'static) -> Sender {
+    let (tx, rx) = startup_queue();
     std::thread::Builder::new()
         .name("daemon".into())
         .spawn(move || {
@@ -674,4 +681,16 @@ fn parse_device(row: &Value) -> Device {
 /// Positional arguments for `device.call`.
 pub fn args(values: &[i64]) -> Vec<Value> {
     values.iter().map(|v| json!(v)).collect()
+}
+
+#[cfg(test)]
+mod startup_tests {
+    use super::*;
+
+    #[test]
+    fn startup_is_queued_before_polling_can_start() {
+        let (_tx, rx) = startup_queue();
+        assert!(matches!(rx.try_recv(), Ok(Command::StartDaemon)));
+        assert!(rx.try_recv().is_err());
+    }
 }

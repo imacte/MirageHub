@@ -3,6 +3,8 @@
 
 #[cfg(windows)]
 pub mod windows;
+#[cfg(any(windows, test))]
+mod cache;
 
 use crate::Result;
 use serde::{Deserialize, Serialize};

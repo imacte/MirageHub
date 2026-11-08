@@ -119,6 +119,7 @@ pub type Shared = Arc<Mutex<Snapshot>>;
 
 pub fn spawn(shared: Shared, repaint: impl Fn() + Send + 'static) -> Sender<Command> {
     let (tx, rx) = std::sync::mpsc::channel();
+    let _ = tx.send(Command::StartDaemon);
     std::thread::Builder::new()
         .name("daemon".into())
         .spawn(move || Worker { shared, client: None, battery_at: HashMap::new(), repaint: Box::new(repaint) }.run(rx))

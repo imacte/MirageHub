@@ -44,7 +44,6 @@ impl Runtime {
         let changed = Arc::new(Changed::default());
         let wake = changed.clone();
         let commands = worker::spawn(shared.clone(), serials.clone(), move || wake.notify());
-        let _ = commands.send(Command::StartDaemon);
         let rules = Arc::new(Mutex::new(settings.clone()));
         appwatch::spawn(rules.clone(), commands.clone(), serials);
         let wake = changed.clone();

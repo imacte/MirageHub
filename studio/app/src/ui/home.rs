@@ -5,7 +5,7 @@ use super::app::{draw_picture, kind_label, scroll, App};
 use super::device::Tab;
 use super::edit::light_up;
 use super::effects::{self, PALETTE};
-use crate::worker::{Command, Device, Snapshot, Then};
+use crate::worker::{Command, DaemonState, Device, Snapshot, Then};
 use egui::{vec2, Color32, CornerRadius, Frame, Margin, RichText, Sense, Stroke};
 use rsrazer_core::theme::{self, icon, ACCENT, BORDER, BORDER_HI, SURFACE, TEXT, TEXT_DIM, TEXT_FAINT};
 use rsrazer_core::widgets::{self, Button};
@@ -33,6 +33,14 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
     });
     scroll(ui, "home", |ui| {
         notices(app, ui, snap);
+        if looking_for_devices(snap) {
+            widgets::plain_panel(ui, |ui| {
+                widgets::empty_state(ui, t("Looking for devices…"), t("The daemon has only just started. This takes a few seconds."), |ui| {
+                    ui.add(egui::Spinner::new().size(18.0).color(ACCENT));
+                });
+            });
+            return;
+        }
         if snap.devices.is_empty() {
             widgets::plain_panel(ui, |ui| {
                 widgets::empty_state(
@@ -65,6 +73,16 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
             });
         }
     });
+}
+
+/// Older daemons omit first_sweep_pending and are treated as finished.
+pub(crate) fn still_starting(snap: &Snapshot) -> bool {
+    matches!(&snap.daemon, DaemonState::Running(info)
+        if info["state"] == "starting" || info["first_sweep_pending"] == true)
+}
+
+fn looking_for_devices(snap: &Snapshot) -> bool {
+    snap.devices.is_empty() && still_starting(snap)
 }
 
 fn notices(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
@@ -387,5 +405,29 @@ fn quick_settings(app: &mut App, ui: &mut egui::Ui, device: &Device, detail: &cr
         if widgets::toggle_row(ui, t("Game mode"), "", &mut on) {
             app.send(Command::Call { serial: serial.clone(), method: "set_game_mode".into(), args: vec![json!(on)], zone: None, then: Then::Keyboard });
         }
+    }
+}
+
+#[cfg(test)]
+mod startup_tests {
+    use super::*;
+
+    #[test]
+    fn startup_empty_state_covers_both_scans_and_older_daemons() {
+        let mut snap = Snapshot::default();
+        assert!(!looking_for_devices(&snap));
+        for info in [json!({"state":"starting"}), json!({"state":"ready","first_sweep_pending":true})] {
+            snap.daemon = DaemonState::Running(info);
+            assert!(looking_for_devices(&snap));
+            snap.devices.push(Device::default());
+            assert!(!looking_for_devices(&snap));
+            snap.devices.clear();
+        }
+        for info in [json!({"version":"1.6.1"}), json!({"state":"ready","first_sweep_pending":false})] {
+            snap.daemon = DaemonState::Running(info);
+            assert!(!still_starting(&snap));
+        }
+        snap.daemon = DaemonState::NotRunning("gone".into());
+        assert!(!still_starting(&snap));
     }
 }

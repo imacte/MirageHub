@@ -728,6 +728,15 @@ impl KeyService {
         }
     }
     pub fn attach(&mut self, device: &SharedDevice) -> Result<bool> {
+        self.attach_with_infos(device, None)
+    }
+    /// The manager already enumerated these collections during discovery.
+    /// Reuse that snapshot instead of opening each HID collection again.
+    pub fn attach_with_infos(
+        &mut self,
+        device: &SharedDevice,
+        infos: Option<&[HidInfo]>,
+    ) -> Result<bool> {
         if !self.running() {
             return Ok(false);
         }
@@ -746,9 +755,21 @@ impl KeyService {
             return Ok(true);
         }
         let mut inputs = Vec::new();
-        for info in self.backend.enumerate(Some(0x1532), Some(pid))? {
-            if is_event_collection(&info) {
-                match self.backend.open_input(&info) {
+        let supplied = infos.is_some();
+        let enumerated;
+        let infos = match infos {
+            Some(infos) => infos,
+            None => {
+                enumerated = self.backend.enumerate(Some(0x1532), Some(pid))?;
+                &enumerated
+            }
+        };
+        for info in infos
+            .iter()
+            .filter(|info| !supplied || (info.vendor_id == 0x1532 && info.product_id == pid))
+        {
+            if is_event_collection(info) {
+                match self.backend.open_input(info) {
                     Ok(reader) => inputs.push(reader),
                     Err(error) => report_error(&self.core.errors, error),
                 }

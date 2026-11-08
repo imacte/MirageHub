@@ -10,6 +10,7 @@ pub mod install;
 pub mod paths;
 pub mod process;
 pub mod rpc;
+mod daemon_connect;
 pub mod theme;
 pub mod widgets;
 pub mod chrome;

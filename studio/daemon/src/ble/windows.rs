@@ -16,7 +16,7 @@ use windows::{
             BluetoothLEAdvertisementReceivedEventArgs, BluetoothLEAdvertisementWatcher,
             BluetoothLEAdvertisementWatcherStoppedEventArgs, BluetoothLEScanningMode,
         },
-        BluetoothCacheMode, BluetoothConnectionStatus, BluetoothLEDevice,
+        BluetoothAdapter, BluetoothCacheMode, BluetoothConnectionStatus, BluetoothLEDevice,
         GenericAttributeProfile::{
             GattCharacteristic, GattClientCharacteristicConfigurationDescriptorValue,
             GattCommunicationStatus, GattDeviceService, GattValueChangedEventArgs, GattWriteOption,
@@ -68,9 +68,17 @@ fn wait<T: RuntimeType + Send + 'static>(
     operation: IAsyncOperation<T>,
     deadline: Instant,
 ) -> Result<T> {
+    wait_mapped(operation, deadline, |value| value.map_err(Into::into))
+}
+
+fn wait_mapped<T: RuntimeType + Send + 'static, R: Send + 'static>(
+    operation: IAsyncOperation<T>,
+    deadline: Instant,
+    decode: impl FnOnce(windows::core::Result<T>) -> Result<R> + Send + 'static,
+) -> Result<R> {
     let (send, receive) = mpsc::sync_channel(1);
     operation.when(move |value| {
-        let _ = send.send(value);
+        let _ = send.send(decode(value));
     })?;
     let outcome = remaining(deadline).and_then(|duration| {
         receive
@@ -78,7 +86,7 @@ fn wait<T: RuntimeType + Send + 'static>(
             .map_err(|_| Error::Device("Windows Bluetooth operation timed out".into()))
     });
     match outcome {
-        Ok(result) => result.map_err(Into::into),
+        Ok(result) => result,
         Err(error) => {
             let _ = operation.Cancel();
             Err(error)
@@ -90,6 +98,14 @@ fn read_buffer(buffer: &IBuffer) -> windows::core::Result<Vec<u8>> {
     let mut bytes = vec![0; reader.UnconsumedBufferLength()? as usize];
     reader.ReadBytes(&mut bytes)?;
     Ok(bytes)
+}
+
+fn adapter_available(adapter: windows::core::Result<BluetoothAdapter>) -> Result<bool> {
+    match adapter {
+        Ok(adapter) => adapter.IsLowEnergySupported().map_err(Into::into),
+        Err(error) if error.code() == windows::core::HRESULT(0x80004003_u32 as i32) => Ok(false),
+        Err(error) => Err(error.into()),
+    }
 }
 
 pub struct NativeBle;
@@ -128,6 +144,17 @@ impl Drop for Watcher {
 }
 fn scan(duration: Duration, company: Option<u16>) -> Result<Vec<Advertiser>> {
     let _apartment = Apartment::new()?;
+    // GetDefaultAsync returns a null WinRT interface when there is no radio.
+    // windows-rs represents that as E_POINTER; there is nothing to wait for.
+    let deadline = Instant::now() + duration;
+    let available = wait_mapped(
+        BluetoothAdapter::GetDefaultAsync()?,
+        deadline,
+        adapter_available,
+    )?;
+    if !available {
+        return Ok(Vec::new());
+    }
     let entries = Arc::new(Mutex::new(Advertisements::default()));
     let captured = entries.clone();
     let watcher = BluetoothLEAdvertisementWatcher::new()?;
@@ -176,7 +203,7 @@ fn scan(duration: Duration, company: Option<u16>) -> Result<Vec<Advertiser>> {
         Ok(())
     }))?);
     guard.watcher.Start()?;
-    if let Ok(error) = receive.recv_timeout(duration) {
+    if let Ok(error) = receive.recv_timeout(remaining(deadline)?) {
         if error != 0 {
             return Err(Error::Device(format!(
                 "Bluetooth scan stopped (error {error})"
@@ -380,6 +407,22 @@ impl Drop for Connection {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn absent_radio_finishes_without_waiting_for_advertisements() {
+        let _apartment = Apartment::new().unwrap();
+        let absent =
+            windows::core::Error::from_hresult(windows::core::HRESULT(0x80004003_u32 as i32));
+        assert!(!wait_mapped(
+            IAsyncOperation::ready(Err(absent)),
+            Instant::now() + Duration::from_secs(1),
+            adapter_available
+        )
+        .unwrap());
+        let denied =
+            windows::core::Error::from_hresult(windows::core::HRESULT(0x80070005_u32 as i32));
+        assert!(adapter_available(Err(denied)).is_err());
+    }
 
     #[test]
     fn winrt_factories_survive_between_ble_workers() {

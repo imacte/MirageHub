@@ -43,7 +43,12 @@ impl RunningDaemon {
             .name("openrazer-devices".into())
             .spawn(move || {
                 devices.start();
-                log::info!("initial device scan finished");
+                log::info!("initial USB device scan finished");
+                if !stop.stopped() && devices.first_sweep_pending() {
+                    if let Err(error) = devices.poll_hotplug(false) {
+                        log::warn!("initial Bluetooth scan: {error}");
+                    }
+                }
                 while !stop.wait(HOTPLUG_INTERVAL) {
                     if let Err(error) = devices.poll_hotplug(false) {
                         log::warn!("hotplug scan: {error}");

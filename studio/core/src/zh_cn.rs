@@ -652,4 +652,6 @@ pub const ZH_CN: &[(&str, &str)] = &[
     ("Could not remove it: {}", "无法移除：{}"),
     ("The daemon is not on this computer: rsrazer-daemon.exe was not found beside RsRazer or on PATH.", "未找到后台程序：RsRazer 所在目录和 PATH 中都没有 rsrazer-daemon.exe。"),
     ("RsRazer includes the background service. Download the installer to set up both together.", "RsRazer 安装包包含后台服务。下载安装包即可一起安装。"),
+    ("Looking for devices…", "正在查找设备…"),
+    ("The daemon has only just started. This takes a few seconds.", "后台服务刚刚启动，查找设备需要几秒钟。"),
 ];

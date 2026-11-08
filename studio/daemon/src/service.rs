@@ -113,6 +113,15 @@ fn lock<T>(value: &Mutex<T>) -> MutexGuard<'_, T> {
 pub trait Registry: Send + Sync {
     fn devices(&self) -> Vec<SharedDevice>;
     fn scan(&self, force_bluetooth: bool) -> Result<Vec<SharedDevice>>;
+    fn scan_usb(&self) -> Result<Vec<SharedDevice>> {
+        self.scan(false)
+    }
+    fn first_sweep_pending(&self) -> bool {
+        false
+    }
+    fn hid_infos(&self) -> Option<Vec<crate::hid::HidInfo>> {
+        None
+    }
     fn unsupported(&self) -> Vec<(u16, String)>;
     fn close(&self) -> Result<()>;
     fn warnings(&self) -> Vec<String> {
@@ -120,6 +129,15 @@ pub trait Registry: Send + Sync {
     }
 }
 impl Registry for DeviceManager {
+    fn scan_usb(&self) -> Result<Vec<SharedDevice>> {
+        self.scan_usb()
+    }
+    fn first_sweep_pending(&self) -> bool {
+        self.first_sweep_pending()
+    }
+    fn hid_infos(&self) -> Option<Vec<crate::hid::HidInfo>> {
+        Some(self.hid_infos())
+    }
     fn devices(&self) -> Vec<SharedDevice> {
         self.devices()
     }
@@ -374,7 +392,7 @@ impl DaemonService {
                 self.warn(e);
             }
         }
-        match self.registry.scan(false) {
+        match self.registry.scan_usb() {
             Ok(devices) => {
                 for device in devices {
                     self.initialise(&device);
@@ -407,7 +425,9 @@ impl DaemonService {
         }
         let result = (|| -> Result<()> {
             let handled = match &self.keys {
-                Some(keys) => lock(keys).attach(device)?,
+                Some(keys) => {
+                    lock(keys).attach_with_infos(device, self.registry.hid_infos().as_deref())?
+                }
                 None => false,
             };
             {
@@ -496,6 +516,9 @@ impl DaemonService {
             }
         }
         Ok(())
+    }
+    pub fn first_sweep_pending(&self) -> bool {
+        self.registry.first_sweep_pending()
     }
     fn paint_latest_accent(&self, device: &SharedDevice) {
         if self.accent_enabled.load(Ordering::Acquire) {
@@ -782,7 +805,8 @@ impl Service for DaemonService {
                 Ok(
                     json!({"version":env!("CARGO_PKG_VERSION"),"upstream":UPSTREAM_VERSION,"pid":std::process::id(),
                     "uptime":(self.created.elapsed().as_secs_f64()*10.0).round()/10.0,"backend":self.options.backend_name,
-                    "devices":self.registry.devices().len(),"state":match self.state.load(Ordering::Acquire) {0=>"starting",2=>"stopping",_=>"ready"},"pending":pending}),
+                    "devices":self.registry.devices().len(),"state":match self.state.load(Ordering::Acquire) {0=>"starting",2=>"stopping",_=>"ready"},"pending":pending,
+                    "first_sweep_pending":self.first_sweep_pending()}),
                 )
             }
             "devices.list" => Ok(self.list()),

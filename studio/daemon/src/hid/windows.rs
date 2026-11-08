@@ -1,11 +1,13 @@
 //! Win32 HID and SetupAPI backend. Each OS resource has a single owner.
 
-use super::{HidBackend, HidHandle, HidInfo, InputReader};
+use super::{cache::DescriptionCache, HidBackend, HidHandle, HidInfo, InputReader};
 use crate::{Error, Result};
 use std::{
+    collections::BTreeSet,
     ffi::c_void,
     mem::{size_of, zeroed},
     ptr::{null, null_mut},
+    sync::{Mutex, OnceLock},
     time::Duration,
 };
 use windows_sys::Win32::{
@@ -213,7 +215,7 @@ fn string(
     String::from_utf16_lossy(&buffer[..end])
 }
 
-fn describe(path: String) -> Result<HidInfo> {
+fn describe(path: String) -> Result<(HidInfo, bool)> {
     let handle = open(&path, false, false)?;
     let mut attributes: HIDD_ATTRIBUTES = unsafe { zeroed() };
     attributes.Size = size_of::<HIDD_ATTRIBUTES>() as u32;
@@ -222,32 +224,43 @@ fn describe(path: String) -> Result<HidInfo> {
     }
     let mut caps: HIDP_CAPS = unsafe { zeroed() };
     let mut preparsed = 0;
+    let mut complete = false;
     if unsafe { HidD_GetPreparsedData(handle.0, &mut preparsed) } != 0 {
         unsafe {
-            HidP_GetCaps(preparsed, &mut caps);
+            complete = HidP_GetCaps(preparsed, &mut caps) == HIDP_STATUS_SUCCESS;
             HidD_FreePreparsedData(preparsed);
         }
     }
-    Ok(HidInfo {
-        interface: HidInfo::path_index(&path, "&mi_"),
-        collection: HidInfo::path_index(&path, "&col"),
-        path,
-        vendor_id: attributes.VendorID,
-        product_id: attributes.ProductID,
-        version: attributes.VersionNumber,
-        usage_page: caps.UsagePage,
-        usage: caps.Usage,
-        feature_length: caps.FeatureReportByteLength,
-        input_length: caps.InputReportByteLength,
-        output_length: caps.OutputReportByteLength,
-        manufacturer: string(handle.0, HidD_GetManufacturerString),
-        product: string(handle.0, HidD_GetProductString),
-        serial: string(handle.0, HidD_GetSerialNumberString),
-    })
+    Ok((
+        HidInfo {
+            interface: HidInfo::path_index(&path, "&mi_"),
+            collection: HidInfo::path_index(&path, "&col"),
+            path,
+            vendor_id: attributes.VendorID,
+            product_id: attributes.ProductID,
+            version: attributes.VersionNumber,
+            usage_page: caps.UsagePage,
+            usage: caps.Usage,
+            feature_length: caps.FeatureReportByteLength,
+            input_length: caps.InputReportByteLength,
+            output_length: caps.OutputReportByteLength,
+            manufacturer: string(handle.0, HidD_GetManufacturerString),
+            product: string(handle.0, HidD_GetProductString),
+            serial: string(handle.0, HidD_GetSerialNumberString),
+        },
+        complete,
+    ))
 }
 
 impl HidBackend for NativeHid {
     fn enumerate(&self, vendor_id: Option<u16>, product_id: Option<u16>) -> Result<Vec<HidInfo>> {
+        static CACHE: OnceLock<Mutex<DescriptionCache>> = OnceLock::new();
+        // Serialize enumeration and cache pruning, including filtered callers.
+        let mut cache = CACHE
+            .get_or_init(Default::default)
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let mut present = BTreeSet::new();
         let mut guid = unsafe { zeroed() };
         unsafe {
             HidD_GetHidGuid(&mut guid);
@@ -323,13 +336,16 @@ impl HidBackend for NativeHid {
             };
             let end = path.iter().position(|c| *c == 0).unwrap_or(path.len());
             let path = String::from_utf16_lossy(&path[..end]);
+            // Include other vendors/products so a filtered scan cannot evict
+            // their descriptors from the shared cache.
+            present.insert(path.clone());
             let lower = path.to_ascii_lowercase();
             if vendor_id.is_some_and(|v| !lower.contains(&format!("vid_{v:04x}")))
                 || product_id.is_some_and(|p| !lower.contains(&format!("pid_{p:04x}")))
             {
                 continue;
             }
-            if let Ok(info) = describe(path) {
+            if let Ok(info) = cache.get_or_describe(&path, || describe(path.clone())) {
                 if vendor_id.is_none_or(|v| info.vendor_id == v)
                     && product_id.is_none_or(|p| info.product_id == p)
                 {
@@ -337,6 +353,7 @@ impl HidBackend for NativeHid {
                 }
             }
         }
+        cache.retain_present(&present);
         Ok(found)
     }
     fn open(&self, info: &HidInfo) -> Result<Box<dyn HidHandle>> {

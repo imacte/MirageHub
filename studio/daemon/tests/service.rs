@@ -282,6 +282,87 @@ fn startup_is_observable_before_scan_finishes_and_retries_failed_devices() {
 }
 
 #[test]
+fn runtime_starts_bluetooth_immediately_after_usb_and_publishes_pending_state() {
+    use rsrazer_daemon::{rpc::SingleInstance, runtime::RunningDaemon};
+    use std::sync::mpsc;
+
+    struct StartupRegistry {
+        entered: mpsc::SyncSender<()>,
+        release: Mutex<mpsc::Receiver<()>>,
+        done: AtomicBool,
+        usb: AtomicBool,
+    }
+    impl Registry for StartupRegistry {
+        fn devices(&self) -> Vec<SharedDevice> {
+            vec![]
+        }
+        fn scan_usb(&self) -> Result<Vec<SharedDevice>> {
+            self.usb.store(true, Ordering::SeqCst);
+            Ok(vec![])
+        }
+        fn scan(&self, _: bool) -> Result<Vec<SharedDevice>> {
+            assert!(self.usb.load(Ordering::SeqCst));
+            if !self.done.load(Ordering::SeqCst) {
+                self.entered.send(()).unwrap();
+                self.release.lock().unwrap().recv().unwrap();
+                self.done.store(true, Ordering::SeqCst);
+            }
+            Ok(vec![])
+        }
+        fn first_sweep_pending(&self) -> bool {
+            !self.done.load(Ordering::SeqCst)
+        }
+        fn unsupported(&self) -> Vec<(u16, String)> {
+            vec![]
+        }
+        fn close(&self) -> Result<()> {
+            Ok(())
+        }
+    }
+    let (entered, receive) = mpsc::sync_channel(1);
+    let (release, wait) = mpsc::channel();
+    let registry = Arc::new(StartupRegistry {
+        entered,
+        release: Mutex::new(wait),
+        done: AtomicBool::new(false),
+        usb: AtomicBool::new(false),
+    });
+    let service = DaemonService::new(
+        registry,
+        Stores::memory(),
+        None,
+        None,
+        Options {
+            chroma_port: 0,
+            ..Options::default()
+        },
+    );
+    let token = rpc::new_token().unwrap();
+    let directory = std::env::temp_dir().join(format!("rsrazer-startup-test-{token}"));
+    let instance = SingleInstance::acquire(&format!("Local\\rsrazer-startup-test-{token}"))
+        .unwrap()
+        .unwrap();
+    let mut daemon = RunningDaemon::start(service.clone(), &directory, 0, instance).unwrap();
+    // Less than HOTPLUG_INTERVAL: the first radio sweep must not wait for it.
+    let immediate = receive.recv_timeout(Duration::from_secs(2));
+    let pending = rpc::Client::connect_to(daemon.endpoint().clone())
+        .and_then(|mut client| client.call("daemon.version", json!({})));
+    release.send(()).unwrap();
+    eventually(|| !service.first_sweep_pending());
+    let ready = rpc::Client::connect_to(daemon.endpoint().clone())
+        .unwrap()
+        .call("daemon.version", json!({}))
+        .unwrap();
+    daemon.stop();
+    std::fs::remove_dir(&directory).unwrap();
+    immediate.unwrap();
+    let pending = pending.unwrap();
+    assert_eq!(pending["state"], "ready");
+    assert_eq!(pending["first_sweep_pending"], true);
+    assert_eq!(ready["first_sweep_pending"], false);
+}
+
+#[test]
 fn scan_failures_do_not_end_startup_and_rescan_forces_bluetooth() {
     let f = Fixture::new(false, false, 0);
     f.registry.fail_scan.store(true, Ordering::SeqCst);

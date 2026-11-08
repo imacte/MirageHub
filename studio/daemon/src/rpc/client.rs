@@ -1,4 +1,6 @@
 use super::{Endpoint, Result, RpcError, INTERNAL_ERROR, MAX_MESSAGE_SIZE};
+#[path = "../../../core/src/daemon_connect.rs"]
+mod daemon_connect;
 use serde_json::{json, Value};
 use std::{
     io::{BufRead, BufReader, Read, Write},
@@ -30,10 +32,8 @@ impl Client {
                     "daemon address is not loopback",
                 ));
             }
-            let stream = TcpStream::connect_timeout(
-                &SocketAddr::new(ip, endpoint.port),
-                Duration::from_secs(2),
-            )?;
+            let stream =
+                daemon_connect::connect(&SocketAddr::new(ip, endpoint.port), Some(endpoint.pid))?;
             stream.set_read_timeout(Some(Duration::from_secs(40)))?;
             stream.set_write_timeout(Some(Duration::from_secs(5)))?;
             stream.set_nodelay(true)?;

@@ -6,6 +6,15 @@ uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Port [openrazer-win #15](https://github.com/Ar4ikov/openrazer-win/pull/15)
+  (`fabe4ccdf3633e1f8993277186e522cab4e1d730`) to the Rust backend: discover USB devices
+  before the initial Bluetooth sweep, start that sweep immediately, cache HID
+  descriptors and reuse discovery results for keyboard input. Studio and the
+  classic panel show discovery progress; clients reject stale local endpoints
+  without waiting for a full connection timeout.
+
 ## [1.7.2] - 2026-11-08
 
 ### Fixed

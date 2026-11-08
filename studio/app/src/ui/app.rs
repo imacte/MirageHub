@@ -122,9 +122,7 @@ impl App {
             worker::Sender::Remote(sender.clone())
         } else {
             let ctx = cc.egui_ctx.clone();
-            let tx = worker::spawn(shared.clone(), Default::default(), move || ctx.request_repaint());
-            let _ = tx.send(Command::StartDaemon);
-            tx
+            worker::spawn(shared.clone(), Default::default(), move || ctx.request_repaint())
         };
         let capture = std::env::var_os("OPENRAZER_STUDIO_CAPTURE").map(|path| Capture {
             path: path.into(),
@@ -356,7 +354,7 @@ impl App {
                 ui.horizontal(|ui| {
                     ui.add_space(12.0);
                     ui.label(widgets::faint(match snap.daemon {
-                        DaemonState::Running(_) => t("None found"),
+                        DaemonState::Running(_) if !super::home::still_starting(snap) => t("None found"),
                         _ => "—",
                     }));
                 });

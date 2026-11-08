@@ -14,7 +14,10 @@ use crate::{
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex, MutexGuard,
+    },
     time::{Duration, Instant},
 };
 
@@ -27,6 +30,7 @@ const VENDOR_ID: u16 = 0x1532;
 #[derive(Default)]
 struct Registry {
     devices: Vec<(String, SharedDevice)>,
+    hid_infos: Vec<HidInfo>,
     unsupported: Vec<(u16, String)>,
     identities: BTreeMap<u64, u64>,
     warnings: Vec<String>,
@@ -41,6 +45,7 @@ pub struct DeviceManager {
     swept_at: Mutex<Option<Instant>>,
     created_at: Instant,
     bluetooth_interval: Duration,
+    first_sweep_done: AtomicBool,
 }
 impl DeviceManager {
     pub fn new(
@@ -57,6 +62,7 @@ impl DeviceManager {
             swept_at: Mutex::new(None),
             created_at: Instant::now(),
             bluetooth_interval: Duration::from_secs(60),
+            first_sweep_done: AtomicBool::new(false),
         }
     }
     #[cfg(windows)]
@@ -78,7 +84,8 @@ impl DeviceManager {
             return None;
         }
         *last = Some(now);
-        match backend.scan(SCAN_SECONDS, Some(ble::COMPANY_ID)) {
+        let result = backend.scan(SCAN_SECONDS, Some(ble::COMPANY_ID));
+        match result {
             Ok(mut advertisers) => {
                 advertisers.sort_by_key(|a| std::cmp::Reverse(a.rssi));
                 Some(advertisers)
@@ -90,11 +97,44 @@ impl DeviceManager {
         }
     }
     pub fn scan(&self, force_bluetooth: bool) -> Result<Vec<SharedDevice>> {
+        let result = self.scan_inner(true, force_bluetooth);
+        // Finish only after discovery publishes its result, including errors
+        // from a disabled radio. The UI must not keep searching forever.
+        if self
+            .swept_at
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some()
+        {
+            self.first_sweep_done.store(true, Ordering::Release);
+        }
+        result
+    }
+    /// Publish USB devices before waiting for advertisements (upstream #15).
+    pub fn scan_usb(&self) -> Result<Vec<SharedDevice>> {
+        self.scan_inner(false, false)
+    }
+    pub fn first_sweep_pending(&self) -> bool {
+        self.bluetooth.is_some() && !self.first_sweep_done.load(Ordering::Acquire)
+    }
+    pub fn hid_infos(&self) -> Vec<HidInfo> {
+        self.registry().hid_infos.clone()
+    }
+    fn scan_inner(
+        &self,
+        sweep_bluetooth: bool,
+        force_bluetooth: bool,
+    ) -> Result<Vec<SharedDevice>> {
         let _scan = self.scan_lock.lock().unwrap_or_else(|e| e.into_inner());
         let mut warnings = Vec::new();
-        let advertisers = self.sweep(force_bluetooth, &mut warnings);
+        let advertisers = if sweep_bluetooth {
+            self.sweep(force_bluetooth, &mut warnings)
+        } else {
+            None
+        };
+        let hid_infos = self.hid.enumerate(Some(VENDOR_ID), None)?;
         let mut by_pid: BTreeMap<u16, Vec<HidInfo>> = BTreeMap::new();
-        for info in self.hid.enumerate(Some(VENDOR_ID), None)? {
+        for info in hid_infos.iter().cloned() {
             by_pid.entry(info.product_id).or_default().push(info);
         }
         // These snapshots permit list/get requests during device I/O and radio sweeps.
@@ -185,6 +225,7 @@ impl DeviceManager {
         let result = devices.iter().map(|(_, device)| device.clone()).collect();
         *self.registry() = Registry {
             devices,
+            hid_infos,
             unsupported,
             identities,
             warnings,
