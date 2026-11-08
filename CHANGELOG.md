@@ -8,6 +8,12 @@ uses [semantic versioning](https://semver.org/).
 
 ### Added
 
+- Software Snap Tap from openrazer-win #14: configurable opposing key pairs,
+  foreground application deny/allow lists, explicit first-enable confirmation,
+  and a keyboard performance panel. It shares the Fn/macro hook, ignores
+  injected input, resets across window/desktop changes and rearms after idle.
+  It defaults off and requires the daemon; `cs2.exe` is excluded by default.
+
 - Typing and Gaming keyswitch optimization modes for Huntsman V2 and V2
   Tenkeyless, in both panels and `rsrazer-daemon keyswitch`. Reads decode the
   keyboard response directly. Ported from [openrazer-win #14](https://github.com/Ar4ikov/openrazer-win/pull/14)

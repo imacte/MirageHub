@@ -5,7 +5,10 @@ use crate::{
     chroma::{bridge::EffectControl, ChromaBridge, ChromaServer},
     effects::{engine::EffectEngine, frame::Colour, render::zone_order},
     integrations::{self, AccentWatch, IntegrationSettings},
-    keys::{codes::parse_sequence, KeyService, MacroStore},
+    keys::{
+        codes::parse_sequence, snaptap_host, snaptap_settings::SettingsStore, KeyService,
+        MacroStore,
+    },
     manager::{lock_device, DeviceManager, SharedDevice},
     persistence::{self, Persistence, SharedStore},
     profiles::{self, ProfileStore},
@@ -162,6 +165,7 @@ pub struct Stores {
     pub profiles: ProfileStore,
     pub macros: Arc<MacroStore>,
     pub integrations: IntegrationSettings,
+    pub snaptap: Arc<SettingsStore>,
 }
 impl Stores {
     pub fn load(directory: &Path) -> Self {
@@ -170,6 +174,7 @@ impl Stores {
             profiles: ProfileStore::load(directory.join("profiles.json")),
             macros: Arc::new(MacroStore::load(directory.join("macros.json"))),
             integrations: IntegrationSettings::load(directory.join("integrations.json")),
+            snaptap: Arc::new(SettingsStore::load(directory.join("snaptap.json"))),
         }
     }
     pub fn memory() -> Self {
@@ -178,6 +183,7 @@ impl Stores {
             profiles: ProfileStore::memory(),
             macros: Arc::new(MacroStore::memory()),
             integrations: IntegrationSettings::memory(),
+            snaptap: Arc::new(SettingsStore::memory()),
         }
     }
 }
@@ -208,6 +214,7 @@ pub struct DaemonService {
     chroma: Arc<ChromaBridge>,
     effects: Option<Arc<Mutex<EffectEngine>>>,
     keys: Option<Mutex<KeyService>>,
+    snaptap: Mutex<snaptap_host::Service>,
     registry: Arc<dyn Registry>,
     persistence: SharedStore,
     profiles: Mutex<ProfileStore>,
@@ -278,9 +285,13 @@ impl DaemonService {
         registry: Arc<dyn Registry>,
         stores: Stores,
         effects: Option<EffectEngine>,
-        keys: Option<KeyService>,
+        mut keys: Option<KeyService>,
         options: Options,
     ) -> Arc<Self> {
+        let snaptap = snaptap_host::Controller::new(stores.snaptap.clone());
+        if let Some(keys) = &mut keys {
+            keys.set_snaptap(snaptap.clone());
+        }
         let effects = effects.map(|e| Arc::new(Mutex::new(e)));
         let accent_enabled = Arc::new(AtomicBool::new(false));
         let accent_colour = Arc::new(Mutex::new(None));
@@ -328,6 +339,7 @@ impl DaemonService {
             chroma,
             effects,
             keys: keys.map(Mutex::new),
+            snaptap: Mutex::new(snaptap_host::Service::new(snaptap)),
             registry,
             persistence: stores.persistence,
             profiles: Mutex::new(stores.profiles),
@@ -367,7 +379,9 @@ impl DaemonService {
         ));
         let effects = enable_effects.then(|| EffectEngine::new(stores.persistence.clone()));
         let keys = enable_keys.then(|| KeyService::native(hid, stores.macros.clone()));
-        Self::new(manager, stores, effects, keys, options)
+        let service = Self::new(manager, stores, effects, keys, options);
+        lock(&service.snaptap).native = true;
+        service
     }
     pub fn chroma(&self) -> &Arc<ChromaBridge> {
         &self.chroma
@@ -393,6 +407,9 @@ impl DaemonService {
             if let Err(e) = lock(keys).start() {
                 self.warn(e);
             }
+        }
+        if let Err(error) = lock(&self.snaptap).start() {
+            self.warn(error);
         }
         match self.registry.scan_usb() {
             Ok(devices) => {
@@ -559,6 +576,7 @@ impl DaemonService {
         if let Some(keys) = &self.keys {
             lock(keys).stop();
         }
+        lock(&self.snaptap).stop();
         if let Err(e) = self.registry.close() {
             self.warn(e);
         }
@@ -780,12 +798,14 @@ impl Service for DaemonService {
             | "devices.unsupported"
             | "effect.status"
             | "integration.status"
+            | "snaptap.status"
             | "keys.status"
             | "macro.record_stop" => (&[], &[]),
             "device.capabilities" | "profile.list" | "macro.list" => (&["serial"], &[]),
             "device.call" => (&["serial", "method"], &["args", "kwargs"]),
             "effect.set" => (&["serial", "effect"], &["options"]),
             "integration.set" => (&["name", "enabled"], &[]),
+            "snaptap.set" => (&[], &["enabled", "acknowledged", "pairs", "deny", "allow"]),
             "profile.save" | "profile.load" | "profile.delete" => (&["serial", "name"], &[]),
             "macro.set" => (&["serial", "key", "action"], &[]),
             "macro.delete" | "macro.record_start" | "macro.play" => (&["serial", "key"], &[]),
@@ -798,6 +818,8 @@ impl Service for DaemonService {
         };
         p.check(required, optional)?;
         match method {
+            "snaptap.status" => Ok(lock(&self.snaptap).controller.status()),
+            "snaptap.set" => Ok(lock(&self.snaptap).update(params)?),
             "daemon.version" => {
                 let mut pending: Vec<_> = lock(&self.pending)
                     .values()

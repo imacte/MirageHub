@@ -568,6 +568,7 @@ pub struct KeyService {
     core: Arc<Core>,
     native_hook: bool,
     hook: Option<KeyboardHook>,
+    snaptap: Option<Arc<super::snaptap_host::Controller>>,
     action_worker: Option<JoinHandle<()>>,
     input_worker: Option<JoinHandle<()>>,
     input_cancel: Arc<Cancellation>,
@@ -606,6 +607,7 @@ impl KeyService {
             }),
             native_hook,
             hook: None,
+            snaptap: None,
             action_worker: None,
             input_worker: None,
             input_cancel: Arc::new(Cancellation::default()),
@@ -685,9 +687,11 @@ impl KeyService {
         );
         if self.native_hook {
             let core = Arc::downgrade(&self.core);
-            match KeyboardHook::start(Arc::new(move |event| {
-                core.upgrade().is_some_and(|core| core.handle_key(event))
-            })) {
+            match KeyboardHook::with_snaptap(
+                Arc::new(move |event| core.upgrade().is_some_and(|core| core.handle_key(event))),
+                self.snaptap.clone(),
+                self.core.injector.clone(),
+            ) {
                 Ok(hook) => self.hook = Some(hook),
                 Err(error) => {
                     self.stop();
@@ -701,6 +705,10 @@ impl KeyService {
     pub fn running(&self) -> bool {
         self.core.enabled.load(Ordering::Acquire)
             && (!self.native_hook || self.hook.as_ref().is_some_and(KeyboardHook::running))
+    }
+    /// Applied when the service starts; Snap Tap shares the Fn filter's hook.
+    pub fn set_snaptap(&mut self, controller: Arc<super::snaptap_host::Controller>) {
+        self.snaptap = Some(controller);
     }
     pub fn stop(&mut self) {
         self.core.enabled.store(false, Ordering::Release);

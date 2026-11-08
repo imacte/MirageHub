@@ -55,6 +55,8 @@ rsrazer-daemon effect static red
 rsrazer-daemon brightness 60
 rsrazer-daemon dpi 1800
 rsrazer-daemon keyswitch gaming         # Huntsman V2 / V2 Tenkeyless
+rsrazer-daemon snaptap                  # Status, off by default
+rsrazer-daemon snaptap pair add W S
 rsrazer-daemon profile save night
 rsrazer-daemon profile load night
 rsrazer-daemon integration accent on
@@ -64,6 +66,13 @@ rsrazer-daemon doctor
 
 Use `--help` for commands and options. `--device` selects a serial, product ID or name fragment;
 `--json` prints machine-readable results. `daemon start --emulate` uses simulated devices and separate demo data.
+
+Snap Tap runs in the daemon and applies to every keyboard. Enable it from the
+keyboard Performance page after reading the warning, or use `snaptap on --accept`.
+Some games prohibit software input changes; `cs2.exe` is excluded by default.
+Use `snaptap deny add game.exe` or `snaptap allow add game.exe` to edit the lists,
+and `snaptap off` to disable it. Exiting the daemon stops Snap Tap. Keyswitch
+optimization is a keyboard firmware setting and remains in effect without it.
 
 ## Build from source
 

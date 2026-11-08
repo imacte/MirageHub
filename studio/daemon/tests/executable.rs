@@ -357,6 +357,47 @@ fn native_cli_validates_before_io_and_direct_mode_needs_no_daemon() {
 }
 
 #[test]
+fn snaptap_cli_requires_consent_and_persists_pairs_and_program_lists() {
+    let mut session = Session::new();
+    session.start();
+    let snap = ok(session.run(&["snaptap", "--json"]));
+    assert_eq!(snap["enabled"], false);
+    assert_eq!(snap["deny"], json!(["cs2.exe"]));
+    assert!(!session.run(&["snaptap", "on"]).status.success());
+    success(session.run(&["snaptap", "on", "--accept"]));
+    success(session.run(&["snaptap", "pair", "add", "w", "s"]));
+    assert!(!session
+        .run(&["snaptap", "pair", "add", "a", "f"])
+        .status
+        .success());
+    success(session.run(&["snaptap", "deny", "add", "Game.EXE"]));
+    success(session.run(&["snaptap", "allow", "add", "another.exe"]));
+    session.stop();
+    session.start();
+    let snap = ok(session.run(&["snaptap", "status", "--json"]));
+    assert_eq!(
+        snap["pairs"],
+        json!([["KEY_A", "KEY_D"], ["KEY_W", "KEY_S"]])
+    );
+    assert_eq!(snap["deny"], json!(["cs2.exe", "game.exe"]));
+    assert_eq!(snap["allow"], json!(["another.exe"]));
+    assert_eq!(snap["acknowledged"], true);
+    assert_eq!(snap["enabled"], true);
+    // The emulator never installs a native input filter or emits user input.
+    assert_eq!(snap["running"], false);
+    success(session.run(&["snaptap", "off"]));
+    success(session.run(&["snaptap", "pair", "remove", "s", "w"]));
+    success(session.run(&["snaptap", "deny", "remove", "game.exe"]));
+    success(session.run(&["snaptap", "allow", "remove", "another.exe"]));
+    let snap = ok(session.run(&["snaptap", "--json"]));
+    assert_eq!(snap["pairs"], json!([["KEY_A", "KEY_D"]]));
+    assert_eq!(snap["deny"], json!(["cs2.exe"]));
+    assert_eq!(snap["allow"], json!([]));
+    assert_eq!(snap["enabled"], false);
+    session.stop();
+}
+
+#[test]
 fn native_executable_serves_studio_with_devices_profiles_macros_and_restart_persistence() {
     let mut session = Session::new();
     session.start();

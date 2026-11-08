@@ -13,6 +13,7 @@ pub mod macros;
 pub mod settings;
 mod session;
 pub mod setup;
+pub mod snaptap;
 pub mod updates;
 pub mod widgets;
 

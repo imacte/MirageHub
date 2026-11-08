@@ -21,6 +21,13 @@ pub use native::KeyboardHook;
 pub struct KeyboardHook;
 #[cfg(not(windows))]
 impl KeyboardHook {
+    pub fn with_snaptap(
+        _: Handler,
+        _: Option<Arc<crate::keys::snaptap_host::Controller>>,
+        _: Arc<dyn crate::keys::inject::Injector>,
+    ) -> Result<Self> {
+        Err(Error::NotSupported("keyboard hooks require Windows".into()))
+    }
     pub fn start(_: Handler) -> Result<Self> {
         Err(Error::NotSupported("keyboard hooks require Windows".into()))
     }
@@ -106,146 +113,49 @@ mod tests {
             assert!(!hook.running());
         }
     }
+
+    #[test]
+    fn disabled_snaptap_reconfigures_on_the_hook_thread_without_injecting_input() {
+        use crate::keys::{
+            inject::{Injection, Injector},
+            snaptap_host::Controller,
+            snaptap_settings::SettingsStore,
+        };
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        struct CountingInjector(AtomicUsize);
+        impl Injector for CountingInjector {
+            fn emit(&self, _: &[Injection]) -> Result<()> {
+                self.0.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            }
+        }
+        let controller = Controller::new(Arc::new(SettingsStore::memory()));
+        let injector = Arc::new(CountingInjector(AtomicUsize::new(0)));
+        let mut hook = KeyboardHook::with_snaptap(
+            Arc::new(|_| false),
+            Some(controller.clone()),
+            injector.clone(),
+        )
+        .unwrap();
+        assert!(hook.running() && controller.attached());
+        controller
+            .update(
+                serde_json::json!({"pairs":[["w","s"]],"deny":["cs2.exe","test.exe"]})
+                    .as_object()
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(
+            controller.status()["pairs"],
+            serde_json::json!([["KEY_W", "KEY_S"]])
+        );
+        assert_eq!(controller.status()["running"], false);
+        hook.stop();
+        assert!(!controller.attached());
+        assert_eq!(injector.0.load(Ordering::SeqCst), 0);
+    }
 }
 
 #[cfg(windows)]
-mod native {
-    use super::*;
-    use std::{
-        cell::RefCell,
-        ptr,
-        sync::{
-            atomic::{AtomicBool, AtomicU32, Ordering},
-            mpsc,
-        },
-        thread::{self, JoinHandle},
-        time::Duration,
-    };
-    use windows_sys::Win32::{
-        Foundation::{LPARAM, LRESULT, WPARAM},
-        System::{LibraryLoader::GetModuleHandleW, Threading::GetCurrentThreadId},
-        UI::WindowsAndMessaging::*,
-    };
-    thread_local! {static CALLBACK:RefCell<Option<Handler>>=RefCell::new(None);}
-
-    pub struct KeyboardHook {
-        worker: Option<JoinHandle<()>>,
-        id: Arc<AtomicU32>,
-        running: Arc<AtomicBool>,
-        stop: Arc<AtomicBool>,
-    }
-    impl KeyboardHook {
-        pub fn start(handler: Handler) -> Result<Self> {
-            let id = Arc::new(AtomicU32::new(0));
-            let running = Arc::new(AtomicBool::new(false));
-            let stop = Arc::new(AtomicBool::new(false));
-            let (thread_id, is_running, stopping) = (id.clone(), running.clone(), stop.clone());
-            let (ready, receive) = mpsc::sync_channel(1);
-            let worker = thread::Builder::new()
-                .name("openrazer-keyboard".into())
-                .spawn(move || {
-                    unsafe {
-                        let mut message: MSG = std::mem::zeroed();
-                        // Create the queue before publishing the thread id for WM_QUIT.
-                        PeekMessageW(&mut message, ptr::null_mut(), 0, 0, PM_NOREMOVE);
-                        thread_id.store(GetCurrentThreadId(), Ordering::Release);
-                        CALLBACK.with(|slot| *slot.borrow_mut() = Some(handler));
-                        let hook = SetWindowsHookExW(
-                            WH_KEYBOARD_LL,
-                            Some(procedure),
-                            GetModuleHandleW(ptr::null()),
-                            0,
-                        );
-                        if hook.is_null() {
-                            thread_id.store(0, Ordering::Release);
-                            CALLBACK.with(|slot| slot.borrow_mut().take());
-                            let _ = ready
-                                .send(Err(Error::Io(std::io::Error::last_os_error().to_string())));
-                            return;
-                        }
-                        is_running.store(true, Ordering::Release);
-                        let _ = ready.send(Ok(()));
-                        while !stopping.load(Ordering::Acquire)
-                            && GetMessageW(&mut message, ptr::null_mut(), 0, 0) > 0
-                        {
-                            TranslateMessage(&message);
-                            DispatchMessageW(&message);
-                        }
-                        UnhookWindowsHookEx(hook);
-                        CALLBACK.with(|slot| slot.borrow_mut().take());
-                        thread_id.store(0, Ordering::Release);
-                        is_running.store(false, Ordering::Release);
-                    }
-                })?;
-            let mut hook = Self {
-                worker: Some(worker),
-                id,
-                running,
-                stop,
-            };
-            match receive.recv_timeout(Duration::from_secs(5)) {
-                Ok(Ok(())) => Ok(hook),
-                result => {
-                    hook.stop();
-                    Err(result
-                        .ok()
-                        .and_then(std::result::Result::err)
-                        .unwrap_or_else(|| Error::Io("keyboard hook did not start".into())))
-                }
-            }
-        }
-        pub fn running(&self) -> bool {
-            self.running.load(Ordering::Acquire)
-        }
-        pub fn stop(&mut self) {
-            self.stop.store(true, Ordering::Release);
-            if let Some(worker) = self.worker.take() {
-                let id = self.id.load(Ordering::Acquire);
-                if id != 0 && !worker.is_finished() {
-                    unsafe {
-                        PostThreadMessageW(id, WM_QUIT, 0, 0);
-                    }
-                }
-                let _ = worker.join();
-                self.id.store(0, Ordering::Release);
-            }
-        }
-    }
-    impl Drop for KeyboardHook {
-        fn drop(&mut self) {
-            self.stop();
-        }
-    }
-    unsafe extern "system" fn procedure(code: i32, message: WPARAM, data: LPARAM) -> LRESULT {
-        if code >= 0
-            && !(data as *const KBDLLHOOKSTRUCT).is_null()
-            && matches!(
-                message as u32,
-                WM_KEYDOWN | WM_KEYUP | WM_SYSKEYDOWN | WM_SYSKEYUP
-            )
-        {
-            let event = unsafe { &*(data as *const KBDLLHOOKSTRUCT) };
-            let input = KeyEvent {
-                vk: event.vkCode,
-                scan: event.scanCode,
-                extended: event.flags & LLKHF_EXTENDED != 0,
-                down: matches!(message as u32, WM_KEYDOWN | WM_SYSKEYDOWN),
-                injected: event.flags & LLKHF_INJECTED != 0,
-                ours: event.dwExtraInfo == INJECTION_MARKER,
-                time: event.time,
-            };
-            let suppress = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                CALLBACK.with(|slot| {
-                    slot.borrow()
-                        .as_ref()
-                        .is_some_and(|callback| callback(input))
-                })
-            }))
-            .unwrap_or(false);
-            if suppress {
-                return 1;
-            }
-        }
-        unsafe { CallNextHookEx(ptr::null_mut(), code, message, data) }
-    }
-}
+#[path = "keyboard_windows.rs"]
+mod native;
