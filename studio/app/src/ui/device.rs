@@ -76,9 +76,11 @@ pub struct DeviceUi {
     pub audio_read: Option<std::time::Instant>,
 }
 
-/// A profile is lighting, so a device with none has nothing to put in one.
+/// Profiles also carry performance and keyboard Snap Tap settings.
 fn keeps_profiles(caps: Option<&serde_json::Value>) -> bool {
-    !caps.is_some_and(|c| c["zones"].as_object().is_some_and(|z| z.is_empty()))
+    !caps.is_some_and(|c| c["zones"].as_object().is_some_and(|z| z.is_empty())
+        && !["dpi", "dpi_stages", "poll_rate", "keyswitch_optimization"].iter().any(|flag| c[*flag] == true)
+        && !matches!(c["type"].as_str(), Some("keyboard" | "keypad")))
 }
 
 fn tabs_for(device: &Device, snap: &Snapshot) -> Vec<Tab> {
@@ -830,6 +832,13 @@ fn about(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapshot) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mice_without_lighting_still_have_performance_profiles() {
+        assert!(keeps_profiles(Some(&json!({"type":"mouse","zones":{},"dpi":true}))));
+        assert!(keeps_profiles(Some(&json!({"type":"keyboard","zones":{}}))));
+        assert!(!keeps_profiles(Some(&json!({"type":"headset","zones":{}}))));
+    }
 
     #[test]
     fn the_picker_names_the_active_profile() {
