@@ -6,6 +6,11 @@ uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Simplified Chinese documentation homepage with automatic browser-language
+  selection, a remembered manual override, and translated device filters and status messages.
+
 ## [1.7.2] - 2026-11-08
 
 ### Fixed
