@@ -633,6 +633,104 @@ fn optional_engines_remain_disabled_and_chroma_uses_a_separate_ephemeral_port() 
 }
 
 #[test]
+fn onboard_cli_and_rpc_map_buttons_upload_and_guard_macro_deletion() {
+    let mut session = Session::new();
+    session.start();
+    let status = ok(session.run(&["onboard", "--json", "-d", "00a7"]));
+    assert_eq!(status[0]["side_plate"], 4);
+    assert_eq!(status[0]["macros"]["count"], 0);
+    success(session.run(&[
+        "onboard",
+        "key",
+        "0x50",
+        "A",
+        "--modifiers",
+        "1",
+        "--store",
+        "5",
+        "--layer",
+        "1",
+        "-d",
+        "00a7",
+    ]));
+    assert_eq!(
+        ok(session.run(&[
+            "onboard", "action", "0x50", "--store", "5", "--layer", "1", "--json", "-d", "00a7"
+        ]))[0]["result"],
+        json!([2, 2, 1, 4])
+    );
+    success(session.run(&[
+        "onboard",
+        "macro-add",
+        "7",
+        "down A; wait 300; up A",
+        "-d",
+        "00a7",
+    ]));
+    assert_eq!(
+        ok(session.run(&["onboard", "macro-length", "7", "--json", "-d", "00a7"]))[0]["result"],
+        7
+    );
+    success(session.run(&[
+        "onboard",
+        "macro-bind",
+        "0x55",
+        "7",
+        "--store",
+        "5",
+        "--layer",
+        "1",
+        "--while-held",
+        "-d",
+        "00a7",
+    ]));
+    let refused = session.run(&["onboard", "macro-delete", "7", "-d", "00a7"]);
+    assert!(!refused.status.success());
+    assert!(String::from_utf8(refused.stderr)
+        .unwrap()
+        .contains("still bound"));
+    success(session.run(&[
+        "onboard", "mouse", "0x55", "4", "--store", "5", "--layer", "1", "-d", "00a7",
+    ]));
+    success(session.run(&["onboard", "macro-delete", "7", "-d", "00a7"]));
+    assert_eq!(
+        ok(session.run(&["onboard", "macros", "--json", "-d", "00a7"]))[0]["result"]["count"],
+        0
+    );
+    assert!(!session
+        .run(&["onboard", "key", "0x50", "A", "-d", "0078"])
+        .status
+        .success());
+    assert!(!session
+        .run(&["onboard", "macro-add", "8", "down NOT_A_KEY", "-d", "00a7"])
+        .status
+        .success());
+    assert!(!session
+        .run(&["onboard", "status", "--while-held", "-d", "00a7"])
+        .status
+        .success());
+    // Named keys and textual steps are also accepted directly over RPC.
+    let mut client = session.client();
+    client
+        .call(
+            "device.call",
+            json!({"serial":"00a7","method":"set_button_key","args":[0x50,"F5"]}),
+        )
+        .unwrap();
+    assert_eq!(
+        client
+            .call(
+                "device.call",
+                json!({"serial":"00a7","method":"get_button_action","args":[0x50]})
+            )
+            .unwrap(),
+        json!([2, 2, 0, 62])
+    );
+    session.stop();
+    success(session.run(&["--direct", "onboard", "key", "0x50", "B", "-d", "00a7"]));
+}
+
+#[test]
 fn profile_cli_creates_copies_marks_active_and_keeps_edits_across_restart() {
     let mut session = Session::new();
     session.start();

@@ -60,6 +60,13 @@ pub fn select_blackshark(candidates: &[HidInfo]) -> Option<&HidInfo> {
 pub trait DeviceTransport: Sender + Send {
     fn info(&self) -> &HidInfo;
     fn wait(&self) -> Duration;
+    /// One feature-report exchange, without retries even after a lost reply.
+    /// Flash writes can already have taken effect when an error is returned.
+    fn exchange_once(&mut self, _request: &Report) -> Result<Report> {
+        Err(Error::NotSupported(
+            "transport has no single-attempt feature exchange".into(),
+        ))
+    }
     fn argb_info(&self) -> Option<&HidInfo> {
         None
     }
@@ -104,10 +111,7 @@ impl Transport {
             kraken_handle: None,
         }
     }
-}
-
-impl Sender for Transport {
-    fn send(&mut self, request: &Report, want_response: bool) -> Result<Option<Report>> {
+    fn transfer(&mut self, request: &Report, want_response: bool) -> Result<Option<Report>> {
         if self.handle.is_none() {
             self.handle = Some(self.backend.open(&self.info)?);
         }
@@ -115,30 +119,35 @@ impl Sender for Transport {
         let mut data = Vec::with_capacity(91);
         data.push(0);
         data.extend_from_slice(&request.pack());
+        handle.send_feature(&data)?;
+        thread::sleep(self.wait);
+        if !want_response {
+            return Ok(None);
+        }
+        let raw = handle.get_feature(91, 0)?;
+        let response = Report::unpack(raw.get(1..).unwrap_or(&[]))?;
+        if !request.matches(&response) {
+            return Err(Error::Device("response does not match request".into()));
+        }
+        match response.status {
+            SUCCESSFUL | BUSY => Ok(Some(response)),
+            NOT_SUPPORTED => Err(Error::NotSupported("device replied not supported".into())),
+            status => Err(Error::Device(format!(
+                "device replied {}",
+                status_name(status)
+            ))),
+        }
+    }
+}
+
+impl Sender for Transport {
+    fn send(&mut self, request: &Report, want_response: bool) -> Result<Option<Report>> {
+        if self.handle.is_none() {
+            self.handle = Some(self.backend.open(&self.info)?);
+        }
         let mut last_error = Error::Device("no usable response from device".into());
         for attempt in 0..5 {
-            let transfer = (|| {
-                handle.send_feature(&data)?;
-                thread::sleep(self.wait);
-                if !want_response {
-                    return Ok(None);
-                }
-                let raw = handle.get_feature(91, 0)?;
-                let response = Report::unpack(raw.get(1..).unwrap_or(&[]))?;
-                if !request.matches(&response) {
-                    return Err(Error::Device("response does not match request".into()));
-                }
-                match response.status {
-                    SUCCESSFUL | BUSY => Ok(Some(response)),
-                    NOT_SUPPORTED => {
-                        Err(Error::NotSupported("device replied not supported".into()))
-                    }
-                    status => Err(Error::Device(format!(
-                        "device replied {}",
-                        status_name(status)
-                    ))),
-                }
-            })();
+            let transfer = self.transfer(request, want_response);
             match transfer {
                 Ok(response) => return Ok(response),
                 Err(error @ Error::NotSupported(_)) => return Err(error),
@@ -181,6 +190,10 @@ impl Sender for Transport {
 }
 
 impl DeviceTransport for Transport {
+    fn exchange_once(&mut self, request: &Report) -> Result<Report> {
+        self.transfer(request, true)?
+            .ok_or_else(|| Error::Device("missing feature response".into()))
+    }
     fn info(&self) -> &HidInfo {
         &self.info
     }

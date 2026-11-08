@@ -2,7 +2,7 @@ use super::{bindings, integer, Arguments, Device};
 use crate::{
     database::DeviceInfo,
     persistence::{self, SharedStore, ZONES},
-    protocol::{ble, builders},
+    protocol::{ble, builders, onboard},
     recipes::{self, Environment},
     transport::DeviceTransport,
     Error, Result,
@@ -376,6 +376,8 @@ impl Device for StandardDevice {
             "game_mode":self.feature("read:game_led_state", &["get_game_mode"]),"macro_mode":self.feature("read:macro_led_state", &["get_macro_mode"]),
             "keyboard_layout":self.feature("read:kbd_layout", &["get_keyboard_layout"]),"scroll_mode":self.feature("read:scroll_mode", &["get_scroll_mode"]),
             "keyswitch_optimization":self.feature("read:keyswitch_optimization", &["get_keyswitch_optimization"]),
+            "onboard_buttons":onboard::supported(self.metadata.pid),"onboard_macros":onboard::supported(self.metadata.pid),
+            "onboard_button_ids":if onboard::supported(self.metadata.pid) { onboard::BUTTONS.to_vec() } else { vec![] },
             "custom_frame":custom,"software_effects":custom && dims[0] * dims[1] > 1,
             "transport":{"path":self.transport.info().path,"interface":self.transport.info().interface,"wait_us":self.transport.wait().as_micros() as u64}
         })
@@ -414,6 +416,12 @@ impl Device for StandardDevice {
             args: values,
             kwargs,
         };
+        if onboard::METHODS.contains(&method) {
+            if !onboard::supported(self.metadata.pid) {
+                return Err(Error::NotSupported("onboard mappings and macros require a Naga V2 Pro".into()));
+            }
+            return super::onboard::call(self.transport.as_mut(), method, &args);
+        }
         if let Some(effect) = method
             .strip_prefix("set_")
             .filter(|effect| EFFECTS.contains(effect))

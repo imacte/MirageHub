@@ -26,8 +26,11 @@ use std::{
     time::Duration,
 };
 
-pub const PRODUCT_IDS: [u16; 5] = [0x0203, 0x0078, 0x0c00, bs::PID_WIRELESS, 0x026b];
+#[path = "demo_onboard.rs"]
+mod onboard;
+pub const PRODUCT_IDS: [u16; 6] = [0x0203, 0x0078, 0x0c00, bs::PID_WIRELESS, 0x026b, 0x00a7];
 struct State {
+    onboard: onboard::State,
     serial: String,
     response: Vec<u8>,
     mode: [u8; 2],
@@ -48,6 +51,7 @@ struct State {
 impl State {
     fn new(serial: String) -> Self {
         Self {
+            onboard: onboard::State::default(),
             serial,
             response: vec![0; 91],
             mode: [0, 0],
@@ -82,6 +86,7 @@ impl State {
         }
     }
     fn answer(&mut self, request: Report) -> Report {
+        if let Some(reply) = self.onboard.answer(&request) { return reply; }
         let mut response = request.clone();
         response.status = 2;
         let a = &request.arguments;

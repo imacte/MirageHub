@@ -3,6 +3,7 @@
 mod blackshark;
 mod ble;
 mod kraken;
+mod onboard;
 mod standard;
 pub use blackshark::BlackSharkDevice;
 pub use ble::BleDevice;

@@ -83,6 +83,30 @@ Use `snaptap deny add game.exe` or `snaptap allow add game.exe` to edit the list
 and `snaptap off` to disable it. Exiting the daemon stops Snap Tap. Keyswitch
 optimization is a keyboard firmware setting and remains in effect without it.
 
+Naga V2 Pro (USB IDs `1532:00A7` and `1532:00A8`) also has an **Onboard memory**
+page for mouse buttons, keyboard keys and macros stored in the mouse. Slot 1 is
+live and survives power cycles; slots 2–5 hold other mappings. These settings are
+independent of the PC profiles above. Equivalent commands:
+
+```powershell
+rsrazer-daemon onboard --device 00a7
+rsrazer-daemon onboard buttons --device 00a7
+rsrazer-daemon onboard action 0x50 --device 00a7
+rsrazer-daemon onboard key 0x50 A --device 00a7
+rsrazer-daemon onboard macro-add 7 "down A; wait 50; up A" --device 00a7
+rsrazer-daemon onboard macro-bind 0x50 7 --device 00a7
+```
+
+Use the product ID or serial reported by `list` for the connection in use.
+`--store 1..5` and `--layer 0..1` select a mapping; layer 1 is Hypershift.
+`--modifiers` accepts the HID modifier mask for a keyboard binding, and
+`--while-held` repeats a bound macro. `onboard macro-delete ID` refuses to delete
+a macro while any button still uses it. After deletion the firmware can omit live
+IDs from its list; `onboard macro-length ID` checks a known ID. Upload never
+overwrites an existing ID. `--direct` provides the same hardware commands while
+the daemon is stopped. This port is tested with the emulator and protocol fixtures;
+physical Naga testing is documented in [upstream #2962](https://github.com/openrazer/openrazer/pull/2962).
+
 ## Build from source
 
 Install the pinned Rust toolchain and Microsoft C++ Build Tools with the Windows SDK, then run:

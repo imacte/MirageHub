@@ -53,6 +53,8 @@ rsrazer-daemon info
 rsrazer-daemon effect static red
 rsrazer-daemon brightness 60
 rsrazer-daemon dpi 1800
+rsrazer-daemon keyswitch typing
+rsrazer-daemon snaptap status
 rsrazer-daemon profile save night
 rsrazer-daemon profile load night
 rsrazer-daemon profile create work
@@ -72,6 +74,27 @@ rsrazer-daemon doctor
 开关和按键对。Snap Tap 的首次确认和程序排除列表属于全局设置，不会随配置导入。
 `profile create 名称` 从默认设置开始，添加 `--source 原配置` 可创建副本。
 命令行用 `*` 标记当前配置。这些配置保存在电脑上。
+
+键轴优化适用于 Huntsman V2／V2 Tenkeyless，是设备固件设置。软件 Snap Tap 可在键盘
+性能页确认提示后启用，需要后台服务持续运行，默认关闭并排除 `cs2.exe`。
+
+Naga V2 Pro 的有线 `1532:00A7` 和接收器 `1532:00A8` 型号提供“板载存储”页面，
+可将鼠标按键、键盘按键和宏保存到鼠标。位置 1 当前生效且断电保留；位置 2–5
+存放其他映射。这些设置与电脑配置文件独立。命令行示例：
+
+```powershell
+rsrazer-daemon onboard --device 00a7
+rsrazer-daemon onboard action 0x50 --device 00a7
+rsrazer-daemon onboard key 0x50 A --device 00a7
+rsrazer-daemon onboard macro-add 7 "down A; wait 50; up A" --device 00a7
+rsrazer-daemon onboard macro-bind 0x50 7 --device 00a7
+```
+
+请用 `list` 显示的产品 ID 或序列号选择当前设备。`--store 1..5` 选择存储位置，
+`--layer 0..1` 选择标准／Hypershift 层，`--while-held` 设置按住时重复宏。
+删除宏前会检查所有位置和两层按键，仍有绑定时拒绝删除。固件可能漏报宏编号，
+可用 `onboard macro-length 编号` 检查；上传不会覆盖已有编号。
+当前移植通过模拟设备和协议测试，实机验证记录见[上游 #2962](https://github.com/openrazer/openrazer/pull/2962)。
 
 ## 从源码构建
 

@@ -26,7 +26,27 @@ fn every_device_preserves_its_public_metadata() {
     let expected = fixture["devices"].as_array().unwrap();
     assert_eq!(database::devices().len(), expected.len());
     for (device, expected) in database::devices().iter().zip(expected) {
-        assert_eq!(device.to_json(), *expected, "{}", device.key());
+        let mut expected = expected.clone();
+        if matches!(device.pid, 0x00a7 | 0x00a8) {
+            // #2962 adds these methods after the original Python corpus was
+            // captured. Keep that baseline intact and assert the exact delta.
+            let methods = expected["methods"].as_array_mut().unwrap();
+            methods.extend(
+                [
+                    "add_onboard_macro",
+                    "delete_onboard_macro",
+                    "get_button_action",
+                    "get_onboard_buttons",
+                    "get_onboard_macro_storage",
+                    "get_onboard_macros",
+                    "get_side_plate",
+                    "set_button_action",
+                ]
+                .map(|name| Value::String(name.into())),
+            );
+            methods.sort_by(|a, b| a.as_str().cmp(&b.as_str()));
+        }
+        assert_eq!(device.to_json(), expected, "{}", device.key());
     }
 }
 

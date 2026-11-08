@@ -24,6 +24,7 @@ pub enum Tab {
     Power,
     Profiles,
     Keys,
+    Onboard,
     About,
 }
 
@@ -36,6 +37,7 @@ impl Tab {
             Tab::Power => t("Power"),
             Tab::Profiles => t("Profiles"),
             Tab::Keys => t("Keys"),
+            Tab::Onboard => t("Onboard memory"),
             Tab::About => t("About"),
         }
     }
@@ -47,6 +49,7 @@ impl Tab {
             "power" => Tab::Power,
             "profiles" => Tab::Profiles,
             "keys" => Tab::Keys,
+            "onboard" => Tab::Onboard,
             "about" => Tab::About,
             _ => Tab::Performance,
         }
@@ -100,6 +103,7 @@ fn tabs_for(device: &Device, snap: &Snapshot) -> Vec<Tab> {
         if caps["battery"] == true || caps["idle_time"] == true {
             tabs.push(Tab::Power);
         }
+        if caps["onboard_buttons"] == true { tabs.push(Tab::Onboard); }
     }
     if keeps_profiles(caps) {
         tabs.push(Tab::Profiles);
@@ -120,8 +124,8 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
     header(app, ui, &device, snap);
     let tabs = tabs_for(&device, snap);
     if !tabs.contains(&app.device_ui.tab) {
-        // Ask for Lighting on a device whose zones are still loading, and get it once they are.
-        if !(matches!(app.device_ui.tab, Tab::Lighting | Tab::Sound) && snap.details.get(&device.serial).and_then(|d| d.caps.as_ref()).is_none()) {
+        // Keep the requested page while its device capabilities are loading.
+        if !(matches!(app.device_ui.tab, Tab::Lighting | Tab::Sound | Tab::Onboard | Tab::Profiles) && snap.details.get(&device.serial).and_then(|d| d.caps.as_ref()).is_none()) {
             app.device_ui.tab = tabs[0];
         }
     }
@@ -140,6 +144,7 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
         Tab::Power => power(app, ui, &device, snap),
         Tab::Profiles => profiles(app, ui, &device, snap),
         Tab::Keys => super::macros::device_keys(app, ui, &device, snap),
+        Tab::Onboard => super::onboard::page(app, ui, &device, snap),
         Tab::About => about(app, ui, &device, snap),
         Tab::Lighting => {}
     });
@@ -347,7 +352,7 @@ fn performance(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapsho
                 widgets::panel(ui, t("Polling rate"), |ui| {
                     let rates: Vec<(i64, String)> = caps["supported_poll_rates"].as_array().map(|r| r.iter().filter_map(|v| v.as_i64()).map(|v| (v, format!("{v} Hz"))).collect()).unwrap_or_default();
                     let mut rate = edit.poll_rate.unwrap_or(0);
-                    widgets::row(ui, t("Polling rate"), t("How often the mouse reports to the PC. Higher is smoother; on a wireless mouse it costs battery."), |ui| {
+                    widgets::row(ui, t("Polling rate"), t("How often the device reports to the PC. Higher rates reduce input delay; wireless devices may use more battery."), |ui| {
                         if widgets::segmented(ui, &rates, &mut rate) {
                             edit.poll_rate = Some(rate);
                             send.push(Command::Call { serial: serial.clone(), method: "set_poll_rate".into(), args: vec![json!(rate)], zone: None, then: Then::Performance });
@@ -539,7 +544,7 @@ fn profiles(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapshot) 
     widgets::columns(ui, 0.4, TWO_COLUMNS, |ui, column| {
         if column == 0 {
             widgets::panel(ui, t("New profile"), |ui| {
-                widgets::help(ui, t("Starts from the default settings, with Snap Tap off, and becomes the active profile. Changes to the active profile are kept as you make them. Up to ten per device."));
+                widgets::help(ui, t("Starts from the default settings and becomes the active profile. Changes to the active profile are kept as you make them. Up to ten per device."));
                 ui.add_space(4.0);
                 ui.horizontal(|ui| {
                     let name = app.device_ui.profile_name.trim().to_string();

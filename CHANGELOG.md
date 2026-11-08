@@ -8,6 +8,14 @@ uses [semantic versioning](https://semver.org/).
 
 ### Added
 
+- Naga V2 Pro onboard button mappings and macros, ported from
+  [OpenRazer #2962](https://github.com/openrazer/openrazer/pull/2962) at
+  `73071e54b3eb6f657518ea95fd223d22e97b2432`. Studio and `rsrazer-daemon onboard`
+  support the wired and receiver models, all five stores and both layers.
+  Flash writes are sent once, uploads wait for readback, and deleting a bound
+  macro is refused. The UI reports incomplete firmware macro lists. Validated
+  with simulated devices and wire fixtures; no local physical Naga test was run.
+
 - Active profiles and automatic saving, ported from [openrazer-win #16](https://github.com/Ar4ikov/openrazer-win/pull/16)
   at `287c241400951a410e4dbb48482c69718e6ccd1b`. Create or duplicate profiles in
   Studio or the CLI, and restore lighting, switch mode, DPI and polling rate.

@@ -686,7 +686,8 @@ impl DaemonService {
     }
     fn call_device(&self, p: &Parameters<'_>) -> rpc::Result<Value> {
         let method = p.string("method")?;
-        if !DEVICE_METHODS.contains(&method) {
+        if !DEVICE_METHODS.contains(&method) && !crate::protocol::onboard::METHODS.contains(&method)
+        {
             return Err(RpcError::new(
                 METHOD_NOT_FOUND,
                 format!("method not exposed over RPC: {method}"),
@@ -695,6 +696,11 @@ impl DaemonService {
         let device = self.device(p.string("serial")?)?;
         let args = p.array("args")?;
         let kwargs = p.object("kwargs")?;
+        if crate::protocol::onboard::METHODS.contains(&method) {
+            // Device locking covers the entire flash operation. Onboard
+            // memory is independent of the PC's automatically saved profiles.
+            return Ok(lock_device(&device).call(method, &args, &kwargs)?);
+        }
         let zone = kwargs
             .get("zone")
             .and_then(Value::as_str)
@@ -928,7 +934,9 @@ impl Service for DaemonService {
                 | "profile.delete"
                 | "effect.set"
                 | "snaptap.set"
-        ) || (method == "device.call" && !read_only(p.string("method")?));
+        ) || (method == "device.call"
+            && !read_only(p.string("method")?)
+            && !crate::protocol::onboard::METHODS.contains(&p.string("method")?));
         let _profile_gate = mutates_profile.then(|| lock(&self.profile_gate));
         match method {
             "snaptap.status" => Ok(lock(&self.snaptap).controller.status()),

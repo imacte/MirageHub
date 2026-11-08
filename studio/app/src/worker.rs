@@ -84,6 +84,10 @@ pub struct Detail {
     pub macros: Option<Value>,
     /// A headset's own sound settings.
     pub audio: Option<Value>,
+    #[serde(default)]
+    pub onboard: Value,
+    #[serde(default)]
+    pub onboard_binding: Value,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -158,6 +162,8 @@ pub enum Command {
     /// Switch one of the daemon's integrations on or off.
     Integration { name: String, enabled: bool },
     SnapTap(Value),
+    ReadOnboard { serial: String, button: u8, layer: u8, store: u8 },
+    Onboard { serial: String, method: String, args: Vec<Value> },
     /// A local shutdown barrier, never accepted over the UI pipe.
     #[serde(skip)]
     Drain(std::sync::mpsc::Sender<()>),
@@ -389,6 +395,7 @@ impl Worker {
         self.read_profiles(serial);
         self.read_macros(serial, &caps);
         self.read_audio(serial);
+        if caps["onboard_buttons"] == true { self.read_onboard(serial); }
         self.battery_at.insert(serial.to_string(), Instant::now());
     }
 
@@ -505,6 +512,27 @@ impl Worker {
         }
     }
 
+    fn read_onboard(&mut self, serial: &str) {
+        let result = (|| {
+            let plate = self.with(|c| c.device(serial,"get_side_plate",vec![],None))?;
+            let inventory = self.with(|c| c.device(serial,"get_onboard_macro_inventory",vec![],None))?;
+            let storage = self.with(|c| c.device(serial,"get_onboard_macro_storage",vec![],None))?;
+            Ok::<_, RpcError>(json!({"side_plate":plate,"inventory":inventory,"storage":storage}))
+        })();
+        match result {
+            Ok(value) => self.update(serial, |d| d.onboard = value),
+            Err(error) => self.update(serial, |d| d.onboard = json!({"error":error.to_string()})),
+        }
+    }
+    fn read_onboard_binding(&mut self, serial: &str, button: u8, layer: u8, store: u8) {
+        let result = self.with(|c| c.device(serial,"get_button_action",vec![json!(button),json!(layer),json!(store)],None));
+        let value = match result {
+            Ok(action) => json!({"button":button,"layer":layer,"store":store,"action":action}),
+            Err(error) => json!({"button":button,"layer":layer,"store":store,"error":error.to_string()}),
+        };
+        self.update(serial, |d| d.onboard_binding = value);
+    }
+
     fn read_macros(&mut self, serial: &str, caps: &Value) {
         if caps["type"] != "keyboard" && caps["type"] != "keypad" && caps["dedicated_macro_keys"] != true {
             return;
@@ -591,6 +619,19 @@ impl Worker {
                 let mut shared = self.shared.lock().unwrap();
                 if deny { shared.snaptap_deny_error = result.as_ref().err().map(ToString::to_string); }
                 if let Ok(status) = result { shared.snaptap = status; }
+            }
+            Command::ReadOnboard { serial, button, layer, store } => {
+                self.read_onboard(&serial);
+                self.read_onboard_binding(&serial,button,layer,store);
+            }
+            Command::Onboard { serial, method, args } => {
+                let result = self.with(|c| c.device(&serial,&method,args,None));
+                self.report(&result,Some(t("Onboard memory updated").into()));
+                self.read_onboard(&serial);
+                let binding = self.shared.lock().unwrap().details.get(&serial).map(|d| d.onboard_binding.clone()).unwrap_or_default();
+                if let (Some(button),Some(layer),Some(store)) = (binding["button"].as_u64(),binding["layer"].as_u64(),binding["store"].as_u64()) {
+                    self.read_onboard_binding(&serial,button as u8,layer as u8,store as u8);
+                }
             }
             Command::Profile { action, serial, name, quiet } => {
                 let method = format!("profile.{action}");

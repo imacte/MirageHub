@@ -130,7 +130,7 @@ pub fn performance(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Sna
                     send.push(Command::Call { serial: serial.clone(), method: "set_poll_rate".into(), args: vec![json!(rate)], zone: None, then: Then::Performance });
                 }
             });
-            ui.label(RichText::new("How often the mouse reports to the PC. Higher is smoother and costs battery on wireless mice.").size(12.5).color(TEXT_FAINT));
+            ui.label(RichText::new("How often the device reports to the PC. Higher rates reduce input delay; wireless devices may use more battery.").size(12.5).color(TEXT_FAINT));
         });
     }
 

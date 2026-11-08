@@ -12,7 +12,7 @@ use crate::{
 use serde_json::{json, Map, Value};
 use std::sync::Arc;
 
-struct Direct {
+pub(super) struct Direct {
     manager: DeviceManager,
     profiles: ProfileStore,
     snaptap: crate::keys::snaptap_settings::SettingsStore,
@@ -63,7 +63,7 @@ impl Drop for Direct {
         let _ = self.manager.close();
     }
 }
-enum Backend {
+pub(super) enum Backend {
     Remote(Client),
     Direct(Box<Direct>),
 }
@@ -103,7 +103,7 @@ impl Backend {
         direct.manager.scan(true)?;
         Ok(Self::Direct(Box::new(direct)))
     }
-    fn call(&mut self, method: &str, params: Value) -> Result<Value> {
+    pub(super) fn call(&mut self, method: &str, params: Value) -> Result<Value> {
         let Self::Direct(direct) = self else {
             let Self::Remote(client) = self else {
                 unreachable!()
@@ -173,6 +173,8 @@ impl Backend {
         };
         persistence::lock(&direct.manager.persistence).save()?;
         if method == "device.call"
+            && !crate::protocol::onboard::METHODS
+                .contains(&params["method"].as_str().unwrap_or_default())
             && !crate::service::read_only(params["method"].as_str().unwrap_or_default())
             && direct.profiles.active(serial).is_some()
         {
@@ -181,7 +183,7 @@ impl Backend {
         }
         Ok(result)
     }
-    fn device(
+    pub(super) fn device(
         &mut self,
         serial: &str,
         method: &str,
@@ -379,6 +381,9 @@ pub(super) const EFFECTS: &[&str] = &[
 
 /// Validate all syntax before discovery or a write to any device.
 pub(super) fn validate(args: &Arguments) -> Result<()> {
+    if args.positional[0] == "onboard" {
+        return super::onboard::validate(args);
+    }
     let p = &args.positional;
     match p[0].as_str() {
         "effect" => {
@@ -620,6 +625,7 @@ pub(super) fn run(args: &Arguments) -> Result<i32> {
                 return Ok(None);
             }
             match command {
+                "onboard" => super::onboard::run(&mut backend, args, serial, &caps),
                 "effect" => apply_effect(&mut backend, args, serial, &caps),
                 "zones" => {
                     let names = colour_zones(&caps);
@@ -773,7 +779,7 @@ pub(super) fn run(args: &Arguments) -> Result<i32> {
         println!("No connected device supports this operation.");
     }
     Ok(i32::from(
-        failed || (command == "headset" && results.is_empty()),
+        failed || (["headset", "onboard"].contains(&command) && results.is_empty()),
     ))
 }
 

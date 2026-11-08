@@ -115,6 +115,39 @@ fn retries_stale_and_failed_replies_but_stops_on_unsupported() {
     assert_eq!(channel.wait(), Duration::from_millis(1));
 }
 #[test]
+fn single_attempt_flash_exchange_never_repeats_a_write_after_a_lost_or_bad_reply() {
+    let request = Report::new(6, 9, 10);
+    for reply in [
+        Err(Error::Io("lost after write".into())),
+        Ok(vec![0; 4]),
+        Ok(response(&Report::new(6, 8, 6), 2)),
+        Ok(response(&request, 3)),
+    ] {
+        let backend = Backend::default();
+        backend
+            .0
+            .lock()
+            .unwrap()
+            .replies
+            .extend([reply, Ok(response(&request, 2))]);
+        assert!(transport(&backend).exchange_once(&request).is_err());
+        assert_eq!(backend.0.lock().unwrap().features.len(), 1);
+        assert_eq!(backend.0.lock().unwrap().replies.len(), 1);
+    }
+    let backend = Backend::default();
+    backend
+        .0
+        .lock()
+        .unwrap()
+        .replies
+        .push_back(Ok(response(&request, 1)));
+    assert_eq!(
+        transport(&backend).exchange_once(&request).unwrap().status,
+        1
+    );
+    assert_eq!(backend.0.lock().unwrap().features.len(), 1);
+}
+#[test]
 fn retries_are_bounded_and_short_packets_are_rejected() {
     let backend = Backend::default();
     let mut channel = transport(&backend);
