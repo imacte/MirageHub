@@ -85,11 +85,14 @@ pub fn glow(painter: &egui::Painter, centre: egui::Pos2, radius: egui::Vec2, col
 pub fn logo(painter: &egui::Painter, centre: egui::Pos2, size: f32) {
     let origin = centre - egui::vec2(size / 2.0, size / 2.0);
     let background = crate::branding::BACKGROUND;
-    painter.rect_filled(egui::Rect::from_center_size(centre, egui::vec2(size * 0.92, size * 0.92)),
-        CornerRadius::same((size * 0.15) as u8), Color32::from_rgb(background[0], background[1], background[2]));
-    for path in [crate::branding::STEM, crate::branding::LEG] {
+    painter.rect_filled(egui::Rect::from_center_size(centre, egui::vec2(size, size)),
+        CornerRadius::same((size * crate::branding::CORNER_RADIUS).round() as u8), Color32::from_rgb(background[0], background[1], background[2]));
+    for path in crate::branding::paths() {
         let points = path.iter().map(|p| origin + egui::vec2(p[0] * size, p[1] * size)).collect();
         painter.add(egui::Shape::line(points, Stroke::new(size * crate::branding::WIDTH, ACCENT)));
+        for point in [path.first(), path.last()].into_iter().flatten() {
+            painter.circle_filled(origin + egui::vec2(point[0] * size, point[1] * size), size * crate::branding::WIDTH / 2.0, ACCENT);
+        }
     }
 }
 

@@ -6,8 +6,14 @@ uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.8.2] - 2026-11-08
+
 ### Changed
 
+- Use the website's interwoven green line emblem for the application, daemon,
+  installer and Classic executable icons, window and tray icons, and in-app branding.
+  Generate the 16–256px Windows icons and website SVG from shared curves, with a CI
+  check to keep the assets in sync.
 - Replace the documentation website's emoji favicon with a custom green linework
   emblem, shared with the navigation header and sized for small browser tabs.
 

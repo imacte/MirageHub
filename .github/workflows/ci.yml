@@ -24,6 +24,10 @@ jobs:
       - run: cargo test --locked -p rsrazer-tools
       - run: cargo run --locked -p rsrazer-tools -- check-translations
       - run: cargo run --locked -p rsrazer-tools -- docs-data --check
+      - name: Check generated application and website icons
+        run: |
+          cargo run --locked -p rsrazer-tools -- icons
+          git -C .. diff --exit-code -- assets/rsrazer.ico assets/rsrazer.png docs/favicon.svg
 
   gui:
     name: Control panel (Rust)

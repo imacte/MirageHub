@@ -311,10 +311,15 @@ impl App {
             let (rect, _) = ui.allocate_exact_size(vec2(30.0, 30.0), Sense::hover());
             let painter = ui.painter();
             let origin = rect.left_top();
-            painter.rect_filled(rect, CornerRadius::same(5), Color32::from_rgb(18, 22, 28));
-            for path in [crate::shell::branding::STEM, crate::shell::branding::LEG] {
+            let background = crate::shell::branding::BACKGROUND;
+            painter.rect_filled(rect, CornerRadius::same((30.0 * crate::shell::branding::CORNER_RADIUS).round() as u8),
+                Color32::from_rgb(background[0], background[1], background[2]));
+            for path in crate::shell::branding::paths() {
                 let points = path.iter().map(|p| origin + vec2(p[0] * 30.0, p[1] * 30.0)).collect();
                 painter.add(egui::Shape::line(points, Stroke::new(30.0 * crate::shell::branding::WIDTH, ACCENT)));
+                for point in [path.first(), path.last()].into_iter().flatten() {
+                    painter.circle_filled(origin + vec2(point[0] * 30.0, point[1] * 30.0), 30.0 * crate::shell::branding::WIDTH / 2.0, ACCENT);
+                }
             }
             ui.vertical(|ui| {
                 ui.spacing_mut().item_spacing.y = 0.0;

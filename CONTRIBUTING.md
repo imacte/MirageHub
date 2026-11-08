@@ -35,7 +35,7 @@ Run these from `studio/`:
 ```powershell
 cargo run --locked -p rsrazer-tools -- check-translations
 cargo run --locked -p rsrazer-tools -- docs-data
-cargo run --locked -p rsrazer-tools -- release-notes v1.8.1
+cargo run --locked -p rsrazer-tools -- release-notes v1.8.2
 cargo run --locked -p rsrazer-tools -- icons
 ```
 
@@ -63,6 +63,8 @@ cases against the Rust emulator or report fixtures.
 The workspace is under `studio/`: `daemon` contains protocols, transports, effects, keys, RPC and
 the CLI; `app`, `core`, `setup`, `chroma` and `tools` contain the UI, shared components, installer,
 SDK DLL and development tools. The classic panel has its own workspace in `gui/`.
-Shared branding geometry lives under `assets/`; device data lives under `data/`.
+Shared branding geometry lives in `assets/branding.rs`. After changing it, run
+`rsrazer-tools icons` to regenerate the Windows ICO, PNG and website favicon;
+CI checks that these assets stay in sync. Device data lives under `data/`.
 
 Keep changes focused, retain protocol attribution, and explain hardware quirks in comments.

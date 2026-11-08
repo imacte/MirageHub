@@ -254,8 +254,33 @@ fn icons(root: &Path) -> Result<()> {
     }
     fs::write(root.join("assets/rsrazer.ico"), ico)?;
     fs::write(root.join("assets/rsrazer.png"), &images[6])?;
-    println!("Generated assets/rsrazer.ico and assets/rsrazer.png");
+    fs::write(root.join("docs/favicon.svg"), icon_svg())?;
+    println!("Generated assets/rsrazer.ico, assets/rsrazer.png and docs/favicon.svg");
     Ok(())
+}
+fn icon_svg() -> String {
+    let [r, g, b] = branding::BACKGROUND;
+    let mut svg = format!(
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 {0} {0}\">\n  <title>RsRazer</title>\n  <rect width=\"{0}\" height=\"{0}\" rx=\"{1}\" fill=\"#{r:02x}{g:02x}{b:02x}\"/>\n",
+        branding::VIEW_BOX,
+        branding::CORNER_RADIUS * branding::VIEW_BOX,
+    );
+    let [r, g, b] = branding::GREEN;
+    svg.push_str(&format!(
+        "  <path id=\"loop\" fill=\"none\" stroke=\"#{r:02x}{g:02x}{b:02x}\" stroke-width=\"{}\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"\n",
+        branding::WIDTH * branding::VIEW_BOX,
+    ));
+    for curve in branding::CURVES {
+        svg.push_str(&format!("    M {:.2} {:.2}\n", curve[0][0], curve[0][1]));
+        for c in curve[1..].chunks_exact(3) {
+            svg.push_str(&format!(
+                "    C {:.2} {:.2}, {:.2} {:.2}, {:.2} {:.2}\n",
+                c[0][0], c[0][1], c[1][0], c[1][1], c[2][0], c[2][1],
+            ));
+        }
+    }
+    svg.push_str("  \"/>\n</svg>\n");
+    svg
 }
 fn main() {
     if let Err(error) = run() {
