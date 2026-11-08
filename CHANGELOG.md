@@ -8,6 +8,9 @@ uses [semantic versioning](https://semver.org/).
 
 ### Added
 
+- Simplified Chinese documentation homepage with automatic browser-language
+  selection, a remembered manual override, and translated device filters and status messages.
+
 - Naga V2 Pro onboard button mappings and macros, ported from
   [OpenRazer #2962](https://github.com/openrazer/openrazer/pull/2962) at
   `73071e54b3eb6f657518ea95fd223d22e97b2432`. Studio and `rsrazer-daemon onboard`

@@ -4,9 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RsRazer</title>
-<meta name="description" content="Control Razer keyboards, mice and mousepads on Windows 10 and 11 without Synapse and without a kernel driver. A user-space port of OpenRazer covering 279 devices.">
+<meta name="description" data-i18n="description" data-i18n-attr="content" content="Control Razer keyboards, mice and mousepads on Windows 10 and 11 without Synapse and without a kernel driver. A user-space port of OpenRazer covering 279 devices.">
 <meta property="og:title" content="RsRazer">
-<meta property="og:description" content="Razer device control on Windows 10/11 — no Synapse, no kernel driver, no dependencies. 279 devices.">
+<meta property="og:description" data-i18n="ogDescription" data-i18n-attr="content" content="Razer device control on Windows 10/11 — no Synapse, no kernel driver, no dependencies. 279 devices.">
+<meta property="og:locale" content="en_US">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://github.com/imacte/RsRazer#readme">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%90%8D%3C/text%3E%3C/svg%3E">
@@ -69,7 +70,19 @@ nav .brand span { color: var(--accent); }
 nav .links { margin-left: auto; display: flex; gap: 18px; font-size: 14px; }
 nav .links a { color: var(--text-dim); }
 nav .links a:hover { color: var(--text); text-decoration: none; }
+.language { flex-shrink: 0; }
+.language select { max-width: 115px; padding: 5px 7px; font: inherit; font-size: 13px;
+  color: var(--text); background: var(--bg-soft); border: 1px solid var(--border); border-radius: 6px; }
+.language select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 @media (max-width: 700px) { nav .links a.opt { display: none; } }
+@media (max-width: 520px) {
+  nav .wrap { gap: 10px; height: auto; min-height: 56px; flex-wrap: wrap; padding-top: 10px; padding-bottom: 10px; }
+  nav .links { order: 2; width: 100%; justify-content: space-between; gap: 10px; }
+  .language { margin-left: auto; }
+  html { scroll-padding-top: 110px; }
+}
 
 /* ---- hero ---- */
 header { padding: 72px 0 56px; border-bottom: 1px solid var(--border);
@@ -176,56 +189,64 @@ footer p { margin: 0 0 8px; }
   <div class="wrap">
     <a class="brand" href="#top">Rs<span>Razer</span></a>
     <div class="links">
-      <a href="#install">Install</a>
-      <a href="#usage">Usage</a>
-      <a href="#how" class="opt">How it works</a>
-      <a href="#devices">Devices</a>
-      <a href="#help" class="opt">Troubleshooting</a>
+      <a href="#install" data-i18n="install">Install</a>
+      <a href="#usage" data-i18n="usage">Usage</a>
+      <a href="#how" class="opt" data-i18n="how">How it works</a>
+      <a href="#devices" data-i18n="devices">Devices</a>
+      <a href="#help" class="opt" data-i18n="help">Troubleshooting</a>
       <a href="https://github.com/imacte/RsRazer">GitHub</a>
+    </div>
+    <div class="language" hidden>
+      <label class="sr-only" for="language-select" data-i18n="language">Language</label>
+      <select id="language-select">
+        <option value="auto" data-i18n="auto">Auto</option>
+        <option value="zh-CN" lang="zh-CN">简体中文</option>
+        <option value="en" lang="en">English</option>
+      </select>
     </div>
   </div>
 </nav>
 
 <header id="top">
   <div class="wrap">
-    <h1>Razer control on Windows,<br><span>without Synapse.</span></h1>
-    <p class="lead">
+    <h1 data-i18n="hero">Razer control on Windows,<br><span>without Synapse.</span></h1>
+    <p class="lead" data-i18n="lead">
       A complete port of <a href="https://github.com/openrazer/openrazer">OpenRazer</a> to
       Windows 10 and 11. The Linux kernel driver becomes user-space HID, D-Bus becomes a loopback
       daemon, and every per-device quirk is transpiled straight from the upstream C sources.
     </p>
     <div class="badges">
-      <span class="badge on">279 devices</span>
-      <span class="badge">Native Rust backend</span>
-      <span class="badge">No kernel driver</span>
-      <span class="badge">No admin rights</span>
-      <span class="badge">No telemetry</span>
+      <span class="badge on" data-i18n="deviceTotal">279 devices</span>
+      <span class="badge" data-i18n="native">Native Rust backend</span>
+      <span class="badge" data-i18n="noDriver">No kernel driver</span>
+      <span class="badge" data-i18n="noAdmin">No admin rights</span>
+      <span class="badge" data-i18n="noTelemetry">No telemetry</span>
       <span class="badge">GPL-2.0-or-later</span>
-      <span class="badge on">No Python runtime</span>
+      <span class="badge on" data-i18n="noPython">No Python runtime</span>
     </div>
     <div class="cta">
-      <a class="btn primary" href="#install">Get started</a>
-      <a class="btn" href="https://github.com/imacte/RsRazer">View source</a>
-      <a class="btn" href="#devices">Is my device supported?</a>
+      <a class="btn primary" href="#install" data-i18n="getStarted">Get started</a>
+      <a class="btn" href="https://github.com/imacte/RsRazer" data-i18n="source">View source</a>
+      <a class="btn" href="#devices" data-i18n="supportedQuestion">Is my device supported?</a>
     </div>
   </div>
 </header>
 
 <section id="install">
   <div class="wrap">
-    <h2><span class="num">01</span>Install</h2>
-    <p class="sub">Windows 10 / 11 (amd64). RsRazer, the background service and installer are native Rust programs.</p>
-<pre><code><span class="c-com"># After installing, start the service and list connected devices</span>
+    <h2><span class="num">01</span><span data-i18n="install">Install</span></h2>
+    <p class="sub" data-i18n="installIntro">Windows 10 / 11 (amd64). RsRazer, the background service and installer are native Rust programs.</p>
+<pre><code><span class="c-com" data-i18n="commentInstall"># After installing, start the service and list connected devices</span>
 <span class="c-cmd">rsrazer-daemon</span> daemon start
 <span class="c-cmd">rsrazer-daemon</span> list</code></pre>
-    <p class="sub" style="margin-bottom:14px">
+    <p class="sub" style="margin-bottom:14px" data-i18n="download">
       Download <code>rsrazer-setup.exe</code>
       from the <a href="https://github.com/imacte/RsRazer/releases">releases page</a> when a build
       is published. The installer contains RsRazer and the Rust background service, with English, Russian and
       Simplified Chinese. Bluetooth LE is built in; no Python, extra packages or driver installation
       is required. <code>rsrazer-daemon.exe</code> is the standalone CLI and daemon. The application and backend both run natively in Rust.
     </p>
-    <div class="note">
+    <div class="note" data-i18n="closeSynapse">
       <strong>Close Razer Synapse first.</strong> Synapse holds the device open and will fight you
       for the LEDs. Run <code>rsrazer-daemon doctor</code> to check.
     </div>
@@ -234,46 +255,46 @@ footer p { margin: 0 0 8px; }
 
 <section id="usage">
   <div class="wrap">
-    <h2><span class="num">02</span>Usage</h2>
-    <p class="sub">A command line, a JSON-RPC API and a graphical panel — pick whichever suits.</p>
+    <h2><span class="num">02</span><span data-i18n="usage">Usage</span></h2>
+    <p class="sub" data-i18n="usageIntro">A command line, a JSON-RPC API and a graphical panel — pick whichever suits.</p>
 
     <div class="tabs" role="tablist">
-      <button class="tab" role="tab" aria-selected="true" data-panel="p-cli">Command line</button>
+      <button class="tab" role="tab" aria-selected="true" data-panel="p-cli" data-i18n="cli">Command line</button>
       <button class="tab" role="tab" aria-selected="false" data-panel="p-api">JSON-RPC</button>
-      <button class="tab" role="tab" aria-selected="false" data-panel="p-gui">GUI</button>
+      <button class="tab" role="tab" aria-selected="false" data-panel="p-gui" data-i18n="gui">GUI</button>
     </div>
 
     <div class="panel" id="p-cli" role="tabpanel">
-<pre><code><span class="c-com"># start the background service, then look around</span>
+<pre><code><span class="c-com" data-i18n="commentStart"># start the background service, then look around</span>
 <span class="c-cmd">rsrazer-daemon</span> daemon start
 <span class="c-cmd">rsrazer-daemon</span> list
 <span class="c-cmd">rsrazer-daemon</span> info
 
-<span class="c-com"># lighting</span>
+<span class="c-com" data-i18n="commentLighting"># lighting</span>
 <span class="c-cmd">rsrazer-daemon</span> effect static red
 <span class="c-cmd">rsrazer-daemon</span> effect spectrum
 <span class="c-cmd">rsrazer-daemon</span> effect wave --direction 2
 <span class="c-cmd">rsrazer-daemon</span> effect breath_dual <span class="c-str">"#ff0080"</span> --colour2 cyan
-<span class="c-cmd">rsrazer-daemon</span> effect ripple green   <span class="c-com"># follows your typing</span>
+<span class="c-cmd">rsrazer-daemon</span> effect ripple green   <span class="c-com" data-i18n="commentRipple"># follows your typing</span>
 
-<span class="c-com"># one colour per zone -- on the Bluetooth headset, one per ear</span>
+<span class="c-com" data-i18n="commentZones"># one colour per zone -- on the Bluetooth headset, one per ear</span>
 <span class="c-cmd">rsrazer-daemon</span> zones
 <span class="c-cmd">rsrazer-daemon</span> zones red blue
 
-<span class="c-com"># active profiles on this PC; later changes are saved automatically</span>
+<span class="c-com" data-i18n="commentProfiles"># active profiles on this PC; later changes are saved automatically</span>
 <span class="c-cmd">rsrazer-daemon</span> profile save night
 <span class="c-cmd">rsrazer-daemon</span> profile load night
 <span class="c-cmd">rsrazer-daemon</span> profile create gaming --source night
 
-<span class="c-com"># settings</span>
+<span class="c-com" data-i18n="commentSettings"># settings</span>
 <span class="c-cmd">rsrazer-daemon</span> brightness 60
 <span class="c-cmd">rsrazer-daemon</span> dpi 1800
 <span class="c-cmd">rsrazer-daemon</span> poll-rate 1000
 <span class="c-cmd">rsrazer-daemon</span> battery
 
-<span class="c-com"># start the daemon with Windows (per-user, no admin rights)</span>
+<span class="c-com" data-i18n="commentAutostart"># start the daemon with Windows (per-user, no admin rights)</span>
 <span class="c-cmd">rsrazer-daemon</span> autostart enable</code></pre>
-      <p class="sub" style="margin:0">
+      <p class="sub" style="margin:0" data-i18n="cliHelp">
         Every command accepts <code>--device</code> (serial, product id or part of the name),
         <code>--zone</code> and <code>--json</code>. Autostart writes a single
         <code>HKCU\…\Run</code> entry, so it shows up in Task Manager's Startup tab too.
@@ -281,11 +302,11 @@ footer p { margin: 0 0 8px; }
     </div>
 
     <div class="panel" id="p-api" role="tabpanel" hidden>
-<pre><code><span class="c-com"># Query the same JSON-RPC service used by the desktop app</span>
+<pre><code><span class="c-com" data-i18n="commentRpc"># Query the same JSON-RPC service used by the desktop app</span>
 <span class="c-cmd">rsrazer-daemon</span> rpc daemon.version
 <span class="c-cmd">rsrazer-daemon</span> rpc devices.list
 <span class="c-cmd">rsrazer-daemon</span> rpc integration.status</code></pre>
-      <p class="sub" style="margin:0">
+      <p class="sub" style="margin:0" data-i18n="rpcHelp">
         The daemon speaks newline-delimited JSON-RPC over loopback TCP. The local endpoint file
         contains the port and a per-process authentication token. Any language can implement a client.
         Hardware control, lighting, macros and Bluetooth all run in Rust.
@@ -294,7 +315,7 @@ footer p { margin: 0 0 8px; }
 
     <div class="panel" id="p-gui" role="tabpanel" hidden>
 <pre><code><span class="c-cmd">rsrazer-setup.exe</span></code></pre>
-      <p class="sub" style="margin:0">
+      <p class="sub" style="margin:0" data-i18n="guiHelp">
         RsRazer, from the release: every device drawn from its own product photo and lit as
         it is now, one-click effects and colours, per-key lighting in layers, DPI and its stages,
         battery, profiles that follow the app in front, and a macro library &mdash; in English, Simplified Chinese or
@@ -302,23 +323,23 @@ footer p { margin: 0 0 8px; }
         or removes RsRazer from <em>Settings &rsaquo; Apps</em>. The classic panel,
         <code>rsrazer-classic.exe</code>, is still in the release as a single file.
       </p>
-      <img src="images/rsrazer-lighting.png" alt="RsRazer: per-key lighting in layers" style="width:100%;margin-top:14px;border-radius:12px">
-      <img src="images/rsrazer-home.png" alt="RsRazer: every device at a glance" style="width:100%;margin-top:14px;border-radius:12px">
+      <img src="images/rsrazer-lighting.png" data-src-zh="images/rsrazer-lighting-zh-CN.png" data-i18n="lightingAlt" data-i18n-attr="alt" alt="RsRazer: per-key lighting in layers" style="width:100%;margin-top:14px;border-radius:12px">
+      <img src="images/rsrazer-home.png" data-i18n="homeAlt" data-i18n-attr="alt" alt="RsRazer: every device at a glance" style="width:100%;margin-top:14px;border-radius:12px">
     </div>
   </div>
 </section>
 
 <section id="how">
   <div class="wrap">
-    <h2><span class="num">03</span>How it works</h2>
-    <p class="sub">
+    <h2><span class="num">03</span><span data-i18n="how">How it works</span></h2>
+    <p class="sub" data-i18n="howIntro">
       The Linux stack is a kernel module plus a D-Bus daemon. Neither exists on Windows, so each
       layer gets a direct replacement.
     </p>
 
     <figure>
       <svg viewBox="0 0 900 340" role="img" aria-labelledby="arch-title">
-        <title id="arch-title">Linux and Windows layer stacks side by side, with the Razer vendor protocol shared between them</title>
+        <title id="arch-title" data-i18n="architectureAlt">Linux and Windows layer stacks side by side, with the Razer vendor protocol shared between them</title>
         <defs>
           <style>
             .lbl { font: 13px var(--sans, sans-serif); fill: var(--text); }
@@ -333,12 +354,12 @@ footer p { margin: 0 0 8px; }
                   orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="var(--border)"/></marker>
         </defs>
 
-        <text class="hdr" x="30" y="24">LINUX (UPSTREAM)</text>
-        <text class="hdr" x="500" y="24">WINDOWS (THIS PORT)</text>
+        <text class="hdr" x="30" y="24" data-i18n="linux">LINUX (UPSTREAM)</text>
+        <text class="hdr" x="500" y="24" data-i18n="windows">WINDOWS (THIS PORT)</text>
 
         <rect class="box" x="30" y="38" width="330" height="52"/>
         <text class="lbl" x="46" y="60">openrazer.client</text>
-        <text class="lbl-s" x="46" y="78">D-Bus session bus</text>
+        <text class="lbl-s" x="46" y="78" data-i18n="dbus">D-Bus session bus</text>
 
         <rect class="box" x="30" y="102" width="330" height="52"/>
         <text class="lbl" x="46" y="124">openrazer-daemon</text>
@@ -346,45 +367,45 @@ footer p { margin: 0 0 8px; }
 
         <rect class="box-a" x="30" y="166" width="330" height="62"/>
         <text class="lbl" x="46" y="188">razerkbd.ko / razermouse.ko</text>
-        <text class="lbl-s" x="46" y="206">sysfs attributes, usb_control_msg()</text>
-        <text class="lbl-s" x="46" y="221">kernel space — needs DKMS</text>
+        <text class="lbl-s" x="46" y="206" data-i18n="sysfs">sysfs attributes, usb_control_msg()</text>
+        <text class="lbl-s" x="46" y="221" data-i18n="kernelSpace">kernel space — needs DKMS</text>
 
         <rect class="box" x="30" y="240" width="330" height="46"/>
         <text class="lbl" x="46" y="262">usbhid / usbcore</text>
 
         <rect class="box" x="500" y="38" width="370" height="52"/>
-        <text class="lbl" x="516" y="60">RsRazer / native CLI</text>
-        <text class="lbl-s" x="516" y="78">JSON-RPC over loopback TCP</text>
+        <text class="lbl" x="516" y="60" data-i18n="nativeCli">RsRazer / native CLI</text>
+        <text class="lbl-s" x="516" y="78" data-i18n="loopback">JSON-RPC over loopback TCP</text>
 
         <rect class="box" x="500" y="102" width="370" height="52"/>
         <text class="lbl" x="516" y="124">rsrazer-daemon (Rust)</text>
-        <text class="lbl-s" x="516" y="142">bearer token, hot-plug watcher</text>
+        <text class="lbl-s" x="516" y="142" data-i18n="tokenWatcher">bearer token, hot-plug watcher</text>
 
         <rect class="box-a" x="500" y="166" width="370" height="62"/>
-        <text class="lbl" x="516" y="188">Rust device API / recipe interpreter</text>
-        <text class="lbl-s" x="516" y="206">Bundled recipes derived from upstream C</text>
-        <text class="lbl-s" x="516" y="221">user space — native Rust, no reboot</text>
+        <text class="lbl" x="516" y="188" data-i18n="interpreter">Rust device API / recipe interpreter</text>
+        <text class="lbl-s" x="516" y="206" data-i18n="bundledRecipes">Bundled recipes derived from upstream C</text>
+        <text class="lbl-s" x="516" y="221" data-i18n="userSpace">user space — native Rust, no reboot</text>
 
         <rect class="box" x="500" y="240" width="370" height="46"/>
         <text class="lbl" x="516" y="262">Windows HID / SetupAPI / WinRT</text>
 
         <path class="arrow" d="M368 197 L492 197" marker-end="url(#ah)"/>
-        <text class="lbl-s" x="376" y="190" style="fill:var(--accent)">transpiled</text>
+        <text class="lbl-s" x="376" y="190" style="fill:var(--accent)" data-i18n="transpiled">transpiled</text>
 
         <rect class="box" x="30" y="298" width="840" height="34"/>
-        <text class="lbl" x="46" y="320">Razer vendor protocol — one 90-byte HID feature report, XOR checksum over bytes 2–87</text>
+        <text class="lbl" x="46" y="320" data-i18n="vendorProtocol">Razer vendor protocol — one 90-byte HID feature report, XOR checksum over bytes 2–87</text>
       </svg>
-      <figcaption>The protocol is identical on both sides; only the transport and the quirk
+      <figcaption data-i18n="architectureCaption">The protocol is identical on both sides; only the transport and the quirk
         storage differ.</figcaption>
     </figure>
 
-    <h3>The interesting part: transpiled quirks</h3>
-    <p class="sub">
+    <h3 data-i18n="quirksTitle">The interesting part: transpiled quirks</h3>
+    <p class="sub" data-i18n="quirksIntro">
       OpenRazer's drivers encode roughly 20 000 lines of per-device behaviour as
       <code>switch (device->usb_pid)</code> statements — which report builder to call, which LED id,
       which transaction id. Hand-porting that would guarantee drift from upstream.
     </p>
-    <p class="sub">
+    <p class="sub" data-i18n="recipesIntro">
       The bundled data was generated from upstream C, resolving each switch for known product IDs into
       a tiny program per (attribute, device):
     </p>
@@ -393,7 +414,7 @@ footer p { margin: 0 0 8px; }
            {<span class="c-str">"k"</span>: <span class="c-str">"rgb"</span>, <span class="c-str">"offset"</span>: 0}]},
  {<span class="c-str">"op"</span>: <span class="c-str">"txid"</span>, <span class="c-str">"value"</span>: {<span class="c-str">"k"</span>: <span class="c-str">"const"</span>, <span class="c-str">"value"</span>: 63}},
  {<span class="c-str">"op"</span>: <span class="c-str">"send"</span>}]</code></pre>
-    <p class="sub">
+    <p class="sub" data-i18n="recipesHelp">
       The native Rust interpreter executes the bundled recipes. The original generators are retained
       in Git history; new device support requires updating the data and regression fixtures.
     </p>
@@ -401,48 +422,48 @@ footer p { margin: 0 0 8px; }
     <div class="grid" style="margin-top:26px">
       <div class="card">
         <span class="ico">🔌</span>
-        <h4>Finding the device</h4>
-        <p>The kernel addresses a USB interface directly. Windows exposes each as its own HID
+        <h4 data-i18n="findingTitle">Finding the device</h4>
+        <p data-i18n="finding">The kernel addresses a USB interface directly. Windows exposes each as its own HID
           collection, so the port picks the one whose path carries the matching <code>&amp;mi_XX</code>
           <em>and</em> declares a 90-byte feature report.</p>
       </div>
       <div class="card">
         <span class="ico">🔓</span>
-        <h4>Exclusive access</h4>
-        <p>Windows denies read/write on keyboard and mouse collections. Feature-report IOCTLs are
+        <h4 data-i18n="exclusiveTitle">Exclusive access</h4>
+        <p data-i18n="exclusive">Windows denies read/write on keyboard and mouse collections. Feature-report IOCTLs are
           <code>FILE_ANY_ACCESS</code>, so the port falls back to a zero-access handle and still
           talks to the device.</p>
       </div>
       <div class="card">
         <span class="ico">🧪</span>
-        <h4>Tested without hardware</h4>
-        <p>A built-in emulator validates CRCs and answers the protocol. 315 tests plus a fleet
+        <h4 data-i18n="testingTitle">Tested without hardware</h4>
+        <p data-i18n="testing">A built-in emulator validates CRCs and answers the protocol. 315 tests plus a fleet
           simulation exercise every capability of all 276 USB devices on every commit.</p>
       </div>
       <div class="card">
         <span class="ico">⌨️</span>
-        <h4>Ripple on Windows</h4>
-        <p>Upstream reads <code>/dev/input</code> to place ripples. Here a low-level keyboard hook
+        <h4 data-i18n="rippleTitle">Ripple on Windows</h4>
+        <p data-i18n="ripple">Upstream reads <code>/dev/input</code> to place ripples. Here a low-level keyboard hook
           observes key presses — it never swallows or synthesises input — and the host renders the
           frames.</p>
       </div>
       <div class="card">
         <span class="ico">💾</span>
-        <h4>State that survives sleep</h4>
-        <p>Windows cuts USB power on suspend. The daemon records what was applied per serial and
+        <h4 data-i18n="sleepTitle">State that survives sleep</h4>
+        <p data-i18n="sleep">Windows cuts USB power on suspend. The daemon records what was applied per serial and
           replays it when the device reappears.</p>
       </div>
       <div class="card">
         <span class="ico">🎧</span>
-        <h4>A second protocol</h4>
-        <p>Kraken headsets predate the control report: they expose the lighting controller's RAM.
+        <h4 data-i18n="krakenTitle">A second protocol</h4>
+        <p data-i18n="kraken">Kraken headsets predate the control report: they expose the lighting controller's RAM.
           Colours go to fixed addresses, then one byte says what to do with them — ported from
           <code>razerkraken_driver.c</code> by hand, since it has no switch tables to transpile.</p>
       </div>
       <div class="card">
         <span class="ico">📡</span>
-        <h4>A protocol nobody documented</h4>
-        <p>The Kraken Kitty V2 BT has no USB data mode, so upstream has no driver for it. Its
+        <h4 data-i18n="bluetoothTitle">A protocol nobody documented</h4>
+        <p data-i18n="bluetooth">The Kraken Kitty V2 BT has no USB data mode, so upstream has no driver for it. Its
           lighting was recovered here from a Bluetooth HCI capture: a vendor GATT service whose UUID
           spells <code>Amel-RazerBLE</code>, taking <code>c4 00 06</code> and one RGB triple per
           ear. Each ear can be given its own colour, in a single write. It stores none of it, so
@@ -451,24 +472,24 @@ footer p { margin: 0 0 8px; }
       </div>
       <div class="card">
         <span class="ico">🎚️</span>
-        <h4>A headset with no lights</h4>
-        <p>The BlackShark V2 HyperSpeed is a MediaTek design: 64-byte reports with a sequence number
+        <h4 data-i18n="blacksharkTitle">A headset with no lights</h4>
+        <p data-i18n="blackshark">The BlackShark V2 HyperSpeed is a MediaTek design: 64-byte reports with a sequence number
           and a checksum, and a receiver that answers for itself and forwards the rest. There is
           nothing to light, but sidetone, the equalizer and the sleep timer live in the headset,
           and <code>rsrazer-daemon headset</code> and RsRazer reach all of them.</p>
       </div>
       <div class="card">
         <span class="ico">🎮</span>
-        <h4>Games with Razer Chroma, no Synapse</h4>
-        <p>The daemon answers Razer's Chroma SDK REST API on its usual port, and a stand-in for the
+        <h4 data-i18n="chromaTitle">Games with Razer Chroma, no Synapse</h4>
+        <p data-i18n="chroma">The daemon answers Razer's Chroma SDK REST API on its usual port, and a stand-in for the
           SDK's DLL, put beside a game, passes the game's lighting on to it. Keyboards key by key,
           a mouse's logo and wheel, a headset's ears; and your own lighting back when the game
           closes.</p>
       </div>
       <div class="card">
         <span class="ico">🔐</span>
-        <h4>Local only</h4>
-        <p>The daemon binds loopback, generates a random bearer token in an owner-only file, and
+        <h4 data-i18n="localTitle">Local only</h4>
+        <p data-i18n="local">The daemon binds loopback, generates a random bearer token in an owner-only file, and
           exposes a fixed allowlist of methods. It never touches the network.</p>
       </div>
     </div>
@@ -477,29 +498,29 @@ footer p { margin: 0 0 8px; }
 
 <section id="devices">
   <div class="wrap">
-    <h2><span class="num">04</span>Supported devices</h2>
-    <p class="sub">
+    <h2><span class="num">04</span><span data-i18n="supported">Supported devices</span></h2>
+    <p class="sub" data-i18n="devicesIntro">
       Every product id OpenRazer knows about, generated from the upstream device classes. Search by
       name, or filter by category.
     </p>
 
     <div class="filters">
-      <input type="search" id="device-search" placeholder="Search 279 devices — try “BlackWidow”, “Viper”, “0203”…" aria-label="Search devices">
-      <button class="chip" data-type="" aria-pressed="true">All</button>
-      <button class="chip" data-type="keyboard" aria-pressed="false">Keyboards</button>
-      <button class="chip" data-type="mouse" aria-pressed="false">Mice</button>
-      <button class="chip" data-type="mousemat" aria-pressed="false">Mousepads</button>
-      <button class="chip" data-type="keypad" aria-pressed="false">Keypads</button>
-      <button class="chip" data-type="headset" aria-pressed="false">Headsets</button>
-      <button class="chip" data-type="accessory" aria-pressed="false">Accessories</button>
+      <input type="search" id="device-search" data-i18n="searchPlaceholder" data-i18n-attr="placeholder" data-i18n-label="searchLabel" placeholder="Search 279 devices — try “BlackWidow”, “Viper”, “0203”…" aria-label="Search devices">
+      <button class="chip" data-type="" aria-pressed="true" data-i18n="all">All</button>
+      <button class="chip" data-type="keyboard" aria-pressed="false" data-i18n="keyboards">Keyboards</button>
+      <button class="chip" data-type="mouse" aria-pressed="false" data-i18n="mice">Mice</button>
+      <button class="chip" data-type="mousemat" aria-pressed="false" data-i18n="mousepads">Mousepads</button>
+      <button class="chip" data-type="keypad" aria-pressed="false" data-i18n="keypads">Keypads</button>
+      <button class="chip" data-type="headset" aria-pressed="false" data-i18n="headsets">Headsets</button>
+      <button class="chip" data-type="accessory" aria-pressed="false" data-i18n="accessories">Accessories</button>
     </div>
 
     <div class="scroll" id="device-table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Device</th><th>Type</th><th>Product&nbsp;id</th>
-            <th>Matrix</th><th>Max&nbsp;DPI</th><th>Battery</th>
+            <th data-i18n="device">Device</th><th data-i18n="type">Type</th><th data-i18n="productId">Product&nbsp;id</th>
+            <th data-i18n="matrix">Matrix</th><th data-i18n="maxDpi">Max&nbsp;DPI</th><th data-i18n="battery">Battery</th>
           </tr>
         </thead>
         <tbody id="device-rows">
@@ -513,36 +534,36 @@ footer p { margin: 0 0 8px; }
 
 <section id="help">
   <div class="wrap">
-    <h2><span class="num">05</span>Troubleshooting</h2>
-    <p class="sub">Start here — it lists every Razer HID collection Windows can see and marks the
+    <h2><span class="num">05</span><span data-i18n="help">Troubleshooting</span></h2>
+    <p class="sub" data-i18n="doctorIntro">Start here — it lists every Razer HID collection Windows can see and marks the
       control interface.</p>
 <pre><code><span class="c-cmd">rsrazer-daemon</span> doctor</code></pre>
     <div class="scroll">
       <table>
-        <thead><tr><th style="width:44%">Symptom</th><th>Cause</th></tr></thead>
+        <thead><tr><th style="width:44%" data-i18n="symptom">Symptom</th><th data-i18n="cause">Cause</th></tr></thead>
         <tbody>
           <tr><td><code>no Razer control interface</code></td>
-              <td>Synapse is running, or another program holds the device. Close it.</td></tr>
-          <tr><td>Device shown as <code>NOT IN DATABASE</code></td>
-              <td>Newer than the bundled data.
+              <td data-i18n="interfaceHelp">Synapse is running, or another program holds the device. Close it.</td></tr>
+          <tr><td data-i18n="unknownDevice">Device shown as <code>NOT IN DATABASE</code></td>
+              <td data-i18n="unknownHelp">Newer than the bundled data.
                   <a href="https://github.com/imacte/RsRazer/issues">Open an issue</a>
                   with the product id.</td></tr>
           <tr><td><code>device replied not supported</code></td>
-              <td>The firmware refused that command; the device genuinely lacks the feature.</td></tr>
-          <tr><td>Effects reset after sleep</td>
-              <td>Windows cuts USB power. The daemon replays stored state on reconnect.</td></tr>
-          <tr><td>A Bluetooth device is on, but not listed</td>
-              <td>Bluetooth LE support is built into the Rust daemon. Run
+              <td data-i18n="unsupportedHelp">The firmware refused that command; the device genuinely lacks the feature.</td></tr>
+          <tr><td data-i18n="sleepSymptom">Effects reset after sleep</td>
+              <td data-i18n="sleepHelp">Windows cuts USB power. The daemon replays stored state on reconnect.</td></tr>
+          <tr><td data-i18n="bluetoothSymptom">A Bluetooth device is on, but not listed</td>
+              <td data-i18n="bluetoothHelp">Bluetooth LE support is built into the Rust daemon. Run
                   <code>rsrazer-daemon doctor</code> to inspect paired devices and radio advertisements.</td></tr>
-          <tr><td>Nothing listed at all</td>
-              <td>Only Razer devices (vendor <code>1532</code>) are handled.</td></tr>
+          <tr><td data-i18n="emptySymptom">Nothing listed at all</td>
+              <td data-i18n="emptyHelp">Only Razer devices (vendor <code>1532</code>) are handled.</td></tr>
         </tbody>
       </table>
     </div>
 
-    <h3>Not ported</h3>
+    <h3 data-i18n="notPorted">Not ported</h3>
     <ul class="plain">
-      <li><strong>Reading state back from a Kraken headset</strong> — the kernel collects it from
+      <li data-i18n="krakenLimitation"><strong>Reading state back from a Kraken headset</strong> — the kernel collects it from
         unsolicited HID input reports; the daemon serves those values from its persistence file
         instead. Setting effects works.</li>
     </ul>
@@ -551,22 +572,23 @@ footer p { margin: 0 0 8px; }
 
 <footer>
   <div class="wrap">
-    <p>
+    <p data-i18n="credits">
       All protocol knowledge here is <a href="https://github.com/openrazer/openrazer">OpenRazer</a>'s
       work — years of reverse engineering by Terri Cain, Tim Theede and many contributors. This
       project adds a Windows transport and a translation layer; it adds no new protocol research.
     </p>
-    <p>
+    <p data-i18n="license">
       Licensed GPL-2.0-or-later, the same as upstream, because the device database and the
       transpiled recipes are derived from OpenRazer's GPL sources.
     </p>
-    <p>
+    <p data-i18n="trademarks">
       Not affiliated with or endorsed by Razer Inc. Razer, Chroma and Synapse are trademarks of
       Razer Inc.
     </p>
   </div>
 </footer>
 
+<script src="i18n.js"></script>
 <script>
 (function () {
   'use strict';
@@ -584,11 +606,9 @@ footer p { margin: 0 0 8px; }
   });
 
   // ---- device browser ----
-  var TYPE_LABEL = {
-    keyboard: 'Keyboard', mouse: 'Mouse', mousemat: 'Mousepad', keypad: 'Keypad',
-    headset: 'Headset', accessory: 'Accessory', core: 'eGPU'
-  };
+  var i18n = window.docsI18n;
   var devices = [];
+  var loadState = 'loading';
   var activeType = '';
   var rowsEl = document.getElementById('device-rows');
   var countEl = document.getElementById('device-count');
@@ -601,6 +621,16 @@ footer p { margin: 0 0 8px; }
   }
 
   function render() {
+    searchEl.placeholder = i18n.t('search', { total: loadState === 'ready' ? devices.length : 279 });
+    if (loadState !== 'ready') {
+      rowsEl.innerHTML = '<tr><td colspan="6" style="color:var(--text-dim)">' +
+        (loadState === 'error'
+          ? escapeHtml(i18n.t('loadError')) + ' <a href="https://github.com/imacte/RsRazer">' +
+            escapeHtml(i18n.t('repository')) + '</a>.'
+          : escapeHtml(i18n.t('loading'))) + '</td></tr>';
+      countEl.textContent = '';
+      return;
+    }
     var needle = searchEl.value.trim().toLowerCase();
     var shown = devices.filter(function (device) {
       if (activeType && device.t !== activeType) { return false; }
@@ -611,27 +641,27 @@ footer p { margin: 0 0 8px; }
 
     if (!shown.length) {
       rowsEl.innerHTML = '<tr><td colspan="6" style="color:var(--text-dim)">' +
-        'No device matches that search.</td></tr>';
-      countEl.textContent = '0 of ' + devices.length + ' devices';
+        escapeHtml(i18n.t('noMatches')) + '</td></tr>';
+      countEl.textContent = i18n.t('countFiltered', { shown: 0, total: devices.length });
       return;
     }
 
     rowsEl.innerHTML = shown.map(function (device) {
       return '<tr>' +
         '<td>' + escapeHtml(device.n) + '</td>' +
-        '<td>' + (TYPE_LABEL[device.t] || device.t) + '</td>' +
+        '<td>' + escapeHtml(i18n.t(device.t)) + '</td>' +
         '<td class="num-cell">' + device.p + '</td>' +
         '<td class="num-cell">' + (device.m ? device.m[0] + '&times;' + device.m[1]
                                             : '<span class="dash">&mdash;</span>') + '</td>' +
-        '<td class="num-cell">' + (device.d ? device.d.toLocaleString()
+        '<td class="num-cell">' + (device.d ? device.d.toLocaleString(i18n.locale())
                                             : '<span class="dash">&mdash;</span>') + '</td>' +
         '<td>' + (device.b ? '<span class="tick">&#10003;</span>'
                            : '<span class="dash">&mdash;</span>') + '</td>' +
         '</tr>';
     }).join('');
     countEl.textContent = shown.length === devices.length
-      ? devices.length + ' devices'
-      : shown.length + ' of ' + devices.length + ' devices';
+      ? i18n.t('countAll', { total: devices.length })
+      : i18n.t('countFiltered', { shown: shown.length, total: devices.length });
   }
 
   searchEl.addEventListener('input', render);
@@ -645,18 +675,22 @@ footer p { margin: 0 0 8px; }
     });
   });
 
+  document.addEventListener('rsrazer:languagechange', render);
+  render();
   fetch('devices.json')
-    .then(function (response) { return response.json(); })
+    .then(function (response) {
+      if (!response.ok) { throw new Error('Device list could not be loaded'); }
+      return response.json();
+    })
     .then(function (payload) {
+      if (!Array.isArray(payload.devices)) { throw new Error('Invalid device list'); }
       devices = payload.devices;
-      searchEl.placeholder = 'Search ' + devices.length +
-        ' devices — try “BlackWidow”, “Viper”, “0203”…';
+      loadState = 'ready';
       render();
     })
     .catch(function () {
-      rowsEl.innerHTML = '<tr><td colspan="6" style="color:var(--text-dim)">' +
-        'Could not load the device list. See ' +
-        '<a href="https://github.com/imacte/RsRazer">the repository</a>.</td></tr>';
+      loadState = 'error';
+      render();
     });
 })();
 </script>
