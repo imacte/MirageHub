@@ -4,7 +4,7 @@ use super::app::{scroll, App, Page};
 use crate::worker::{Command, DaemonState, Snapshot};
 use egui::RichText;
 use rsrazer_core::i18n::Lang;
-use rsrazer_core::install::{self, COMMUNITY, REPOSITORY};
+use rsrazer_core::install::{self, COMMUNITY, DOCUMENTATION, REPOSITORY};
 use rsrazer_core::theme::{self, icon, ACCENT, TEXT_DIM, TEXT_FAINT};
 use rsrazer_core::widgets::{self, Button};
 use rsrazer_core::{t, tf};
@@ -231,9 +231,11 @@ fn run_setup(app: &mut App, installed: &install::Installed, action: &str) {
 
 fn about(app: &mut App, ui: &mut egui::Ui) {
     widgets::panel(ui, &format!("RsRazer {VERSION}"), |ui| {
-        widgets::help(ui, t("Razer device control without Synapse: a user-space port of OpenRazer to Windows. No account, no cloud, nothing sent anywhere."));
+        widgets::help(ui, t("Razer device control for Windows, written in Rust and based on OpenRazer. No Synapse, account or custom kernel driver required."));
+        widgets::help(ui, t("Lighting, DPI, macros, automatically saved profiles, software Snap Tap and Chroma, plus onboard storage on supported devices."));
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing = egui::vec2(8.0, 8.0);
+            widgets::link_button(ui, t("Documentation"), DOCUMENTATION);
             widgets::link_button(ui, "GitHub", REPOSITORY);
             widgets::link_button(ui, t("Community"), COMMUNITY);
             widgets::link_button(ui, "OpenRazer", "https://openrazer.github.io/");

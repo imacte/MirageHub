@@ -116,9 +116,12 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
 
     ui.add_space(12.0);
     widgets::card(ui, |ui| {
-        ui.label(RichText::new(format!("RsRazer {VERSION}")).font(theme::bold(16.0)));
-        ui.label(widgets::dim("Razer device control without Synapse and without a kernel driver — a user-space port of OpenRazer."));
-        ui.horizontal(|ui| {
+        ui.label(RichText::new(format!("RsRazer Classic {VERSION}")).font(theme::bold(16.0)));
+        ui.label(widgets::dim("Classic control panel for RsRazer's native Rust daemon on Windows, based on OpenRazer. No Synapse, account or custom kernel driver required."));
+        ui.label(widgets::dim("Control lighting, DPI, macros and profiles. See the documentation for the full application and supported device features."));
+        ui.horizontal_wrapped(|ui| {
+            ui.hyperlink_to("Documentation", "https://imacte.github.io/RsRazer/");
+            ui.label(RichText::new("·").color(TEXT_FAINT));
             ui.hyperlink_to("github.com/imacte/RsRazer", "https://github.com/imacte/RsRazer");
             ui.label(RichText::new("·").color(TEXT_FAINT));
             ui.hyperlink_to("OpenRazer", "https://openrazer.github.io/");

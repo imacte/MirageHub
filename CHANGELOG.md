@@ -6,6 +6,15 @@ uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-11-08
+
+### Changed
+
+- Refresh the application's About text to describe the Rust backend, automatically
+  saved profiles, software Snap Tap, Chroma and supported onboard storage. Add the
+  documentation website link, with updated Simplified Chinese and Russian text.
+- Refresh the Classic panel's About text and add the same documentation link.
+
 ## [1.8.0] - 2026-11-08
 
 ### Added

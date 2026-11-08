@@ -29,6 +29,7 @@ pub const RUN_VALUE: &str = "OpenRazerWin";
 
 pub const RELEASES: &str = "https://github.com/imacte/RsRazer/releases";
 pub const REPOSITORY: &str = "https://github.com/imacte/RsRazer";
+pub const DOCUMENTATION: &str = "https://imacte.github.io/RsRazer/";
 pub const COMMUNITY: &str = REPOSITORY;
 
 /// The choices made when RsRazer was installed, kept so a repair or an update

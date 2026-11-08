@@ -35,7 +35,7 @@ Run these from `studio/`:
 ```powershell
 cargo run --locked -p rsrazer-tools -- check-translations
 cargo run --locked -p rsrazer-tools -- docs-data
-cargo run --locked -p rsrazer-tools -- release-notes v1.8.0
+cargo run --locked -p rsrazer-tools -- release-notes v1.8.1
 cargo run --locked -p rsrazer-tools -- icons
 ```
 
