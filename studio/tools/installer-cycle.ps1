@@ -79,6 +79,8 @@ Check 'broken settings set aside' (-not (Test-Path $settings) -and (Get-ChildIte
 Check 'repaired app runs' ($LASTEXITCODE -eq 0)
 
 # Update it, as Studio does: what was changed since installing has to survive.
+# A clean Windows account may not have a Run key until autostart is enabled.
+if (-not (Test-Path -LiteralPath $runKey)) { New-Item -Path $runKey -Force | Out-Null }
 Set-ItemProperty $runKey -Name OpenRazerWin -Value "`"$(Join-Path $Dir 'rsrazer.exe')`" --background"
 Remove-Item -Recurse (Join-Path ([Environment]::GetFolderPath('Programs')) 'RsRazer')
 & $Setup --update --silent --dir $Dir | Out-Host
