@@ -6,6 +6,14 @@ uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-11-08
+
+### Fixed
+
+- Charging indicators now show the lightning bolt inside the battery icon in
+  both RsRazer and the classic panel, with only the percentage beside it. The
+  bolt remains visible at every battery level.
+
 ## [1.7.1] - 2026-11-08
 
 ### Fixed

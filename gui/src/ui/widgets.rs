@@ -315,7 +315,7 @@ pub fn device_glyph(painter: &egui::Painter, rect: Rect, kind: &str, colour: Col
     }
 }
 
-/// A battery: outline, fill to `level`, and a bolt when charging.
+/// A battery with its charging bolt inside the outline, followed by the number.
 pub fn battery(ui: &mut Ui, level: f64, charging: bool) {
     let (rect, _) = ui.allocate_exact_size(vec2(30.0, 14.0), Sense::hover());
     let painter = ui.painter();
@@ -325,7 +325,18 @@ pub fn battery(ui: &mut Ui, level: f64, charging: bool) {
     let colour = if charging { ACCENT } else if level < 20.0 { theme::DANGER } else if level < 40.0 { theme::WARN } else { ACCENT };
     let fill = Rect::from_min_size(body.min + vec2(2.5, 2.5), vec2((body.width() - 5.0) * (level.clamp(0.0, 100.0) / 100.0) as f32, body.height() - 5.0));
     painter.rect_filled(fill, CornerRadius::same(1), colour);
-    ui.label(RichText::new(format!("{level:.0}%{}", if charging { " ⚡" } else { "" })).size(13.0).color(TEXT_DIM));
+    if charging {
+        let bolt = vec![
+            body.center() + vec2(2.0, -4.0),
+            body.center() + vec2(-2.5, 0.0),
+            body.center() + vec2(2.5, 0.0),
+            body.center() + vec2(-2.0, 4.0),
+        ];
+        // A dark edge keeps the bolt legible across both full and empty cells.
+        painter.add(Shape::line(bolt.clone(), Stroke::new(3.0, theme::BG)));
+        painter.add(Shape::line(bolt, Stroke::new(1.4, TEXT)));
+    }
+    ui.label(RichText::new(format!("{level:.0}%")).size(13.0).color(TEXT_DIM));
 }
 
 pub fn dim(text: impl Into<String>) -> RichText {
