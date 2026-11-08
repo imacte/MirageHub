@@ -53,7 +53,10 @@ try {
     }
     Check 'installed daemon becomes ready' $ready
     $devices = & $daemon list --emulate --config-dir $demoConfig --json | ConvertFrom-Json
-    Check 'installed daemon enumerates simulated devices' ($LASTEXITCODE -eq 0 -and $devices.Count -eq 4)
+    # The emulator grows as devices are added; compare with the ready registry.
+    Check 'installed daemon enumerates simulated devices' ($LASTEXITCODE -eq 0 -and
+        @($devices).Count -gt 0 -and @($devices).Count -eq $state.devices -and
+        @($devices | Where-Object { $_.serial -notmatch '^DEMO[0-9]{12}$' }).Count -eq 0)
     & $daemon effect static red --device 0203 --emulate --config-dir $demoConfig --quiet | Out-Host
     Check 'installed daemon accepts lighting controls' ($LASTEXITCODE -eq 0)
 } finally {
