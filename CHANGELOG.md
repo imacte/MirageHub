@@ -6,6 +6,11 @@ uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Replace the documentation website's emoji favicon with a custom green serpent
+  emblem, shared with the navigation header and sized for small browser tabs.
+
 ## [1.8.1] - 2026-11-08
 
 ### Changed
