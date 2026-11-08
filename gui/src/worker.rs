@@ -37,6 +37,18 @@ pub struct Device {
     pub firmware: Option<String>,
 }
 
+impl Device {
+    pub fn connection_label(&self, caps: Option<&Value>) -> &'static str {
+        use crate::connection::{self, Connection};
+        match connection::detect(self.pid, &self.name, caps.and_then(|c| c["protocol"].as_str())) {
+            Connection::Usb => "USB",
+            Connection::Wired => "USB (wired)",
+            Connection::Wireless => "2.4 GHz wireless (USB receiver)",
+            Connection::Bluetooth => "Bluetooth",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Detail {
     pub caps: Option<Value>,

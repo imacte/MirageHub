@@ -130,7 +130,6 @@ jobs:
           name: studio
           path: |
             dist/rsrazer-setup.exe
-            dist/rsrazer-setup-zh-CN.exe
             dist/rsrazer.exe
           if-no-files-found: error
 

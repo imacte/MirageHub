@@ -3,6 +3,9 @@
 
 pub const ZH_CN: &[(&str, &str)] = &[
     ("{} of {}", "{} / {}"),
+    ("USB (wired)", "USB 有线"),
+    ("2.4 GHz wireless (USB receiver)", "2.4G 无线（USB 接收器）"),
+    ("Bluetooth", "蓝牙"),
     // -- the daemon --------------------------------------------------------------
     ("the daemon is not running", "后台服务未运行"),
     ("the daemon is not running (its endpoint file is stale)", "后台服务未运行（连接信息文件已失效）"),

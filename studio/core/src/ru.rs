@@ -3,6 +3,9 @@
 
 pub const RU: &[(&str, &str)] = &[
     ("{} of {}", "{} — {}"),
+    ("USB (wired)", "USB (проводное)"),
+    ("2.4 GHz wireless (USB receiver)", "Беспроводное 2,4 ГГц (USB-приёмник)"),
+    ("Bluetooth", "Bluetooth"),
     // -- the daemon --------------------------------------------------------------
     ("the daemon is not running", "демон не запущен"),
     ("the daemon is not running (its endpoint file is stale)", "демон не запущен (файл подключения устарел)"),

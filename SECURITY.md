@@ -9,7 +9,7 @@ updates; device control uses the local daemon:
 - The listening socket asks for `SO_EXCLUSIVEADDRUSE`, not `SO_REUSEADDR`. Windows, unlike Unix,
   lets a second process bind a port that is already being listened on, so the usual `SO_REUSEADDR`
   default would allow any process running as the user to hijack the socket.
-- Each run generates a random bearer token, written to `%LOCALAPPDATA%\openrazer-win\daemon.json`
+- Each run generates a random bearer token, written to `%LOCALAPPDATA%\rsrazer\daemon.json`
   with owner-only permissions. Every request must carry it.
 - The RPC surface is a **fixed allowlist** of device methods.
 - Recipe expressions are evaluated by a restricted AST walker that permits only arithmetic,

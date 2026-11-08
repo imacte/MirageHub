@@ -41,7 +41,7 @@ pub fn config_dir() -> PathBuf {
                 .unwrap_or_else(|| PathBuf::from("."))
                 .join(".config")
         })
-        .join("openrazer-win")
+        .join("rsrazer")
 }
 
 pub fn default_zone() -> Map<String, Value> {

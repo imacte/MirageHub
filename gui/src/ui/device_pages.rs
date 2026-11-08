@@ -245,7 +245,8 @@ pub fn info(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapshot) 
                 }
             }
             if let Some(transport) = caps["transport"]["path"].as_str() {
-                row("Connected through", if caps["protocol"] == "razer-ble" { format!("Bluetooth LE ({transport})") } else { "USB".into() });
+                let connection = device.connection_label(Some(&caps));
+                row("Connected through", if caps["protocol"] == "razer-ble" { format!("{connection} LE ({transport})") } else { connection.into() });
             }
         });
     });

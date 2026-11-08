@@ -1,7 +1,7 @@
 //! The daemon's wire protocol: newline-delimited JSON-RPC 2.0 over loopback TCP.
 //!
 //! The daemon writes where it listens, and the bearer token to talk to it, to
-//! `%LOCALAPPDATA%\openrazer-win\daemon.json`. Only the user who started it
+//! `%LOCALAPPDATA%\rsrazer\daemon.json`. Only the user who started it
 //! can read that file, which is the whole of the trust boundary.
 
 use serde::Deserialize;
@@ -16,13 +16,13 @@ use std::time::Duration;
 const READ_TIMEOUT: Duration = Duration::from_secs(40);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 
-/// `%LOCALAPPDATA%\openrazer-win`, where the daemon keeps everything.
+/// `%LOCALAPPDATA%\rsrazer`, where the daemon keeps everything.
 pub fn config_dir() -> PathBuf {
     let base = std::env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("USERPROFILE").map(|home| PathBuf::from(home).join(".config")))
         .unwrap_or_else(|| PathBuf::from("."));
-    base.join("openrazer-win")
+    base.join("rsrazer")
 }
 
 #[derive(Clone, Debug, Deserialize)]

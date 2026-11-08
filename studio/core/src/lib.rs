@@ -5,6 +5,7 @@
 //! the app it installs; so all of that lives here rather than twice.
 
 pub mod i18n;
+pub mod connection;
 pub mod install;
 pub mod paths;
 pub mod process;

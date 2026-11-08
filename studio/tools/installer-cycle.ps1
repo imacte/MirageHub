@@ -63,7 +63,7 @@ try {
 # Break it: a missing daemon, a truncated app, unreadable settings, no Start menu.
 Remove-Item (Join-Path $Dir 'rsrazer-daemon.exe')
 Set-Content -Path (Join-Path $Dir 'rsrazer.exe') -Value 'broken' -NoNewline
-$settings = Join-Path $env:LOCALAPPDATA 'openrazer-win\studio\settings.json'
+$settings = Join-Path $env:LOCALAPPDATA 'rsrazer\studio\settings.json'
 New-Item -ItemType Directory -Force (Split-Path $settings) | Out-Null
 Get-ChildItem (Split-Path $settings) -Filter 'settings.json.broken-*' | Remove-Item
 Set-Content -Path $settings -Value '{ this is not json' -NoNewline
@@ -89,7 +89,7 @@ Check 'update recorded the options in place' ((Get-Content (Join-Path $Dir 'inst
 & $Setup --repair --silent | Out-Host
 
 # An update left waiting is not one of the settings that are kept.
-$updates = Join-Path $env:LOCALAPPDATA 'openrazer-win\studio\updates'
+$updates = Join-Path $env:LOCALAPPDATA 'rsrazer\studio\updates'
 New-Item -ItemType Directory -Force $updates | Out-Null
 Set-Content -Path (Join-Path $updates 'rsrazer-setup-9.9.9.exe') -Value 'waiting' -NoNewline
 

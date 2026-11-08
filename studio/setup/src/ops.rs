@@ -243,8 +243,8 @@ pub fn check_settings(progress: &dyn Progress) {
 pub struct Removal {
     /// RsRazer's own settings and macro library.
     pub settings: bool,
-    /// Everything in `%LOCALAPPDATA%\openrazer-win`: device settings,
-    /// profiles, key bindings, logs -- shared with the classic panel and legacy versions.
+    /// Everything in `%LOCALAPPDATA%\rsrazer`: device settings,
+    /// profiles, key bindings, logs -- shared with the classic panel and command line.
     pub all_data: bool,
 }
 

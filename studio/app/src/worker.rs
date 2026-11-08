@@ -55,6 +55,18 @@ pub struct Device {
     pub firmware: Option<String>,
 }
 
+impl Device {
+    pub fn connection_label(&self, caps: Option<&Value>) -> &'static str {
+        use rsrazer_core::connection::{self, Connection};
+        match connection::detect(self.pid, &self.name, caps.and_then(|c| c["protocol"].as_str())) {
+            Connection::Usb => "USB",
+            Connection::Wired => t("USB (wired)"),
+            Connection::Wireless => t("2.4 GHz wireless (USB receiver)"),
+            Connection::Bluetooth => t("Bluetooth"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Detail {
     pub caps: Option<Value>,

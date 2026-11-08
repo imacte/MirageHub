@@ -40,7 +40,7 @@ const UNTRANSLATED_KEYS: &[&str] = &[
     "Page Down",
     "Print Screen",
 ];
-const DOWNLOAD: &str = "**RsRazer** — download `rsrazer-setup.exe` or `rsrazer-setup-zh-CN.exe`. Both include the native Rust application and daemon, with English, Simplified Chinese and Russian. No Python installation is required.\n\n`rsrazer-classic.exe` is the standalone classic panel; `rsrazer-daemon.exe` is the CLI and background service. `SHA256SUMS.txt` lists the file checksums.\n\nBased on [OpenRazer](https://github.com/openrazer/openrazer) and [Ar4ikov/openrazer-win](https://github.com/Ar4ikov/openrazer-win). See the [RsRazer documentation](https://github.com/imacte/RsRazer#readme).\n";
+const DOWNLOAD: &str = "**RsRazer** — download `rsrazer-setup.exe`. The installer includes the native Rust application and daemon, with English, Simplified Chinese and Russian. No Python installation is required.\n\n`rsrazer-classic.exe` is the standalone classic panel; `rsrazer-daemon.exe` is the CLI and background service. `SHA256SUMS.txt` lists the file checksums.\n\nBased on [OpenRazer](https://github.com/openrazer/openrazer) and [Ar4ikov/openrazer-win](https://github.com/Ar4ikov/openrazer-win). See the [RsRazer documentation](https://github.com/imacte/RsRazer#readme).\n";
 
 #[derive(Default)]
 struct Strings(BTreeSet<String>);

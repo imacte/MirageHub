@@ -1,7 +1,7 @@
 //! The daemon's wire protocol: newline-delimited JSON-RPC 2.0 over loopback TCP.
 //!
 //! The daemon writes where it listens, and the bearer token to talk to it, to
-//! `%LOCALAPPDATA%\openrazer-win\daemon.json`. Only the user who started it
+//! `%LOCALAPPDATA%\rsrazer\daemon.json`. Only the user who started it
 //! can read that file, which is the whole of the trust boundary.
 
 use serde::Deserialize;

@@ -8,7 +8,7 @@ $exe = Join-Path $bin 'rsrazer.exe'
 $daemon = Join-Path $bin 'rsrazer-daemon.exe'
 if (Get-Process -Name rsrazer -ErrorAction SilentlyContinue) { throw 'Exit RsRazer from its tray menu before running this test.' }
 $sandbox = Join-Path $env:TEMP ('rsrazer-tray-test-' + [guid]::NewGuid().ToString('N'))
-$config = Join-Path $sandbox 'openrazer-win'
+$config = Join-Path $sandbox 'rsrazer'
 $studio = Join-Path $config 'studio'
 $originalLocal = $env:LOCALAPPDATA
 $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'

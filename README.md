@@ -16,7 +16,7 @@ No Synapse, custom kernel driver or Python runtime is required.
 Download **[rsrazer-setup.exe](https://github.com/imacte/RsRazer/releases/latest/download/rsrazer-setup.exe)** from [Releases](https://github.com/imacte/RsRazer/releases).
 It contains the application, native daemon and 32/64-bit Chroma SDK DLLs.
 The installer works per user and supports repair and removal.
-`rsrazer-setup-zh-CN.exe` contains the same multilingual package: English, Simplified Chinese and Russian.
+The installer includes English, Simplified Chinese and Russian.
 
 The tray and UI run in separate processes. Closing the window saves the current page and editor drafts,
 then exits the UI process to release its memory. Device communication, automatic profiles and update
@@ -30,8 +30,8 @@ downloads continue in the tray; click its icon to reopen the window.
 | `rsrazer-classic.exe` | Classic control panel with the daemon embedded |
 
 Native release builds include the C runtime. Close Synapse before controlling the same devices.
-Existing settings, profiles and macros remain compatible: the data folder stays at
-`%LOCALAPPDATA%\openrazer-win` so upgrades can reuse them.
+Settings, profiles, macros and logs are stored in `%LOCALAPPDATA%\rsrazer`.
+RsRazer does not automatically read or migrate data from `%LOCALAPPDATA%\openrazer-win`.
 
 ## Features
 

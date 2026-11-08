@@ -6,7 +6,7 @@ $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $bin = (Resolve-Path $BinDir).Path
 $output = Join-Path $repo 'docs\images'
 $sandbox = Join-Path $env:TEMP ('rsrazer-screenshots-' + [guid]::NewGuid().ToString('N'))
-$config = Join-Path $sandbox 'openrazer-win'
+$config = Join-Path $sandbox 'rsrazer'
 $settings = Join-Path $config 'studio\settings.json'
 $daemon = Join-Path $bin 'rsrazer-daemon.exe'
 $saved = @{}
@@ -32,7 +32,7 @@ function Capture([string]$exe, [string]$file, [string[]]$Arguments = @()) {
 try {
     New-Item -ItemType Directory -Force (Split-Path $settings) | Out-Null
     New-Item -ItemType Directory -Force $output | Out-Null
-    $cached = Join-Path $env:LOCALAPPDATA 'openrazer-win\images'
+    $cached = Join-Path $env:LOCALAPPDATA 'rsrazer\images'
     if (Test-Path -LiteralPath $cached) { Copy-Item -LiteralPath $cached -Destination (Join-Path $config 'images') -Recurse }
     $env:LOCALAPPDATA = $sandbox
     DaemonCommand @('daemon','start','--chroma-port','0') | Out-Null

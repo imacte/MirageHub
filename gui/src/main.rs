@@ -7,6 +7,8 @@
 #![windows_subsystem = "windows"]
 
 mod daemon;
+#[path = "../../studio/core/src/connection.rs"]
+mod connection;
 mod images;
 mod rpc;
 mod shell;

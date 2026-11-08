@@ -88,9 +88,13 @@ try {
     foreach ($file in @($daemon,$app,$setup)) {
         CopyArtifact $file (Join-Path $outPath (Split-Path $file -Leaf))
     }
-    Copy-Item -LiteralPath $setup -Destination (Join-Path $outPath 'rsrazer-setup-zh-CN.exe') -Force
+    # Remove the duplicate installer left by earlier builds in this output folder.
+    $obsoleteInstaller = Join-Path $outPath 'rsrazer-setup-zh-CN.exe'
+    if (Test-Path -LiteralPath $obsoleteInstaller -PathType Leaf) {
+        Remove-Item -LiteralPath $obsoleteInstaller -Force
+    }
     if ($IncludeClassic) { Copy-Item -LiteralPath $classic -Destination (Join-Path $outPath 'rsrazer-classic.exe') -Force }
-    $names = @('rsrazer-daemon.exe','rsrazer.exe','rsrazer-setup.exe','rsrazer-setup-zh-CN.exe')
+    $names = @('rsrazer-daemon.exe','rsrazer.exe','rsrazer-setup.exe')
     if ($IncludeClassic) { $names += 'rsrazer-classic.exe' }
     $lines = foreach ($name in $names) {
         $hash = (Get-FileHash -LiteralPath (Join-Path $outPath $name) -Algorithm SHA256).Hash.ToLowerInvariant()

@@ -154,8 +154,7 @@ fn header(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapshot) {
             let (rect, response) = ui.allocate_exact_size(vec2(text_width, 30.0), Sense::hover());
             ui.painter().galley(egui::pos2(rect.left(), rect.center().y - name.size().y / 2.0), name, TEXT);
             response.on_hover_text(&device.name);
-            let bluetooth = caps.is_some_and(|c| c["protocol"] == "razer-ble");
-            let mut facts = vec![kind_label(&device.kind).to_string(), if bluetooth { "Bluetooth".into() } else { "USB".into() }, format!("1532:{:04X}", device.pid)];
+            let mut facts = vec![kind_label(&device.kind).to_string(), device.connection_label(caps).into(), format!("1532:{:04X}", device.pid)];
             if let Some(firmware) = &device.firmware {
                 facts.push(tf("Firmware {}", &[firmware]));
             }
@@ -681,7 +680,7 @@ fn about(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapshot) {
                     widgets::fact(ui, t("LED matrix"), &format!("{} × {}", dims[0], dims[1]));
                 }
                 if caps["transport"]["path"].as_str().is_some() {
-                    widgets::fact(ui, t("Connected through"), if caps["protocol"] == "razer-ble" { "Bluetooth LE" } else { "USB" });
+                    widgets::fact(ui, t("Connected through"), device.connection_label(Some(&caps)));
                 }
                 if let Some(address) = caps["bluetooth_address"].as_str() {
                     // As Windows shows it in Bluetooth settings: AA:BB:CC:DD:EE:FF.

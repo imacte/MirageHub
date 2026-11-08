@@ -6,6 +6,21 @@ uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-11-08
+
+### Fixed
+
+- Device cards and details now distinguish 2.4 GHz USB receivers from wired USB
+  connections, including wireless mouse models used over a cable while charging.
+
+### Changed
+
+- RsRazer now stores its settings, profiles, macros, logs and daemon endpoint in
+  `%LOCALAPPDATA%\rsrazer`. Data in `%LOCALAPPDATA%\openrazer-win` is no longer
+  reused or automatically migrated.
+- Releases now provide one multilingual installer, `rsrazer-setup.exe`, instead
+  of duplicate installer downloads. English, Simplified Chinese and Russian are included.
+
 ## [1.7.0] - 2026-11-08
 
 The first RsRazer release with a native Rust backend and a separate tray host.

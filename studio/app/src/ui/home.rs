@@ -196,8 +196,7 @@ fn card(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapshot, row:
                 });
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 6.0;
-                    let bluetooth = caps.as_ref().is_some_and(|c| c["protocol"] == "razer-ble");
-                    let line = format!("{} · {}", kind_label(&device.kind), if bluetooth { "Bluetooth" } else { "USB" });
+                    let line = format!("{} · {}", kind_label(&device.kind), device.connection_label(caps.as_ref()));
                     ui.label(RichText::new(line).size(12.5).color(TEXT_DIM));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if detail.game_mode == Some(true) {

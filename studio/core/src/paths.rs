@@ -2,17 +2,17 @@
 
 use std::path::PathBuf;
 
-/// `%LOCALAPPDATA%\openrazer-win`: the daemon's settings, profiles, macros
-/// and logs. Retained for compatibility with existing configurations.
+/// `%LOCALAPPDATA%\rsrazer`: the daemon's settings, profiles, macros
+/// and logs, separate from OpenRazer's data.
 pub fn data_dir() -> PathBuf {
     let base = std::env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("USERPROFILE").map(|home| PathBuf::from(home).join(".config")))
         .unwrap_or_else(|| PathBuf::from("."));
-    base.join("openrazer-win")
+    base.join("rsrazer")
 }
 
-/// RsRazer's own settings, inside the shared folder.
+/// Studio settings, inside RsRazer's data folder.
 pub fn studio_dir() -> PathBuf {
     data_dir().join("studio")
 }
