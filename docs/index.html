@@ -260,9 +260,10 @@ footer p { margin: 0 0 8px; }
 <span class="c-cmd">rsrazer-daemon</span> zones
 <span class="c-cmd">rsrazer-daemon</span> zones red blue
 
-<span class="c-com"># named lighting profiles, kept on this PC</span>
+<span class="c-com"># active profiles on this PC; later changes are saved automatically</span>
 <span class="c-cmd">rsrazer-daemon</span> profile save night
 <span class="c-cmd">rsrazer-daemon</span> profile load night
+<span class="c-cmd">rsrazer-daemon</span> profile create gaming --source night
 
 <span class="c-com"># settings</span>
 <span class="c-cmd">rsrazer-daemon</span> brightness 60

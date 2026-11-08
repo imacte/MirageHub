@@ -424,11 +424,12 @@ impl Worker {
                 self.report(&result, Some(format!("Profile “{name}” {verb}")));
                 self.read_profiles(&serial);
                 if action == "load" {
-                    self.load_persistence();
                     let caps = self.shared.lock().unwrap().details.get(&serial).and_then(|d| d.caps.clone());
                     if let Some(caps) = caps {
                         self.read_lighting(&serial, &caps);
+                        self.read_performance(&serial, &caps);
                     }
+                    self.load_persistence();
                 }
             }
             Command::MacroSet { serial, key, action } => {

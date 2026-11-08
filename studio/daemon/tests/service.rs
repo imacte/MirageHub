@@ -524,8 +524,8 @@ fn profiles_restore_brightness_and_switch_between_live_and_hardware_lighting() {
         )["name"],
         "中文 配置"
     );
-    f.call("effect.set", json!({"serial":"S","effect":"wave_soft"}));
     f.call("profile.save", json!({"serial":"S","name":"Wave"}));
+    f.call("effect.set", json!({"serial":"S","effect":"wave_soft"}));
     f.call(
         "device.call",
         json!({"serial":"S","method":"set_brightness","args":[12]}),

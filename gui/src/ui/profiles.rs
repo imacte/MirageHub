@@ -1,4 +1,4 @@
-//! Named lighting profiles: save what is showing, put it back later.
+//! Active profiles: save the current settings and keep later changes in them.
 
 use super::app::App;
 use super::theme::{self, TEXT_DIM, TEXT_FAINT};
@@ -12,7 +12,7 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapshot) 
 
     widgets::card(ui, |ui| {
         ui.label(RichText::new("Save what is showing now").font(theme::bold(16.0)));
-        ui.label(widgets::dim("Effect, colours and brightness of every zone. Up to ten per device."));
+        ui.label(widgets::dim("Lighting and performance settings. Saving or applying makes a profile active; later changes are saved into it automatically. Up to ten per device."));
         ui.horizontal(|ui| {
             let input = ui.add(egui::TextEdit::singleline(&mut app.profile_name).hint_text("Profile name, e.g. Night").desired_width(260.0));
             let enter = input.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
@@ -43,6 +43,9 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapshot) 
                         ui.vertical(|ui| {
                             ui.spacing_mut().item_spacing.y = 2.0;
                             ui.label(RichText::new(&name).font(theme::bold(14.5)));
+                            if profile["active"] == true {
+                                ui.label(RichText::new("Active").color(theme::ACCENT));
+                            }
                             let when = saved.split('.').next().unwrap_or(saved).replace('T', " ");
                             ui.label(RichText::new(format!("saved {when}")).size(12.0).color(TEXT_FAINT));
                         });

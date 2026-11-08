@@ -59,6 +59,8 @@ rsrazer-daemon snaptap                  # Status, off by default
 rsrazer-daemon snaptap pair add W S
 rsrazer-daemon profile save night
 rsrazer-daemon profile load night
+rsrazer-daemon profile create work
+rsrazer-daemon profile create gaming --source work
 rsrazer-daemon integration accent on
 rsrazer-daemon rpc daemon.version
 rsrazer-daemon doctor
@@ -66,6 +68,13 @@ rsrazer-daemon doctor
 
 Use `--help` for commands and options. `--device` selects a serial, product ID or name fragment;
 `--json` prints machine-readable results. `daemon start --emulate` uses simulated devices and separate demo data.
+
+Saving, creating or loading a profile makes it active for that device. Later
+changes are saved into it automatically. Profiles restore lighting, switch mode,
+DPI stages, DPI and polling rate; keyboard profiles also carry Snap Tap's enable
+state and key pairs. Snap Tap's consent and application exclusions stay global.
+`profile create NAME` starts from defaults; `--source NAME` duplicates a profile.
+The CLI marks the active profile with `*`. These profiles are stored on the PC.
 
 Snap Tap runs in the daemon and applies to every keyboard. Enable it from the
 keyboard Performance page after reading the warning, or use `snaptap on --accept`.

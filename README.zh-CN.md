@@ -55,6 +55,8 @@ rsrazer-daemon brightness 60
 rsrazer-daemon dpi 1800
 rsrazer-daemon profile save night
 rsrazer-daemon profile load night
+rsrazer-daemon profile create work
+rsrazer-daemon profile create gaming --source work
 rsrazer-daemon integration accent on
 rsrazer-daemon rpc daemon.version
 rsrazer-daemon doctor
@@ -62,6 +64,14 @@ rsrazer-daemon doctor
 
 使用 `--help` 查看命令及选项。`--device` 可按序列号、产品 ID 或名称片段选择设备，
 `--json` 输出便于脚本处理的结果。`daemon start --emulate` 使用模拟设备和独立的演示配置目录。
+
+## 配置文件
+
+保存、新建或加载配置后，该配置会成为设备的当前配置，之后的修改会自动保存。
+切换时恢复灯光、键轴模式、DPI 档位、DPI 和回报率；键盘配置还保存 Snap Tap 的
+开关和按键对。Snap Tap 的首次确认和程序排除列表属于全局设置，不会随配置导入。
+`profile create 名称` 从默认设置开始，添加 `--source 原配置` 可创建副本。
+命令行用 `*` 标记当前配置。这些配置保存在电脑上。
 
 ## 从源码构建
 

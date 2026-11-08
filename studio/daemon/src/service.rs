@@ -218,6 +218,9 @@ pub struct DaemonService {
     registry: Arc<dyn Registry>,
     persistence: SharedStore,
     profiles: Mutex<ProfileStore>,
+    // Serialize user mutations with profile switches and their snapshots.
+    // This gate is taken before effects/device/store locks, never by renderers.
+    profile_gate: Mutex<()>,
     macros: Arc<MacroStore>,
     integrations: Mutex<IntegrationSettings>,
     integration_gate: Mutex<()>,
@@ -343,6 +346,7 @@ impl DaemonService {
             registry,
             persistence: stores.persistence,
             profiles: Mutex::new(stores.profiles),
+            profile_gate: Mutex::new(()),
             macros: stores.macros,
             integrations: Mutex::new(stores.integrations),
             integration_gate: Mutex::new(()),
@@ -732,6 +736,8 @@ impl DaemonService {
                     )
                     .map_err(RpcError::invalid)?;
                 persistence::lock(&self.persistence).save()?;
+                drop(engine);
+                self.keep_in_profile(&device);
                 return Ok(Value::Null);
             }
             if HARDWARE_EFFECTS.contains(&method) && zone == "backlight" {
@@ -740,8 +746,104 @@ impl DaemonService {
         }
         let value = lock_device(&device).call(method, &args, &kwargs)?;
         persistence::lock(&self.persistence).save()?;
+        if !read_only(method) {
+            self.keep_in_profile(&device);
+        }
         Ok(value)
     }
+
+    fn profile_snapshot(&self, device: &SharedDevice) -> profiles::ProfileState {
+        let mut d = lock_device(device);
+        let mut state = profiles::snapshot(d.as_mut());
+        if snaptap_applies(d.as_ref()) {
+            let settings = lock(&self.snaptap).controller.settings.snapshot();
+            state.snaptap = Some(json!({"enabled":settings.enabled,"pairs":settings.pairs}));
+        }
+        state
+    }
+    fn keep_in_profile(&self, device: &SharedDevice) {
+        let serial = lock_device(device).serial();
+        if lock(&self.profiles).active(&serial).is_none() {
+            return;
+        }
+        let state = self.profile_snapshot(device);
+        if let Err(error) = lock(&self.profiles).update_active(&serial, state) {
+            self.warn(format!(
+                "could not update the active profile of {serial}: {error}"
+            ));
+        }
+    }
+    fn apply_snaptap(&self, device: &SharedDevice, state: &profiles::ProfileState) -> Result<()> {
+        if !snaptap_applies(lock_device(device).as_ref()) {
+            return Ok(());
+        }
+        let Some(stored) = state.snaptap.as_ref().and_then(Value::as_object) else {
+            return Ok(());
+        };
+        let mut service = lock(&self.snaptap);
+        let mut changes = Map::new();
+        if let Some(pairs) = stored.get("pairs") {
+            changes.insert("pairs".into(), pairs.clone());
+        }
+        if let Some(enabled) = stored.get("enabled").and_then(Value::as_bool) {
+            // A profile file is never consent to the global warning.
+            if !enabled || service.controller.settings.snapshot().acknowledged {
+                changes.insert("enabled".into(), json!(enabled));
+            }
+        }
+        if !changes.is_empty() {
+            service.update(&changes)?;
+        }
+        Ok(())
+    }
+    fn switch_profile(
+        &self,
+        device: &SharedDevice,
+        profile: &profiles::Profile,
+    ) -> rpc::Result<()> {
+        let serial = lock_device(device).serial();
+        // Save the target before applying it. On a partial hardware failure,
+        // subsequent edits cannot overwrite the previously active profile.
+        lock(&self.profiles).activate(&serial, &profile.name)?;
+        if let Some(effects) = &self.effects {
+            lock(effects).clear_serial(&serial);
+        }
+        let applied = (|| -> Result<()> {
+            profiles::apply(lock_device(device).as_mut(), &profile.state)?;
+            if let Some(effects) = &self.effects {
+                let mut engine = lock(effects);
+                if profile
+                    .state
+                    .device
+                    .get("software")
+                    .is_some_and(rpc::truthy)
+                {
+                    engine.restore(device);
+                } else {
+                    engine.stop_for(device)?;
+                }
+            }
+            self.apply_snaptap(device, &profile.state)?;
+            profiles::verify_poll_rate(lock_device(device).as_mut(), &profile.state.device)
+        })();
+        let saved = persistence::lock(&self.persistence).save();
+        applied?;
+        saved?;
+        Ok(())
+    }
+}
+
+pub(crate) fn read_only(method: &str) -> bool {
+    ["get_", "is_", "supported_", "available_"]
+        .iter()
+        .any(|prefix| method.starts_with(prefix))
+        || method == "zone_colours_now"
+}
+pub(crate) fn snaptap_applies(device: &dyn crate::device::Device) -> bool {
+    matches!(
+        device.capabilities()["type"].as_str(),
+        Some("keyboard" | "keypad")
+    )
 }
 
 struct Parameters<'a>(&'a Map<String, Value>);
@@ -807,6 +909,7 @@ impl Service for DaemonService {
             "integration.set" => (&["name", "enabled"], &[]),
             "snaptap.set" => (&[], &["enabled", "acknowledged", "pairs", "deny", "allow"]),
             "profile.save" | "profile.load" | "profile.delete" => (&["serial", "name"], &[]),
+            "profile.create" => (&["serial", "name"], &["source"]),
             "macro.set" => (&["serial", "key", "action"], &[]),
             "macro.delete" | "macro.record_start" | "macro.play" => (&["serial", "key"], &[]),
             _ => {
@@ -817,9 +920,28 @@ impl Service for DaemonService {
             }
         };
         p.check(required, optional)?;
+        let mutates_profile = matches!(
+            method,
+            "profile.save"
+                | "profile.create"
+                | "profile.load"
+                | "profile.delete"
+                | "effect.set"
+                | "snaptap.set"
+        ) || (method == "device.call" && !read_only(p.string("method")?));
+        let _profile_gate = mutates_profile.then(|| lock(&self.profile_gate));
         match method {
             "snaptap.status" => Ok(lock(&self.snaptap).controller.status()),
-            "snaptap.set" => Ok(lock(&self.snaptap).update(params)?),
+            "snaptap.set" => {
+                let status = lock(&self.snaptap).update(params)?;
+                for device in self.registry.devices() {
+                    let applies = snaptap_applies(lock_device(&device).as_ref());
+                    if applies {
+                        self.keep_in_profile(&device);
+                    }
+                }
+                Ok(status)
+            }
             "daemon.version" => {
                 let mut pending: Vec<_> = lock(&self.pending)
                     .values()
@@ -858,6 +980,7 @@ impl Service for DaemonService {
                 let result =
                     lock(effects).set_effect(&device, p.string("effect")?, p.object("options")?)?;
                 persistence::lock(&self.persistence).save()?;
+                self.keep_in_profile(&device);
                 Ok(result)
             }
             "effect.status" => Ok(self.effects.as_ref().map_or_else(
@@ -943,7 +1066,8 @@ impl Service for DaemonService {
                     }
                 }
             }
-            "profile.list" | "profile.save" | "profile.load" | "profile.delete" => {
+            "profile.list" | "profile.save" | "profile.load" | "profile.create"
+            | "profile.delete" => {
                 let device = self.device(p.string("serial")?)?;
                 let serial = lock_device(&device).serial();
                 if method == "profile.list" {
@@ -952,32 +1076,33 @@ impl Service for DaemonService {
                 let name = p.string("name")?;
                 match method {
                     "profile.save" => {
-                        let state = profiles::snapshot(lock_device(&device).as_mut());
-                        let saved = lock(&self.profiles).put(&serial, name, state)?;
+                        let state = self.profile_snapshot(&device);
+                        let saved =
+                            lock(&self.profiles).put_with_active(&serial, name, state, true)?;
                         Ok(json!({"name":saved.name,"saved":saved.saved}))
+                    }
+                    "profile.create" => {
+                        let state = if !p.value("source").is_null() {
+                            lock(&self.profiles)
+                                .get(&serial, p.string("source")?)?
+                                .state
+                        } else {
+                            let mut d = lock_device(&device);
+                            let mut state = profiles::default_state(d.as_mut());
+                            if snaptap_applies(d.as_ref()) {
+                                state.snaptap = Some(
+                                    json!({"enabled":false,"pairs":crate::keys::snaptap_settings::Settings::default().pairs}),
+                                );
+                            }
+                            state
+                        };
+                        let profile = lock(&self.profiles).create(&serial, name, state)?;
+                        self.switch_profile(&device, &profile)?;
+                        Ok(json!({"name":profile.name,"saved":profile.saved}))
                     }
                     "profile.load" => {
                         let profile = lock(&self.profiles).get(&serial, name)?;
-                        // Stop the old renderer before applying the snapshot; it
-                        // must not overwrite the newly restored hardware state.
-                        if let Some(effects) = &self.effects {
-                            lock(effects).clear_serial(&serial);
-                        }
-                        profiles::apply(lock_device(&device).as_mut(), &profile.state)?;
-                        if let Some(effects) = &self.effects {
-                            let mut engine = lock(effects);
-                            if profile
-                                .state
-                                .device
-                                .get("software")
-                                .is_some_and(rpc::truthy)
-                            {
-                                engine.restore(&device);
-                            } else {
-                                engine.stop_for(&device)?;
-                            }
-                        }
-                        persistence::lock(&self.persistence).save()?;
+                        self.switch_profile(&device, &profile)?;
                         Ok(json!({"name":profile.name}))
                     }
                     _ => {

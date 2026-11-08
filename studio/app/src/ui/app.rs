@@ -18,6 +18,13 @@ use std::time::{Duration, Instant};
 /// The width of the navigation column.
 const NAV_WIDTH: f32 = 224.0;
 
+fn send_after_pending(tx: &worker::Sender, pending: &mut Vec<Pending>, command: Command) {
+    for pending in std::mem::take(pending) {
+        let _ = tx.send(pending.command);
+    }
+    let _ = tx.send(command);
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub enum Page {
     #[default]
@@ -167,6 +174,12 @@ impl App {
 
     pub fn send(&self, command: Command) {
         let _ = self.tx.send(command);
+    }
+
+    /// A slider's final value belongs to the profile being left. Queue it
+    /// before switching, even if its debounce deadline has not arrived yet.
+    pub fn send_profile(&mut self, command: Command) {
+        send_after_pending(&self.tx, &mut self.pending, command);
     }
 
     pub fn toast(&self, text: impl Into<String>, error: bool) {
@@ -711,6 +724,21 @@ pub fn outline(ui: &egui::Ui, rect: Rect, colour: Color32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn switching_profiles_sends_the_last_slider_edit_before_the_switch() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let tx = worker::Sender::Local(tx);
+        let mut pending = vec![Pending {
+            key: "dpi:S".into(), due: Instant::now() + Duration::from_secs(1),
+            command: Command::Call { serial: "S".into(), method: "set_dpi".into(), args: vec![serde_json::json!(1600)], zone: None, then: worker::Then::Performance },
+        }];
+        send_after_pending(&tx, &mut pending, Command::Profile { action: "load".into(), serial: "S".into(), name: "Desktop".into(), quiet: false });
+        assert!(matches!(rx.try_recv().unwrap(), Command::Call { method, .. } if method == "set_dpi"));
+        assert!(matches!(rx.try_recv().unwrap(), Command::Profile { name, .. } if name == "Desktop"));
+        assert!(pending.is_empty());
+        assert!(rx.try_recv().is_err());
+    }
 
     fn device(serial: &str, name: &str) -> Device {
         Device { serial: serial.into(), name: name.into(), ..Default::default() }

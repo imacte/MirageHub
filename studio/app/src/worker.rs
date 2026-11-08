@@ -122,6 +122,15 @@ pub struct Snapshot {
     pub snaptap: Value,
     #[serde(default)]
     pub snaptap_deny_error: Option<String>,
+    #[serde(default)]
+    pub created: Option<Created>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Created {
+    pub count: u64,
+    pub serial: String,
+    pub name: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -135,6 +144,7 @@ pub enum Command {
     /// `quiet` for the automatic switch, which should not pop a toast every
     /// time a game comes to the front.
     Profile { #[serde(deserialize_with = "profile_action")] action: String, serial: String, name: String, quiet: bool },
+    ProfileCreate { serial: String, name: String, source: Option<String> },
     MacroSet { serial: String, key: String, action: Value },
     MacroDelete { serial: String, key: String },
     MacroRecordStart { serial: String, key: String },
@@ -474,6 +484,20 @@ impl Worker {
         }
     }
 
+    fn after_switch(&mut self, serial: &str) {
+        if let Some(caps) = self.caps(serial) {
+            self.read_lighting(serial, &caps);
+            self.read_performance(serial, &caps);
+            self.read_keyboard(serial, &caps);
+        }
+        if let Ok(status) = self.with(|c| c.call("snaptap.status", json!({}))) {
+            self.shared.lock().unwrap().snaptap = status;
+        }
+        // Publish the generation after the readbacks, so every control changes
+        // together when a profile is switched, even after a partial failure.
+        self.load_persistence();
+    }
+
     fn read_profiles(&mut self, serial: &str) {
         if let Ok(list) = self.with(|c| c.call("profile.list", json!({ "serial": serial }))) {
             let rows = list.as_array().cloned().unwrap_or_default();
@@ -519,14 +543,17 @@ impl Worker {
             Command::Call { serial, method, args, zone, then } => {
                 let result = self.with(|c| c.device(&serial, &method, args, zone.as_deref()));
                 self.report(&result, None);
-                if result.is_ok() {
+                if result.is_ok() || then == Then::Performance {
                     let caps = self.caps(&serial);
                     match (then, caps) {
                         (Then::Lighting, Some(caps)) => {
                             self.load_persistence();
                             self.read_lighting(&serial, &caps);
                         }
-                        (Then::Performance, Some(caps)) => self.read_performance(&serial, &caps),
+                        (Then::Performance, Some(caps)) => {
+                            self.read_performance(&serial, &caps);
+                            self.load_persistence();
+                        }
                         (Then::Power, _) => self.read_power(&serial, true),
                         (Then::Keyboard, Some(caps)) => self.read_keyboard(&serial, &caps),
                         (Then::Audio, _) => self.read_audio(&serial),
@@ -582,11 +609,24 @@ impl Worker {
                 }
                 self.read_profiles(&serial);
                 if action == "load" {
-                    self.load_persistence();
-                    if let Some(caps) = self.caps(&serial) {
-                        self.read_lighting(&serial, &caps);
-                    }
+                    self.after_switch(&serial);
                 }
+            }
+            Command::ProfileCreate { serial, name, source } => {
+                let mut params = json!({"serial":serial,"name":name});
+                if let Some(source) = source { params["source"] = json!(source); }
+                let result = self.with(|c| c.call("profile.create", params));
+                self.report(&result, Some(tf("Profile “{}” created", &[&name])));
+                if let Ok(profile) = &result {
+                    let mut shared = self.shared.lock().unwrap();
+                    let count = shared.created.as_ref().map_or(0, |c| c.count) + 1;
+                    shared.created = Some(Created { count, serial: serial.clone(), name: name.clone() });
+                    // The form matches the submitted name; the device picker
+                    // uses the canonical name returned by profile.list.
+                    debug_assert!(profile["name"].is_string());
+                }
+                self.read_profiles(&serial);
+                self.after_switch(&serial);
             }
             Command::MacroSet { serial, key, action } => {
                 let result = self.with(|c| c.call("macro.set", json!({ "serial": serial, "key": key, "action": action })));

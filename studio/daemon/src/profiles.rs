@@ -1,5 +1,6 @@
-//! Named snapshots in the existing profiles.json format. Loading a profile
-//! explicitly applies brightness; reconnecting a BLE device only restores colour.
+//! Active profiles, ported from Ar4ikov/openrazer-win#16 (287c2414).
+//! Loading explicitly applies performance and brightness; ordinary reconnects
+//! still restore lighting only. Existing profiles.json files remain readable.
 
 use crate::{device::Device, persistence, Error, Result};
 use serde::{Deserialize, Serialize};
@@ -22,18 +23,22 @@ pub fn clean_name(name: &str) -> Result<String> {
     Ok(name)
 }
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ProfileState {
     #[serde(default)]
     pub device: Map<String, Value>,
     #[serde(default)]
     pub zones: BTreeMap<String, Map<String, Value>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snaptap: Option<Value>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Profile {
     pub name: String,
     #[serde(default)]
     pub saved: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub active: bool,
     #[serde(flatten)]
     pub state: ProfileState,
 }
@@ -51,20 +56,31 @@ impl ProfileStore {
         }
     }
     pub fn load(path: PathBuf) -> Self {
-        let data = fs::read(&path)
+        let mut data: BTreeMap<String, Vec<Profile>> = fs::read(&path)
             .ok()
             .and_then(|bytes| serde_json::from_slice(&bytes).ok())
             .unwrap_or_default();
+        // A hand-edited file must not give one device two active profiles.
+        for profiles in data.values_mut() {
+            let mut found = false;
+            for profile in profiles {
+                profile.active &= !found;
+                found |= profile.active;
+            }
+        }
         Self {
             path: Some(path),
             limit: MAX_PROFILES,
             data,
         }
     }
-    fn save(&self) -> Result<()> {
+    fn replace(&mut self, data: BTreeMap<String, Vec<Profile>>) -> Result<()> {
         if let Some(path) = &self.path {
-            persistence::atomic_write(path, &serde_json::to_vec_pretty(&self.data)?)?;
+            persistence::atomic_write(path, &serde_json::to_vec_pretty(&data)?)?;
         }
+        // Callers hold the store mutex through the atomic replacement. Failed
+        // writes leave both the previous file and the in-memory state intact.
+        self.data = data;
         Ok(())
     }
     pub fn names(&self, serial: &str) -> Vec<String> {
@@ -76,7 +92,14 @@ impl ProfileStore {
             .collect()
     }
     pub fn summaries(&self, serial: &str) -> Vec<Value> {
-        self.data.get(serial).into_iter().flatten().map(|p|json!({"name":p.name,"saved":p.saved,"zones":p.state.zones.keys().collect::<Vec<_>>()})).collect()
+        self.data.get(serial).into_iter().flatten().map(|p|json!({"name":p.name,"saved":p.saved,"active":p.active,"zones":p.state.zones.keys().collect::<Vec<_>>()})).collect()
+    }
+    pub fn active(&self, serial: &str) -> Option<&str> {
+        self.data
+            .get(serial)?
+            .iter()
+            .find(|p| p.active)
+            .map(|p| p.name.as_str())
     }
     pub fn get(&self, serial: &str, name: &str) -> Result<Profile> {
         let wanted = clean_name(name)?.to_lowercase();
@@ -89,17 +112,29 @@ impl ProfileStore {
             .ok_or_else(|| Error::Invalid(format!("no profile called {name:?}")))
     }
     pub fn put(&mut self, serial: &str, name: &str, state: ProfileState) -> Result<Profile> {
+        self.put_with_active(serial, name, state, false)
+    }
+    pub fn put_with_active(
+        &mut self,
+        serial: &str,
+        name: &str,
+        state: ProfileState,
+        activate: bool,
+    ) -> Result<Profile> {
         let name = clean_name(name)?;
-        let profile = Profile {
+        let mut profile = Profile {
             name,
             saved: Some(local_timestamp()),
+            active: activate,
             state,
         };
-        let profiles = self.data.entry(serial.into()).or_default();
+        let mut data = self.data.clone();
+        let profiles = data.entry(serial.into()).or_default();
         if let Some(existing) = profiles
             .iter_mut()
             .find(|p| p.name.to_lowercase() == profile.name.to_lowercase())
         {
+            profile.active |= existing.active;
             *existing = profile.clone();
         } else {
             if profiles.len() >= self.limit {
@@ -110,13 +145,49 @@ impl ProfileStore {
             }
             profiles.push(profile.clone());
         }
-        self.save()?;
+        if activate {
+            for p in profiles {
+                p.active = p.name.eq_ignore_ascii_case(&profile.name);
+            }
+        }
+        self.replace(data)?;
         Ok(profile)
+    }
+    pub fn create(&mut self, serial: &str, name: &str, state: ProfileState) -> Result<Profile> {
+        let name = clean_name(name)?;
+        if self.get(serial, &name).is_ok() {
+            return Err(Error::Invalid(format!(
+                "there is already a profile called {name:?}"
+            )));
+        }
+        self.put(serial, &name, state)
+    }
+    pub fn activate(&mut self, serial: &str, name: &str) -> Result<String> {
+        let profile = self.get(serial, name)?;
+        if self.active(serial) == Some(&profile.name) {
+            return Ok(profile.name);
+        }
+        let mut data = self.data.clone();
+        for p in data.get_mut(serial).expect("profile exists") {
+            p.active = p.name == profile.name;
+        }
+        self.replace(data)?;
+        Ok(profile.name)
+    }
+    pub fn update_active(&mut self, serial: &str, state: ProfileState) -> Result<bool> {
+        let Some(name) = self.active(serial).map(str::to_owned) else {
+            return Ok(false);
+        };
+        if self.get(serial, &name)?.state == state {
+            return Ok(false);
+        }
+        self.put(serial, &name, state)?;
+        Ok(true)
     }
     pub fn delete(&mut self, serial: &str, name: &str) -> Result<()> {
         let wanted = clean_name(name)?.to_lowercase();
-        let profiles = self
-            .data
+        let mut data = self.data.clone();
+        let profiles = data
             .get_mut(serial)
             .ok_or_else(|| Error::Invalid(format!("no profile called {name:?}")))?;
         let position = profiles
@@ -125,17 +196,36 @@ impl ProfileStore {
             .ok_or_else(|| Error::Invalid(format!("no profile called {name:?}")))?;
         profiles.remove(position);
         if profiles.is_empty() {
-            self.data.remove(serial);
+            data.remove(serial);
         }
-        self.save()
+        self.replace(data)
     }
     pub fn forget(&mut self, serial: &str) -> Result<()> {
-        self.data.remove(serial);
-        self.save()
+        let mut data = self.data.clone();
+        data.remove(serial);
+        self.replace(data)
     }
     pub fn as_json(&self) -> Value {
         serde_json::to_value(&self.data).expect("JSON profile values")
     }
+}
+
+pub fn default_state(device: &mut dyn Device) -> ProfileState {
+    let caps = device.capabilities();
+    let mut state = ProfileState::default();
+    if caps["keyswitch_optimization"] == true {
+        state
+            .device
+            .insert("keyswitch_optimization".into(), json!("typing"));
+    }
+    capture_poll_rate(device, &mut state.device);
+    state.zones = caps["zones"]
+        .as_object()
+        .into_iter()
+        .flat_map(|z| z.keys())
+        .map(|z| (z.clone(), persistence::default_zone()))
+        .collect();
+    state
 }
 
 pub fn snapshot(device: &mut dyn Device) -> ProfileState {
@@ -150,10 +240,50 @@ pub fn snapshot(device: &mut dyn Device) -> ProfileState {
         .collect();
     let mut values = store.device_values(&serial);
     values.remove("zones");
+    drop(store);
+    capture_poll_rate(device, &mut values);
     ProfileState {
         device: values,
         zones,
+        snaptap: None,
     }
+}
+
+fn capture_poll_rate(device: &mut dyn Device, stored: &mut Map<String, Value>) {
+    if stored.get("poll_rate").is_none_or(Value::is_null)
+        && device.capabilities()["poll_rate"] == true
+    {
+        if let Ok(rate) = device.call("get_poll_rate", &[], &Map::new()) {
+            stored.insert("poll_rate".into(), rate);
+        }
+    }
+}
+
+/// Read back after *all* profile commands: lighting/mode commands can undo a
+/// successful polling write on some firmware. Never replace the saved choice
+/// with a mismatched readback.
+pub fn verify_poll_rate(device: &mut dyn Device, stored: &Map<String, Value>) -> Result<()> {
+    let Some(expected) = stored.get("poll_rate").filter(|v| !v.is_null()) else {
+        return Ok(());
+    };
+    if device.capabilities()["poll_rate"] != true {
+        return Ok(());
+    }
+    for attempt in 0..3 {
+        let reported = device.call("get_poll_rate", &[], &Map::new())?;
+        if reported == *expected {
+            return Ok(());
+        }
+        if attempt == 2 {
+            return Err(Error::Device(format!(
+                "{} reports {reported} Hz after applying the saved {expected} Hz",
+                device.info().name
+            )));
+        }
+        device.call("set_poll_rate", std::slice::from_ref(expected), &Map::new())?;
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    unreachable!()
 }
 pub fn apply(device: &mut dyn Device, profile: &ProfileState) -> Result<()> {
     let serial = device.serial();
@@ -177,10 +307,56 @@ pub fn apply(device: &mut dyn Device, profile: &ProfileState) -> Result<()> {
         }
         if let Some(level) = values.get("brightness").filter(|v| !v.is_null()) {
             let kwargs = Map::from_iter([("zone".into(), json!(zone))]);
-            let _ = device.call("set_brightness", std::slice::from_ref(level), &kwargs);
+            device.call("set_brightness", std::slice::from_ref(level), &kwargs)?;
         }
     }
+    apply_performance(device, &profile.device)?;
     device.restore()
+}
+
+fn apply_performance(device: &mut dyn Device, stored: &Map<String, Value>) -> Result<()> {
+    let caps = device.capabilities();
+    let kwargs = Map::new();
+    if caps["keyswitch_optimization"] == true {
+        if let Some(mode) = stored.get("keyswitch_optimization") {
+            device.call(
+                "set_keyswitch_optimization",
+                std::slice::from_ref(mode),
+                &kwargs,
+            )?;
+        }
+    }
+    if caps["dpi_stages"] == true {
+        if let Some(stages) = stored
+            .get("dpi_stages")
+            .filter(|s| s["stages"].as_array().is_some_and(|a| !a.is_empty()))
+        {
+            device.call(
+                "set_dpi_stages",
+                &[
+                    stages.get("active").cloned().unwrap_or(json!(1)),
+                    stages["stages"].clone(),
+                ],
+                &kwargs,
+            )?;
+        }
+    }
+    // Stage selection can change the DPI, so restore the saved DPI afterwards.
+    if caps["dpi"] == true {
+        if let Some(dpi) = stored
+            .get("dpi")
+            .and_then(Value::as_array)
+            .filter(|a| !a.is_empty())
+        {
+            device.call("set_dpi", &dpi[..dpi.len().min(2)], &kwargs)?;
+        }
+    }
+    if caps["poll_rate"] == true {
+        if let Some(rate) = stored.get("poll_rate").filter(|v| !v.is_null()) {
+            device.call("set_poll_rate", std::slice::from_ref(rate), &kwargs)?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(windows)]
@@ -232,6 +408,47 @@ fn local_timestamp() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn activation_is_unique_and_no_op_saves_keep_the_timestamp() {
+        let mut store = ProfileStore::memory();
+        store.put("S", "One", ProfileState::default()).unwrap();
+        store.put("S", "Two", ProfileState::default()).unwrap();
+        assert_eq!(store.active("S"), None);
+        assert_eq!(store.activate("S", "one").unwrap(), "One");
+        let before = store.as_json();
+        assert!(!store.update_active("S", ProfileState::default()).unwrap());
+        store.activate("S", "ONE").unwrap();
+        assert_eq!(store.as_json(), before);
+        store
+            .put_with_active("S", "Two", ProfileState::default(), true)
+            .unwrap();
+        assert_eq!(store.active("S"), Some("Two"));
+        assert!(!store.get("S", "One").unwrap().active);
+        assert!(store.create("S", " two ", ProfileState::default()).is_err());
+        store.delete("S", "Two").unwrap();
+        assert_eq!(store.active("S"), None);
+    }
+    #[test]
+    fn a_failed_file_write_cannot_activate_delete_or_replace_in_memory() {
+        let blocked = std::env::temp_dir().join(format!(
+            "rsrazer-profile-blocked-{}",
+            crate::rpc::new_token().unwrap()
+        ));
+        fs::write(&blocked, "a file cannot contain profiles.json").unwrap();
+        let mut store = ProfileStore::memory();
+        store
+            .put_with_active("S", "One", ProfileState::default(), true)
+            .unwrap();
+        store.put("S", "Two", ProfileState::default()).unwrap();
+        store.path = Some(blocked.join("profiles.json"));
+        let before = store.as_json();
+        assert!(store.activate("S", "Two").is_err());
+        assert!(store.delete("S", "One").is_err());
+        assert!(store.create("S", "Three", ProfileState::default()).is_err());
+        assert!(store.forget("S").is_err());
+        assert_eq!(store.as_json(), before);
+        fs::remove_file(blocked).unwrap();
+    }
     #[test]
     fn names_are_unicode_and_replacement_preserves_order_at_the_limit() {
         assert_eq!(clean_name("  夜间\t 模式 \n").unwrap(), "夜间 模式");

@@ -15,7 +15,48 @@ use std::sync::Arc;
 struct Direct {
     manager: DeviceManager,
     profiles: ProfileStore,
+    snaptap: crate::keys::snaptap_settings::SettingsStore,
     _instance: SingleInstance,
+}
+impl Direct {
+    fn snapshot(&self, device: &mut dyn crate::device::Device) -> profiles::ProfileState {
+        let mut state = profiles::snapshot(device);
+        if crate::service::snaptap_applies(device) {
+            let settings = self.snaptap.snapshot();
+            state.snaptap = Some(json!({"enabled":settings.enabled,"pairs":settings.pairs}));
+        }
+        state
+    }
+    fn switch(
+        &mut self,
+        device: &mut dyn crate::device::Device,
+        profile: &profiles::Profile,
+    ) -> Result<()> {
+        self.profiles.activate(&device.serial(), &profile.name)?;
+        let applied = (|| {
+            profiles::apply(device, &profile.state)?;
+            if crate::service::snaptap_applies(device) {
+                if let Some(stored) = profile.state.snaptap.as_ref().and_then(Value::as_object) {
+                    let mut changes = Map::new();
+                    if let Some(pairs) = stored.get("pairs") {
+                        changes.insert("pairs".into(), pairs.clone());
+                    }
+                    if let Some(enabled) = stored.get("enabled").and_then(Value::as_bool) {
+                        if !enabled || self.snaptap.snapshot().acknowledged {
+                            changes.insert("enabled".into(), json!(enabled));
+                        }
+                    }
+                    if !changes.is_empty() {
+                        self.snaptap.update(&changes)?;
+                    }
+                }
+            }
+            profiles::verify_poll_rate(device, &profile.state.device)
+        })();
+        let saved = persistence::lock(&self.manager.persistence).save();
+        applied?;
+        saved
+    }
 }
 impl Drop for Direct {
     fn drop(&mut self) {
@@ -54,6 +95,9 @@ impl Backend {
         let direct = Direct {
             manager,
             profiles: ProfileStore::load(args.directory().join("profiles.json")),
+            snaptap: crate::keys::snaptap_settings::SettingsStore::load(
+                args.directory().join("snaptap.json"),
+            ),
             _instance: instance,
         };
         direct.manager.scan(true)?;
@@ -96,15 +140,29 @@ impl Backend {
             )?,
             "profile.list" => json!(direct.profiles.summaries(serial)),
             "profile.save" => {
-                let profile =
-                    direct
-                        .profiles
-                        .put(serial, name, profiles::snapshot(device.as_mut()))?;
+                let state = direct.snapshot(device.as_mut());
+                let profile = direct.profiles.put_with_active(serial, name, state, true)?;
+                json!({"name":profile.name,"saved":profile.saved})
+            }
+            "profile.create" => {
+                let state = if let Some(source) = params["source"].as_str() {
+                    direct.profiles.get(serial, source)?.state
+                } else {
+                    let mut state = profiles::default_state(device.as_mut());
+                    if crate::service::snaptap_applies(device.as_ref()) {
+                        state.snaptap = Some(
+                            json!({"enabled":false,"pairs":crate::keys::snaptap_settings::Settings::default().pairs}),
+                        );
+                    }
+                    state
+                };
+                let profile = direct.profiles.create(serial, name, state)?;
+                direct.switch(device.as_mut(), &profile)?;
                 json!({"name":profile.name,"saved":profile.saved})
             }
             "profile.load" => {
                 let profile = direct.profiles.get(serial, name)?;
-                profiles::apply(device.as_mut(), &profile.state)?;
+                direct.switch(device.as_mut(), &profile)?;
                 json!({"name":profile.name})
             }
             "profile.delete" => {
@@ -114,6 +172,13 @@ impl Backend {
             _ => return Err(Error::NotSupported(format!("{method} needs the daemon"))),
         };
         persistence::lock(&direct.manager.persistence).save()?;
+        if method == "device.call"
+            && !crate::service::read_only(params["method"].as_str().unwrap_or_default())
+            && direct.profiles.active(serial).is_some()
+        {
+            let state = direct.snapshot(device.as_mut());
+            direct.profiles.update_active(serial, state)?;
+        }
         Ok(result)
     }
     fn device(
@@ -351,7 +416,7 @@ pub(super) fn validate(args: &Arguments) -> Result<()> {
         }
         "profile" => {
             let action = p.get(1).map_or("list", String::as_str);
-            if !["list", "save", "load", "delete"].contains(&action) {
+            if !["list", "save", "load", "delete", "create"].contains(&action) {
                 return Err(Error::Invalid(format!("unknown profile action {action}")));
             }
             if action == "list" && p.len() > 2 {
@@ -362,6 +427,12 @@ pub(super) fn validate(args: &Arguments) -> Result<()> {
                     p.get(2)
                         .ok_or_else(|| Error::Invalid(format!("profile {action} needs a name")))?,
                 )?;
+            }
+            if let Some(source) = args.value("--source") {
+                if action != "create" {
+                    return Err(Error::Invalid("--source is only for profile create".into()));
+                }
+                profiles::clean_name(source)?;
             }
         }
         "brightness" => {
@@ -587,6 +658,9 @@ pub(super) fn run(args: &Arguments) -> Result<i32> {
                     if action != "list" {
                         params["name"] = json!(args.positional[2]);
                     }
+                    if let Some(source) = args.value("--source") {
+                        params["source"] = json!(source);
+                    }
                     let result = backend.call(&format!("profile.{action}"), params)?;
                     Ok(Some(if action == "list" {
                         json!({"profiles":result})
@@ -710,6 +784,16 @@ fn show(value: &Value) {
         .and_then(Value::as_str)
         .unwrap_or_default();
     println!("{name}");
+    if let Some(profiles) = value.get("profiles").and_then(Value::as_array) {
+        for profile in profiles {
+            let active = if profile["active"] == true { "*" } else { " " };
+            println!(
+                "  {active} {}",
+                profile["name"].as_str().unwrap_or_default()
+            );
+        }
+        return;
+    }
     if let Some(object) = value.as_object() {
         for (key, value) in object {
             if !["device", "name"].contains(&key.as_str()) {

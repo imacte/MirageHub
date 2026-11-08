@@ -189,7 +189,9 @@ fn native_cli_controls_devices_and_keeps_profiles_macros_and_integrations_compat
     assert!((brightness - 40.0).abs() < 1.0);
     success(session.run(&["effect", "static", "#f08", "-d", "0203", "--quiet"]));
     success(session.run(&["profile", "save", "夜间", "-d", "0203"]));
+    success(session.run(&["profile", "save", "白天", "-d", "0203"]));
     success(session.run(&["effect", "static", "blue", "-d", "0203"]));
+    success(session.run(&["profile", "delete", "白天", "-d", "0203"]));
     success(session.run(&["profile", "load", "夜间", "-d", "0203"]));
     assert_eq!(
         ok(session.run(&["profile", "--json", "-d", "0203"]))[0]["profiles"][0]["name"],
@@ -628,4 +630,53 @@ fn optional_engines_remain_disabled_and_chroma_uses_a_separate_ephemeral_port() 
     assert_eq!(session.run(&["daemon", "status"]).status.code(), Some(1));
     // No child handle is owned in this case; daemon stop above must finish it.
     session.child = None;
+}
+
+#[test]
+fn profile_cli_creates_copies_marks_active_and_keeps_edits_across_restart() {
+    let mut session = Session::new();
+    session.start();
+    success(session.run(&["profile", "create", "桌面", "-d", "0078"]));
+    success(session.run(&["dpi", "800", "-d", "0078"]));
+    success(session.run(&[
+        "profile", "create", "游戏", "--source", "桌面", "-d", "0078",
+    ]));
+    success(session.run(&["dpi", "1600", "-d", "0078"]));
+    let output = session.run(&["profile", "list", "-d", "0078"]);
+    assert!(output.status.success());
+    assert!(String::from_utf8(output.stdout)
+        .unwrap()
+        .lines()
+        .any(|line| line == "  * 游戏"));
+    session.stop();
+    session.start();
+    let profiles = ok(session.run(&["profile", "--json", "-d", "0078"]));
+    assert_eq!(profiles[0]["profiles"][1]["active"], true);
+    success(session.run(&["profile", "load", "桌面", "-d", "0078"]));
+    assert_eq!(
+        ok(session.run(&["dpi", "--json", "-d", "0078"]))[0]["dpi"],
+        json!([800, 800])
+    );
+    assert!(!session
+        .run(&["profile", "create", "游戏", "-d", "0078"])
+        .status
+        .success());
+    session.stop();
+    // Direct mode follows the same on-disk active profile without starting hooks.
+    success(session.run(&[
+        "--direct", "profile", "create", "副本", "--source", "游戏", "-d", "0078",
+    ]));
+    success(session.run(&["--direct", "dpi", "2000", "-d", "0078"]));
+    let profiles: Value =
+        serde_json::from_slice(&fs::read(session.directory.join("profiles.json")).unwrap())
+            .unwrap();
+    let entries = profiles
+        .as_object()
+        .unwrap()
+        .values()
+        .find(|v| v.as_array().is_some_and(|a| a.len() == 3))
+        .unwrap();
+    assert_eq!(entries[2]["active"], true);
+    assert_eq!(entries[2]["device"]["dpi"], json!([2000, 2000]));
+    assert_eq!(entries[1]["device"]["dpi"], json!([1600, 1600]));
 }

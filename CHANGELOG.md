@@ -8,6 +8,13 @@ uses [semantic versioning](https://semver.org/).
 
 ### Added
 
+- Active profiles and automatic saving, ported from [openrazer-win #16](https://github.com/Ar4ikov/openrazer-win/pull/16)
+  at `287c241400951a410e4dbb48482c69718e6ccd1b`. Create or duplicate profiles in
+  Studio or the CLI, and restore lighting, switch mode, DPI and polling rate.
+  Keyboard profiles carry Snap Tap without granting consent or replacing global
+  exclusions. Polling readback is verified after switching, errors are reported,
+  and concurrent edits cannot overwrite the previously active profile.
+
 - Software Snap Tap from openrazer-win #14: configurable opposing key pairs,
   foreground application deny/allow lists, explicit first-enable confirmation,
   and a keyboard performance panel. It shares the Fn/macro hook, ignores
