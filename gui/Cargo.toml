@@ -1,6 +1,6 @@
 [package]
 name = "rsrazer-classic"
-version = "1.7.2"
+version = "1.8.0"
 edition = "2021"
 description = "Control panel for rsrazer-daemon: Razer device control on Windows"
 license = "GPL-2.0-or-later"

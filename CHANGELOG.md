@@ -6,6 +6,8 @@ uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-08
+
 ### Added
 
 - Simplified Chinese documentation homepage with automatic browser-language

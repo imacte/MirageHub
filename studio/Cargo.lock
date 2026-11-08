@@ -2503,7 +2503,7 @@ dependencies = [
 
 [[package]]
 name = "rsrazer"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "eframe",
  "egui",
@@ -2522,11 +2522,11 @@ dependencies = [
 
 [[package]]
 name = "rsrazer-chroma"
-version = "1.7.2"
+version = "1.8.0"
 
 [[package]]
 name = "rsrazer-core"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "egui",
  "memmap2",
@@ -2539,7 +2539,7 @@ dependencies = [
 
 [[package]]
 name = "rsrazer-daemon"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "getrandom 0.3.4",
  "log",
@@ -2556,7 +2556,7 @@ dependencies = [
 
 [[package]]
 name = "rsrazer-setup"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "eframe",
  "egui",
@@ -2572,7 +2572,7 @@ dependencies = [
 
 [[package]]
 name = "rsrazer-tools"
-version = "1.7.2"
+version = "1.8.0"
 dependencies = [
  "png",
  "proc-macro2",
