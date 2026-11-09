@@ -45,6 +45,9 @@ impl Default for ZoneEdit {
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct AudioEdit {
+    pub sony_equalizer: bool,
+    pub sony_bands: Vec<f64>,
+    pub sony_spatial: bool,
     pub settings: HashMap<String, f64>,
     pub sidetone: bool,
     pub sidetone_level: f64,
@@ -57,6 +60,9 @@ pub struct AudioEdit {
 impl AudioEdit {
     fn read(audio: &Value) -> AudioEdit {
         AudioEdit {
+            sony_equalizer: audio["sony_apo"]["equalizer"] == true,
+            sony_bands: audio["sony_apo"]["bands"].as_array().map(|b|b.iter().filter_map(Value::as_f64).collect()).unwrap_or_default(),
+            sony_spatial: audio["sony_apo"]["spatial"] == "standard",
             settings: audio["settings"].as_array().into_iter().flatten().filter_map(|s| Some((s["key"].as_str()?.to_string(), s["value"].as_f64()?))).collect(),
             sidetone: audio["sidetone"] == true,
             sidetone_level: audio["sidetone_level"].as_f64().unwrap_or(0.0),

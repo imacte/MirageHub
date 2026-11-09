@@ -41,7 +41,8 @@ INZONE support is ported from [OpenInzone](https://github.com/penguinwokrs/openi
 - Windows microphone level for the selected receiver; hardware microphone mute is writable on Buds only.
 - Noise control, ambient level, voice focus, auto power off and voice prompts where supported. H5 does not gain noise cancellation by installing this app.
 - Buds show separate left/right/case batteries; case charge is the last relayed reading. Unknown readings remain unknown.
-- Close INZONE Hub when using H9/H7: its serial port cannot be shared. No Sony APO equalizer, spatial processing, firmware updates or Stream Deck plugin is bundled.
+- H5 also supports Sony APO ten-band EQ and standard spatial sound on its 48 kHz Game output. Optional, verified Sony components are downloaded directly from Sony; no proprietary binaries are bundled. Exit INZONE Hub before changing APO settings. Independent driver installation on a clean PC is experimental; see [Sony audio setup](docs/INZONE.md#sony-apo-audio-effects-h5).
+- Close INZONE Hub when using H9/H7: its serial port cannot be shared. Firmware updates and the Stream Deck plugin are not included.
 
 ![Mirage Hub INZONE H5 controls](docs/images/mirage-hub-inzone.png)
 

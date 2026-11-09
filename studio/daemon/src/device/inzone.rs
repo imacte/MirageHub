@@ -299,6 +299,7 @@ impl InzoneDevice {
         }
         Ok(
             json!({"connected":true,"model":self.model,"settings":settings,"microphone_muted":mute,
+            "sony_apo": if self.native_microphone && self.model==Some(3) && self.info.product_id==0x0ebf {crate::inzone::apo::state()} else {Value::Null},
             "battery_parts":self.raw.get(&4).map(|bytes|battery_parts(bytes))}),
         )
     }
@@ -387,6 +388,14 @@ impl Device for InzoneDevice {
             "available_effects" => Ok(json!([])),
             "restore" => Ok(Value::Null),
             "get_audio" => self.audio(),
+            "set_sony_equalizer" | "set_sony_bands" | "set_sony_spatial" | "restore_sony_audio" | "prepare_sony_audio" | "install_sony_audio" => {
+                if !self.native_microphone || self.info.product_id != 0x0ebf {
+                    return Err(Error::NotSupported("Sony APO is available only for a physical H5 receiver".into()));
+                }
+                self.identify()?;
+                if self.model != Some(3) {return Err(Error::NotSupported("Sony APO controls are currently verified only for H5".into()));}
+                crate::inzone::apo::change(method, &args.value("value", 0, Some(Value::Null))?)
+            }
             "set_microphone_level" => {
                 if !self.native_microphone {
                     return Err(Error::NotSupported(

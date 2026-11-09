@@ -173,6 +173,7 @@ impl App {
     }
 
     pub fn send(&self, command: Command) {
+        if self.capture.is_some() && std::env::var_os("OPENRAZER_STUDIO_AUDIO_FIXTURE").is_some() && matches!(command,Command::Call{..}) {return;}
         let _ = self.tx.send(command);
     }
 
@@ -240,6 +241,10 @@ impl App {
         self.pending.iter().any(|p| p.key == key)
     }
 
+    pub fn cancel_pending(&mut self, key: &str) {
+        self.pending.retain(|p|p.key!=key);
+    }
+
     /// The picture of `device`: of the colour its owner said it is, if it comes in several.
     pub fn picture(&self, device: &Device) -> Option<String> {
         let chosen = self.settings.colours.get(&device.serial);
@@ -287,7 +292,18 @@ impl eframe::App for App {
             self.suspended = false;
             self.send(Command::Refresh);
         }
-        let snap = self.shared.lock().unwrap().clone();
+        let mut snap = self.shared.lock().unwrap().clone();
+        // The screenshot hook may preview new audio controls against an older or
+        // emulated daemon. Only a captured window accepts this read-only fixture.
+        if self.capture.is_some() {
+            if let Some(audio) = std::env::var_os("OPENRAZER_STUDIO_AUDIO_FIXTURE")
+                .and_then(|path| std::fs::read(path).ok())
+                .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok()) {
+                for device in snap.devices.iter().filter(|d|d.vid==0x054c && d.pid==0x0ebf) {
+                    if let Some(detail)=snap.details.get_mut(&device.serial) {detail.audio=Some(audio.clone());}
+                }
+            }
+        }
         if !matches!(snap.daemon, DaemonState::Connecting) { self.sync(&snap); }
         self.flush_pending(ctx);
         if let Some(version) = self.updates.just_updated() {

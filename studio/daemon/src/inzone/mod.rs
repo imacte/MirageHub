@@ -2,6 +2,7 @@
 // Based on OpenInzone, Copyright (C) 2026 penguinwokrs.
 //! Framed HID and serial transports for Sony INZONE receivers.
 pub mod microphone;
+pub mod apo;
 #[cfg(windows)]
 pub mod native;
 use crate::{

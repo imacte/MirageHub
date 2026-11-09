@@ -12,4 +12,4 @@ Sony INZONE protocol framing, settings semantics, capability maps and serial tra
 
 Copyright (C) 2026 penguinwokrs. SPDX-License-Identifier: GPL-3.0-only. The port is in `studio/daemon/src/protocol/inzone.rs`, `studio/daemon/src/inzone/` and `studio/daemon/src/device/inzone.rs`. The license text is also retained in [LICENSES/GPL-3.0.txt](LICENSES/GPL-3.0.txt).
 
-Mirage Hub is independent of Razer and Sony. Their names identify compatible hardware; neither company endorses this project. No proprietary INZONE Hub code or assets are included.
+Mirage Hub is independent of Razer and Sony. Their names identify compatible hardware; neither company endorses this project. No proprietary INZONE Hub code or assets are included. Optional Sony audio drivers/resources are downloaded directly from Sony only when requested by the user and remain subject to Sony's terms. The source tree contains extraction instructions and hash metadata, not those binaries. See [Sony audio setup](docs/INZONE.md#sony-apo-audio-effects-h5).

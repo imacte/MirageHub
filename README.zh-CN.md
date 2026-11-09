@@ -40,7 +40,8 @@
 - 调节对应耳机的 Windows 麦克风音量；仅 Buds 支持通过电脑切换耳机的麦克风静音，其他型号显示实体麦克风控制状态。
 - 根据设备能力显示降噪、环境声、人声增强、自动关机与语音提示。H5 不支持的降噪功能不会显示。
 - Buds 分别显示左右耳和充电盒电量；充电盒是上次由耳机传回的读数，未知值不显示成 0%。
-- H9/H7 的串口不能共享，使用前需退出 INZONE Hub。暂不包含 Sony APO 均衡器、空间音效、固件升级和 Stream Deck 插件。
+- H5 的 48 kHz Game 输出支持 Sony APO 十段均衡器和标准空间音效。可选组件直接从 Sony 官方下载并校验，不随安装包分发。调整前请退出 INZONE Hub；全新系统的独立驱动安装仍属实验功能，详见 [Sony 音效说明](docs/INZONE.md#sony-apo-audio-effects-h5)。
+- H9/H7 的串口不能共享，使用前需退出 INZONE Hub。暂不包含固件升级和 Stream Deck 插件。
 
 ![Mirage Hub INZONE H5 中文控制页面](docs/images/mirage-hub-inzone-zh-CN.png)
 

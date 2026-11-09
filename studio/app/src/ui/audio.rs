@@ -1,7 +1,6 @@
 //! A headset's sound: the settings it keeps itself, and where its mute button stands.
 //!
-//! These live in the headset rather than on this PC, so they follow it to a
-//! phone or a console, and there is nothing to save or put back here.
+//! Hardware settings follow the headset; Sony APO settings belong to this PC.
 
 use super::app::App;
 use super::device::TWO_COLUMNS;
@@ -360,6 +359,81 @@ fn inzone(app: &mut App, ui: &mut egui::Ui, device: &Device, audio: &Value) {
     if !send.is_empty() || !later.is_empty() {edit.touch();}
     for command in send {app.send(command);}
     for (key,command) in later {app.debounce(key,command,250);}
+    sony_apo(app,ui,device,&audio["sony_apo"]);
+}
+
+fn sony_apo(app: &mut App, ui: &mut egui::Ui, device: &Device, apo: &Value) {
+    if apo.is_null() {return;}
+    let serial=&device.serial;
+    let edit=app.edits.entry(serial.clone()).or_default();
+    let mut send=Vec::new();
+    let mut bands_changed=false;
+    widgets::panel(ui,t("Sony audio effects"),|ui| {
+        widgets::help(ui,t("H5 Game output on this PC. Effects keep working after Mirage Hub exits."));
+        if apo["hub_running"]==true {widgets::help(ui,t("Exit INZONE Hub from its tray menu before changing these settings."));}
+        if apo["effects_disabled"]==true {widgets::help(ui,t("Enable audio enhancements for the H5 Game output in Windows Sound settings."));}
+        if apo["available"]==true {
+            if apo["needs_initialization"]==true {widgets::help(ui,t("The first change creates a Sony audio configuration for this Windows account."));}
+            ui.add_enabled_ui(apo["hub_running"]!=true && apo["effects_disabled"]!=true,|ui| {
+                if widgets::toggle_row(ui,t("Equalizer"),"",&mut edit.audio.sony_equalizer) {send.push(call(serial,"set_sony_equalizer",json!(edit.audio.sony_equalizer)));}
+                ui.add_enabled_ui(edit.audio.sony_equalizer,|ui| {
+                    let labels=["31.5 Hz","63 Hz","125 Hz","250 Hz","500 Hz","1 kHz","2 kHz","4 kHz","8 kHz","16 kHz"];
+                    if edit.audio.sony_bands.len()==10 {
+                        // Two columns also fit the minimum window width and translated labels.
+                        ui.columns(2,|columns| {
+                            for (i,value) in edit.audio.sony_bands.iter_mut().enumerate() {
+                                widgets::row(&mut columns[i/5],labels[i],"",|ui| {
+                                    bands_changed |= widgets::slider_field(ui,("sony-band",serial,i),value,-12.0..=12.0,0.5,1," dB",76.0);
+                                });
+                            }
+                        });
+                        if ui.add(Button::secondary(t("Flat"))).clicked() {edit.audio.sony_bands.fill(0.0);bands_changed=true;}
+                    }
+                });
+                widgets::divider(ui);
+                if apo["spatial"]=="custom" {widgets::help(ui,t("A custom Sony spatial profile is active. Switching this control selects the standard H5 profile."));}
+                ui.add_enabled_ui(apo["resources"]==true,|ui| {
+                    if widgets::toggle_row(ui,t("Standard spatial sound"),t("Uses Sony's standard H5 profile for the Game output."),&mut edit.audio.sony_spatial) {send.push(call(serial,"set_sony_spatial",json!(edit.audio.sony_spatial)));}
+                });
+                if apo["backup"]==true && ui.add(Button::secondary(t("Restore original audio settings"))).clicked() {send.push(call(serial,"restore_sony_audio",Value::Null));}
+            });
+        } else {
+            widgets::help(ui,t("Sony APO is not ready. Connect one H5 receiver and select its 48 kHz Game output."));
+            if let Some(error)=apo["error"].as_str() {ui.label(error);}
+        }
+        widgets::divider(ui);
+        let components=&apo["components"];
+        let phase=components["phase"].as_str().unwrap_or("absent");
+        let busy=matches!(phase,"starting"|"downloading"|"verifying"|"extracting"|"installing");
+        let status=match phase {
+            "starting"|"downloading"=>t("Downloading Sony components…"),
+            "verifying"=>t("Verifying Sony signatures and file hashes…"),
+            "extracting"=>t("Preparing Sony audio resources…"),
+            "ready"=>t("Sony components are ready."),
+            "installing"=>t("Installing Sony drivers…"),
+            "installed"=>t("Driver installation finished. Reconnect the receiver if effects are unavailable."),
+            "restart_required"=>t("Sony driver installation requires a Windows restart."),
+            "failed"=>t("Sony component operation failed."),
+            _=>t("Sony components have not been downloaded.")
+        };
+        widgets::help(ui,status);
+        if let Some(error)=components["error"].as_str().filter(|s|!s.is_empty()) {ui.label(error);}
+        widgets::help(ui,t("Downloads Sony's official 138 MiB package and keeps about 2.9 MB of verified drivers and resources. INZONE Hub is not installed."));
+        ui.hyperlink_to(t("Sony download and license information"),"https://www.sony.com/electronics/support/software/00279252");
+        ui.add_enabled_ui(!busy,|ui| {
+            if ui.add(Button::secondary(t("Prepare Sony audio components"))).clicked() {send.push(call(serial,"prepare_sony_audio",Value::Null));}
+            if matches!(phase,"ready"|"installed"|"restart_required") {
+                widgets::help(ui,t("Driver installation requires administrator approval and may reconnect audio. Independent installation on a clean PC is experimental."));
+                if ui.add(Button::secondary(t("Install Sony drivers…"))).clicked() {send.push(call(serial,"install_sony_audio",Value::Null));}
+            }
+        });
+    });
+    if bands_changed {send.push(call(serial,"set_sony_bands",json!(edit.audio.sony_bands)));}
+    if !send.is_empty() {edit.touch();}
+    for command in send {
+        if matches!(&command,Command::Call{method,..} if method=="restore_sony_audio") {app.cancel_pending(&format!("sony-bands:{serial}"));}
+        if matches!(&command,Command::Call{method,..} if method=="set_sony_bands") {app.debounce(format!("sony-bands:{serial}"),command,300);} else {app.send(command);}
+    }
 }
 
 pub fn inzone_battery(ui: &mut egui::Ui, audio: &Value) {

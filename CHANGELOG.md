@@ -6,6 +6,12 @@ uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Sony INZONE H5 APO controls for ten-band EQ and standard spatial sound on the Game output, with live updates, first-edit backups and restoration of the original configuration.
+- Optional downloads of Sony audio components with pinned SHA-256 hashes and Authenticode verification. HTTPS, MSI/CAB extraction and installation orchestration use Rust without PowerShell; runtime resources live in Mirage Hub's own public data directory.
+- A separate administrator-approved driver installation action. Existing-APO operation is verified on H5; independent installation on a clean Windows system and cold-boot persistence remain experimental.
+
 ## [2.0.1] - 2026-11-09
 
 ### Fixed

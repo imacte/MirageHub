@@ -23,7 +23,46 @@ Microphone mute is writable only on Buds. Other headsets report their physical m
 
 Noise control, ambient level, voice focus, power-off choices and voice language are offered only for recognized values. H5 has no noise-cancelling controls. Buds expose left/right/case battery readings; the case is a relayed snapshot. `FF` and invalid percentages remain unknown. Battery status bytes are not guessed to be charging flags.
 
-Sony APO equalization/spatial processing, firmware updates, vendor assets, OpenInzone's hotkey daemon and Stream Deck plugin are outside this integration.
+Firmware updates, OpenInzone's hotkey daemon and Stream Deck plugin are outside this integration. Proprietary Sony binaries and sound resources are not bundled.
+
+## Sony APO audio effects (H5)
+
+The H5 sound page controls the Sony APO already attached to the **Game** endpoint: ten EQ bands (31.5 Hz–16 kHz, −12 to +12 dB), EQ bypass, standard spatial sound and restoration of the configuration saved before Mirage Hub's first edit. These are **Windows settings**, not headset firmware settings. They continue working after both Mirage Hub and its daemon exit, as long as the Sony APO remains installed, Windows audio enhancements are enabled and the configured resources remain present. The Chat endpoint is never edited. Other INZONE models and personalized spatial profiles are not yet supported by these controls.
+
+Exit INZONE Hub from its tray menu before editing; Mirage Hub refuses writes while that process is running. Endpoint discovery uses the receiver's USB topology and the eight-channel, 48 kHz Game format, requires exactly one match, and checks the Sony SFX/endpoint-effect bindings. A renamed Windows output still works; multiple H5 receivers, a different format or missing bindings fail closed.
+
+**组件准备与使用：** 在 H5 的声音页面点击“准备 Sony 音效组件”。这一步只下载与校验，不安装 INZONE Hub，也不更改驱动。已有 Sony APO 的电脑可直接调整均衡器；切换“标准空间音效”时会优先使用 Mirage Hub 自己保存的资源。需要独立驱动时，再点击“安装 Sony 驱动…”并在 Windows UAC 中授权。安装可能使音频短暂重连，某些电脑需要重启。
+
+**Optional components:** preparation downloads Sony's official INZONE Hub 1.0.20.0 package (144,917,976 bytes / about 138 MiB), checks its exact SHA-256 and Sony Authenticode signature, reads its MSI cabinet without executing the installer, then extracts only the 23 allowlisted driver/resource files (2,858,082 bytes). Each file has a pinned hash; the SYS, DLL and catalogue also require valid Microsoft hardware publisher signatures. Only the verified files are retained after success. Downloads and failed preparations can be retried. Component operations run in the daemon, independently of the window and Mirage Hub's application updater.
+
+The separate installation button launches an embedded helper with UAC, revalidates bytes before placing the six driver files in an administrator-only temporary directory, and invokes Windows PnPUtil for the three signed INFs. It does not execute the complete Sony installer, uninstall INZONE Hub, downgrade a higher-ranked driver, reboot Windows or modify unrelated audio settings. A partial installation failure is reported and can be retried. Independent installation on a clean Windows system and cold-boot persistence have **not** yet been verified; this path is explicitly experimental.
+
+Paths:
+
+- Retained components: `%LOCALAPPDATA%\mirage-hub\sony-audio\1.0.20.0\files`.
+- Runtime sound resources: `%PROGRAMDATA%\MirageHub\SonyAudio\1.0.20.0`. The Windows audio process needs read access; the user's private LocalAppData directory is unsuitable. Only non-executable sound/configuration resources are copied here.
+- First-edit backups: `%LOCALAPPDATA%\mirage-hub\sony-audio\backups\{endpoint-guid}.yaml`.
+- Active configuration: `%APPDATA%\Sony\INZONE Hub\APO\{endpoint-guid}.yaml`. The Sony APO expects this location; using a Mirage Hub-only configuration path would require changing the proprietary APO itself.
+
+Preparing components preserves a separate copy of the files. **Uninstalling INZONE Hub may still remove Sony drivers and its active configurations**; after uninstalling it, the optional driver installation and a new Game-endpoint configuration may be necessary. Merely copying resource files does not guarantee that Windows will keep loading the APO. Mirage Hub does not run Sony's uninstaller for you.
+
+EQ edits preserve unrelated DSP sections and comments, recalculate both parameters and normalized biquad coefficients, write atomically and verify readback. The first original file is backed up once. Standard spatial sound uses `standard_hrtf.hki` and `WH-G500_standard.ba`; disabling it keeps Sony's `downmix.hki` active so the Game output continues downmixing. Existing custom spatial settings remain untouched by EQ edits.
+
+The implementation uses Rust throughout: `ureq` for HTTPS, `msi`/`cab` for portable archive parsing, and `ring` for SHA-256. Only signature validation, elevation, driver-store operations and audio endpoint access use a Windows module. No PowerShell script or external archive utility is needed.
+
+Sources: [Sony official download and license information](https://www.sony.com/electronics/support/software/00279252), [RBJ peaking-EQ equations published by W3C](https://www.w3.org/TR/audio-eq-cookbook/#peakingeq), [Rust MSI reader](https://docs.rs/msi/0.10.0/msi/), [Rust CAB reader](https://docs.rs/cab/0.6.0/cab/). The pinned file metadata lives in `assets/sony-audio-manifest.json`; it contains no vendor binaries.
+
+Hardware feasibility measurements with INZONE Hub stopped confirmed a 9.49 dB change at 8 kHz when bypassing the original EQ, plus rear-left-channel spatial rendering into both stereo output channels using separately extracted resources. Both changes took effect in an already-running audio stream. The original configuration was restored byte for byte after each test. These measurements establish APO runtime independence from the Hub process, not a completed clean-install certification.
+
+The integrated Rust implementation was then tested on H5 with continuous WASAPI playback: a −6 dB setting at 1 kHz measured **−5.999997 dB**; standard spatial sound changed the right-channel tone from zero to **0.00056728** and back to effectively zero. Atomic file replacement hot-reloaded successfully, the INZONE Hub conflict guard rejected writes, and the restore action returned the exact original bytes. The generic Rust HTTPS/MSI/CAB path also downloaded and verified all 23 files. A direct driver-helper invocation without elevation was rejected before modifying drivers. Full elevated installation was not run on this already-configured machine.
+
+Development checks (the first command is read-only; `prepare` downloads without installing):
+
+```powershell
+cargo run -p mirage-hub-daemon --example sony_audio -- read
+cargo run -p mirage-hub-daemon --example sony_audio -- prepare
+cargo test -p mirage-hub-daemon --lib inzone::apo
+```
 
 ## H5 measurements
 

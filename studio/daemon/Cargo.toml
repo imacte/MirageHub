@@ -12,6 +12,10 @@ serde.workspace = true
 serde_json = { workspace = true, features = ["float_roundtrip"] }
 getrandom = "0.3.4"
 log = { version = "0.4", features = ["std"] }
+ring = "0.17"
+ureq = { version = "2", default-features = false, features = ["tls"] }
+msi = "0.10"
+cab = "0.6"
 
 [[bin]]
 name = "mirage-hub-daemon"
@@ -20,7 +24,7 @@ path = "src/main.rs"
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62", features = ["Devices_Bluetooth", "Devices_Bluetooth_Advertisement", "Devices_Bluetooth_GenericAttributeProfile", "Foundation", "Storage_Streams", "Win32_System_WinRT", "Win32_Media_Audio_Endpoints", "Win32_System_Com_StructuredStorage", "Win32_System_Variant"] }
 windows-future = "0.3"
-windows-sys = { workspace = true, features = ["Win32_Devices_Communication", "Win32_Devices_HumanInterfaceDevice", "Win32_Devices_DeviceAndDriverInstallation", "Win32_System_IO", "Win32_System_LibraryLoader", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Accessibility", "Win32_Networking_WinSock", "Win32_Security_Authorization"] }
+windows-sys = { workspace = true, features = ["Win32_Devices_Communication", "Win32_Devices_HumanInterfaceDevice", "Win32_Devices_DeviceAndDriverInstallation", "Win32_System_IO", "Win32_System_LibraryLoader", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Accessibility", "Win32_Networking_WinSock", "Win32_Security_Authorization", "Win32_Security_WinTrust", "Win32_Security_Cryptography"] }
 winreg.workspace = true
 
 [build-dependencies]

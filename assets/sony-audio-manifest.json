@@ -1,0 +1,140 @@
+[
+  {
+    "key": "alc.cfg",
+    "name": "alc.cfg",
+    "bytes": 219,
+    "sha256": "62089a95d89a8c0081479ec16a94b96e6dc8aa774b4b99b53db646064bcbf482"
+  },
+  {
+    "key": "alc_for_downmix.cfg",
+    "name": "alc_for_downmix.cfg",
+    "bytes": 219,
+    "sha256": "25f8db330ada6efcb4e6ad448ec15cc8d1ebc0e28f31e5291fe814cb752ed3eb"
+  },
+  {
+    "key": "downmix.hki",
+    "name": "downmix.hki",
+    "bytes": 57952,
+    "sha256": "7f4bdc12b3885435a6305c9c138f3d66ee7da00874bdce7b5f0e12c21da9cdac"
+  },
+  {
+    "key": "mdr_g300_standard.ba",
+    "name": "MDR-G300_standard.ba",
+    "bytes": 192,
+    "sha256": "9d9faae35a2db1ed16d277dbb73ea0e4e2bd96d85df5258593acf1dabf0797e2"
+  },
+  {
+    "key": "shp_for_game_v2.0_512tap.hki",
+    "name": "standard_hrtf.hki",
+    "bytes": 57952,
+    "sha256": "1a5ab53581ddb5320c2475fcb85cd6243c0b7472bbe339f14dc03c90bd8cf62d"
+  },
+  {
+    "key": "template.yaml",
+    "name": "template.yaml",
+    "bytes": 1771,
+    "sha256": "abe0bd549a62521190216fc267fd38c8f555103d9192a08fcb0a4076af0cf2ca"
+  },
+  {
+    "key": "wf_g700n_param.bin",
+    "name": "WF-G700N_param.bin",
+    "bytes": 2160,
+    "sha256": "02bb19970b25c2a611d875307e37bde98bf51ba3d9b90d62e5d06afbca3204e3"
+  },
+  {
+    "key": "wf_g700n_standard.ba",
+    "name": "WF-G700N_standard.ba",
+    "bytes": 192,
+    "sha256": "9d9faae35a2db1ed16d277dbb73ea0e4e2bd96d85df5258593acf1dabf0797e2"
+  },
+  {
+    "key": "wh_g500_standard.ba",
+    "name": "WH-G500_standard.ba",
+    "bytes": 192,
+    "sha256": "9d9faae35a2db1ed16d277dbb73ea0e4e2bd96d85df5258593acf1dabf0797e2"
+  },
+  {
+    "key": "wh_g700_standard.ba",
+    "name": "WH-G700_standard.ba",
+    "bytes": 192,
+    "sha256": "9d9faae35a2db1ed16d277dbb73ea0e4e2bd96d85df5258593acf1dabf0797e2"
+  },
+  {
+    "key": "wh_g900n_standard.ba",
+    "name": "WH-G900N_standard.ba",
+    "bytes": 192,
+    "sha256": "9d9faae35a2db1ed16d277dbb73ea0e4e2bd96d85df5258593acf1dabf0797e2"
+  },
+  {
+    "key": "wh_g910n_standard.ba",
+    "name": "WH-G910N_standard.ba",
+    "bytes": 192,
+    "sha256": "9d9faae35a2db1ed16d277dbb73ea0e4e2bd96d85df5258593acf1dabf0797e2"
+  },
+  {
+    "key": "yy2989_standard.ba",
+    "name": "YY2989_standard.ba",
+    "bytes": 192,
+    "sha256": "ce42ae018ba61f2f2a83ae9355072488afc5137580ac3ad197c8140ba0bb74c0"
+  },
+  {
+    "key": "yy2990_standard.ba",
+    "name": "YY2990_standard.ba",
+    "bytes": 192,
+    "sha256": "d21b1a27a45328bd77fb7dfe8df196da9b7ec905a2890b9656db329f2f16ff0a"
+  },
+  {
+    "key": "inzoneheadset.cat",
+    "name": "inzoneheadset.cat",
+    "bytes": 14008,
+    "sha256": "54767f4e5c99bc64453b294093701107058cf2d5d4ec9d045973f34e4937422f"
+  },
+  {
+    "key": "inzoneheadset.inf",
+    "name": "INZONEHeadset.inf",
+    "bytes": 42093,
+    "sha256": "1410f787d7fc34251a7b116ca5bf11c5ed9ef07f5ccc70cdff1bc9e774b15a3d"
+  },
+  {
+    "key": "inzoneheadset.sys",
+    "name": "INZONEHeadset.sys",
+    "bytes": 196192,
+    "sha256": "a30749fd6daffe8c60ba257af4c6e3e642ba9bf3ed4df74a725ffd569dce1d4a"
+  },
+  {
+    "key": "inzoneapo.inf",
+    "name": "inzoneapo.inf",
+    "bytes": 8202,
+    "sha256": "5d1ae26b7020305775c69f3642a55d5aab9fe216cec7394cffcb22236141c8bf"
+  },
+  {
+    "key": "inzonevirtualizer.dll",
+    "name": "INZONEVirtualizer.dll",
+    "bytes": 2453600,
+    "sha256": "d3fb1a9619335af6f8256029714ac57ba53d643fb4ce9f43d8d50e3a20179860"
+  },
+  {
+    "key": "inzoneext.inf",
+    "name": "inzoneext.inf",
+    "bytes": 12320,
+    "sha256": "dd90fa2b6f073890b2043787d5e50f7bb6716e9818b343f766b5322957ef7dd8"
+  },
+  {
+    "key": "chat.yaml",
+    "name": "Chat.yaml",
+    "bytes": 3274,
+    "sha256": "6d4e3eac567a35e526bf7e7bf7092d344598a10826e04a0a1a08577ccc4efaf5"
+  },
+  {
+    "key": "control.yaml",
+    "name": "Control.yaml",
+    "bytes": 3283,
+    "sha256": "859c9cc66538ab11156783199c2dcd19687895e72e48e4693799389c9aab4621"
+  },
+  {
+    "key": "mic.yaml",
+    "name": "Mic.yaml",
+    "bytes": 3301,
+    "sha256": "4cb0b8185491ccae8a96eafdb32f542c44be734a0bf01d956205f8911b6012ee"
+  }
+]
