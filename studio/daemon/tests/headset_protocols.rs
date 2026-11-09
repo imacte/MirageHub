@@ -1,4 +1,4 @@
-use rsrazer_daemon::protocol::{blackshark, ble, builders::bytes, kraken};
+use mirage_hub_daemon::protocol::{blackshark, ble, builders::bytes, kraken};
 use serde_json::{json, Value};
 
 #[test]

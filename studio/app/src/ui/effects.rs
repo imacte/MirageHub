@@ -3,7 +3,7 @@
 use super::edit::ZoneEdit;
 use crate::worker::{Command, Then};
 use egui::Color32;
-use rsrazer_core::t;
+use mirage_hub_core::t;
 use serde_json::{json, Value};
 
 /// Drawn by the daemon, frame by frame, rather than by the device.

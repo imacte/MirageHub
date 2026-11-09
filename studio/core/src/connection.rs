@@ -14,6 +14,11 @@ pub enum Connection {
 }
 
 pub fn detect(pid: u16, name: &str, protocol: Option<&str>) -> Connection {
+    if protocol == Some("inzone") || name.starts_with("Sony INZONE") {
+        return if matches!(name, "Sony INZONE H5" | "Sony INZONE H7" | "Sony INZONE H9" | "Sony INZONE H9 II" | "Sony INZONE H9 / H7" | "Sony INZONE Buds") {
+            Connection::Wireless
+        } else { Connection::Usb };
+    }
     if protocol == Some("razer-ble") || name.contains("Bluetooth") {
         return Connection::Bluetooth;
     }
@@ -66,5 +71,8 @@ mod tests {
     fn usb_without_mode_metadata_stays_unspecified() {
         assert_eq!(detect(0x0032, "Razer Ouroboros", None), Connection::Usb);
         assert_eq!(detect(0xffff, "Unknown wireless mouse", None), Connection::Usb);
+        assert_eq!(detect(0x0ebf, "Sony INZONE H5", Some("inzone")), Connection::Wireless);
+        assert_eq!(detect(0x0dfd, "Sony INZONE receiver", Some("inzone")), Connection::Usb);
+        assert_eq!(detect(0x0dfd, "Sony INZONE H3", Some("inzone")), Connection::Usb);
     }
 }

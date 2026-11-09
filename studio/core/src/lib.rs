@@ -1,4 +1,4 @@
-//! What RsRazer and its installer have in common.
+//! What Mirage Hub and its installer have in common.
 //!
 //! The installer has to stop the daemon and the app before it can replace
 //! them, knows where they live and how they start with Windows, and looks like
@@ -8,6 +8,8 @@ pub mod i18n;
 pub mod connection;
 pub mod install;
 pub mod paths;
+#[path = "../../../assets/data_paths.rs"]
+pub mod data_paths;
 pub mod process;
 pub mod rpc;
 mod daemon_connect;

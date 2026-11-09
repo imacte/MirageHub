@@ -4,8 +4,8 @@
 use super::effects::{self, PALETTE};
 use crate::preview;
 use egui::{epaint::Mesh, pos2, vec2, Align, Color32, CornerRadius, Layout, Pos2, Rect, Response, RichText, Sense, Shape, Stroke, StrokeKind, Ui};
-use rsrazer_core::theme::{self, ACCENT, BORDER, BORDER_HI, BORDER_HOVER, SURFACE_ACTIVE, SURFACE_HI, SURFACE_HOVER, TEXT, TEXT_DIM, TEXT_FAINT, WELL};
-use rsrazer_core::{t, widgets};
+use mirage_hub_core::theme::{self, ACCENT, BORDER, BORDER_HI, BORDER_HOVER, SURFACE_ACTIVE, SURFACE_HI, SURFACE_HOVER, TEXT, TEXT_DIM, TEXT_FAINT, WELL};
+use mirage_hub_core::{t, widgets};
 
 /// The height of an effect tile.
 pub const TILE_HEIGHT: f32 = 84.0;

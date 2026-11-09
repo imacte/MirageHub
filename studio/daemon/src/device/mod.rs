@@ -3,11 +3,13 @@
 mod blackshark;
 mod ble;
 mod kraken;
+mod inzone;
 mod onboard;
 mod standard;
 pub use blackshark::BlackSharkDevice;
 pub use ble::BleDevice;
 pub use kraken::KrakenDevice;
+pub use inzone::InzoneDevice;
 pub use standard::StandardDevice;
 
 use crate::{database::DeviceInfo, persistence::SharedStore, Error, Result};

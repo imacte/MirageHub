@@ -6,6 +6,7 @@ on:
     paths:
       - 'docs/**'
       - 'data/devices.json'
+      - 'data/inzone-devices.json'
       - 'data/upstream-version.txt'
       - 'studio/tools/**'
       - '.github/workflows/pages.yml'
@@ -37,7 +38,7 @@ jobs:
 
       - name: Refresh the device list the site renders
         working-directory: studio
-        run: cargo run --locked -p rsrazer-tools -- docs-data
+        run: cargo run --locked -p mirage-hub-tools -- docs-data
 
       - uses: actions/configure-pages@v5
 

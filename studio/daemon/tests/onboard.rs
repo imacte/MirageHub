@@ -1,6 +1,6 @@
 //! Protocol fixtures for OpenRazer #2962. The Rust HID emulator models flash
 //! BUSY replies and missing macro IDs; these tests never open physical devices.
-use rsrazer_daemon::{
+use mirage_hub_daemon::{
     database,
     demo::DemoBackend,
     device::{Device, StandardDevice},

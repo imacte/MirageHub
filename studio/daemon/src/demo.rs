@@ -29,6 +29,7 @@ use std::{
 #[path = "demo_onboard.rs"]
 mod onboard;
 pub const PRODUCT_IDS: [u16; 6] = [0x0203, 0x0078, 0x0c00, bs::PID_WIRELESS, 0x026b, 0x00a7];
+pub const DEVICE_COUNT: usize = PRODUCT_IDS.len() + 1;
 struct State {
     onboard: onboard::State,
     serial: String,
@@ -46,6 +47,7 @@ struct State {
     keyswitch: [u8; 5],
     keyswitch_store: [u8; 6],
     headset: BTreeMap<u8, Vec<u8>>,
+    inzone: BTreeMap<u8, Vec<u8>>,
     last_frame: Vec<u8>,
 }
 impl State {
@@ -82,6 +84,7 @@ impl State {
                 (bs::MIC_MUTED, vec![0]),
                 (bs::DONGLE_LED, vec![1]),
             ]),
+            inzone: BTreeMap::from([(1,vec![1]),(2,vec![3,0,0,0,0xff,0]),(4,vec![0,70]),(0x21,vec![0,15,0xff]),(0x22,vec![50]),(0x23,vec![10,100]),(0x24,vec![0,0xff,0xff]),(0x81,vec![5]),(0x83,vec![2])]),
             last_frame: Vec::new(),
         }
     }
@@ -234,7 +237,13 @@ pub struct DemoBackend {
 }
 impl DemoBackend {
     pub fn new() -> Result<Self> {
-        Self::with_product_ids(&PRODUCT_IDS)
+        let mut backend=Self::with_product_ids(&PRODUCT_IDS)?;
+        let serial=format!("DEMO{:012}",DEVICE_COUNT);
+        backend.models.push(Arc::new(Model {
+            infos:vec![HidInfo{path:"emulated:054c:0ebf".into(),vendor_id:0x054c,product_id:0x0ebf,usage_page:0xff04,usage:1,input_length:64,output_length:64,product:"Sony INZONE H5".into(),serial:serial.clone(),..Default::default()}],
+            state:Mutex::new(State::new(serial)),input:Mutex::new(VecDeque::new()),available:Condvar::new(),
+        }));
+        Ok(backend)
     }
     pub fn with_product_ids(product_ids: &[u16]) -> Result<Self> {
         let mut models = Vec::new();
@@ -364,6 +373,24 @@ impl HidHandle for Handle {
         Ok(response)
     }
     fn send_output(&mut self, data: &[u8]) -> Result<()> {
+        if self.info.vendor_id==0x054c {
+            use crate::protocol::inzone as p;
+            let packet=p::hid_payload(data).ok_or_else(||Error::Invalid("Invalid emulated INZONE report".into()))?;
+            if packet.len()<12 || packet[0]!=1 {return Err(Error::Invalid("Invalid emulated INZONE command".into()));}
+            let event=packet[7];let set=packet[8]==2;
+            let mut state=self.model.state.lock().unwrap_or_else(|e|e.into_inner());
+            if set {state.inzone.insert(event,packet[11..packet.len()-1].to_vec());}
+            let param=match event {
+                6 => {let mut bytes=vec![3];for id in [4,0x21,0x22,0x23] {bytes.extend(&state.inzone[&id]);}bytes},
+                7 => {let mut bytes=state.inzone[&0x24].clone();bytes.extend([0xff;7]);bytes},
+                8 => vec![0xff,0xff,0xff,0xff,0xff,state.inzone[&0x81][0],0xff,state.inzone[&0x83][0]],
+                _ => state.inzone.get(&event).cloned().unwrap_or_else(||vec![0xff]),
+            };
+            let mut reply=vec![4,0xff,(9+param.len()) as u8,0,0x96,0xc3,0x10|p::destination(event),event,if set{0x20}else{0x10},packet[9],packet[10]];
+            reply.extend(param);reply.push(reply[3..].iter().fold(0u8,|sum,b|sum.wrapping_add(*b)));
+            let mut queue=self.model.input.lock().unwrap_or_else(|e|e.into_inner());
+            queue.extend(p::hid_reports(&reply));self.model.available.notify_one();return Ok(());
+        }
         let reply = self
             .model
             .state

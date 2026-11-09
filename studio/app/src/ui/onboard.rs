@@ -2,7 +2,7 @@
 use super::app::App;
 use crate::worker::{Command, Device, Snapshot};
 use egui::RichText;
-use rsrazer_core::{t, tf, theme, widgets::{self, Button}};
+use mirage_hub_core::{t, tf, theme, widgets::{self, Button}};
 use serde_json::{json, Value};
 
 #[derive(Clone)]

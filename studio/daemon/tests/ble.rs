@@ -1,4 +1,4 @@
-use rsrazer_daemon::{
+use mirage_hub_daemon::{
     ble::{Advertisements, Advertiser, BleBackend, BleChannel, BleTransport, GattLink, Timing},
     database,
     device::{BleDevice, Device},

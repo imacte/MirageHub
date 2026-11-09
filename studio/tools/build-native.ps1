@@ -43,8 +43,8 @@ try {
     $env:CARGO_ENCODED_RUSTFLAGS = "-C$([char]0x1f)target-feature=+crt-static"
     if ($providedDaemon) { $daemon = $providedDaemon }
     else {
-        CargoBuild -CargoArguments @('build','--release','--locked','--target',$target,'-p','rsrazer-daemon','--bin','rsrazer-daemon')
-        $daemon = Join-Path $release 'rsrazer-daemon.exe'
+        CargoBuild -CargoArguments @('build','--release','--locked','--target',$target,'-p','mirage-hub-daemon','--bin','mirage-hub-daemon')
+        $daemon = Join-Path $release 'mirage-hub-daemon.exe'
     }
     $version = (& $daemon --version | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or $version -notlike '*Rust backend*') { throw 'The payload is not the native Rust daemon.' }
@@ -53,26 +53,26 @@ try {
     & (Join-Path $PSScriptRoot 'check-native.ps1') -Files @($daemon)
     New-Item -ItemType Directory -Force -Path $outPath | Out-Null
     if ($DaemonOnly) {
-        CopyArtifact $daemon (Join-Path $outPath 'rsrazer-daemon.exe')
+        CopyArtifact $daemon (Join-Path $outPath 'mirage-hub-daemon.exe')
         return
     }
-    CargoBuild -CargoArguments @('build','--release','--locked','--target',$target,'-p','rsrazer-chroma')
-    CargoBuild -CargoArguments @('build','--release','--locked','--target','i686-pc-windows-msvc','-p','rsrazer-chroma')
+    CargoBuild -CargoArguments @('build','--release','--locked','--target',$target,'-p','mirage-hub-chroma')
+    CargoBuild -CargoArguments @('build','--release','--locked','--target','i686-pc-windows-msvc','-p','mirage-hub-chroma')
     $chroma = Join-Path $studioRoot 'target\native-chroma'
     New-Item -ItemType Directory -Force -Path $chroma | Out-Null
     Copy-Item -LiteralPath (Join-Path $release 'rzchromasdk.dll') -Destination (Join-Path $chroma 'RzChromaSDK64.dll') -Force
     Copy-Item -LiteralPath (Join-Path $studioRoot 'target\i686-pc-windows-msvc\release\rzchromasdk.dll') -Destination (Join-Path $chroma 'RzChromaSDK.dll') -Force
     $env:OPENRAZER_STUDIO_CHROMA = $chroma
-    CargoBuild -CargoArguments @('build','--release','--locked','--target',$target,'-p','rsrazer')
-    $app = Join-Path $release 'rsrazer.exe'
+    CargoBuild -CargoArguments @('build','--release','--locked','--target',$target,'-p','mirage-hub')
+    $app = Join-Path $release 'mirage-hub.exe'
     SelfTest $app
     $payload = Join-Path $studioRoot 'target\native-payload'
     New-Item -ItemType Directory -Force -Path $payload | Out-Null
-    Copy-Item -LiteralPath $app -Destination (Join-Path $payload 'rsrazer.exe') -Force
-    Copy-Item -LiteralPath $daemon -Destination (Join-Path $payload 'rsrazer-daemon.exe') -Force
+    Copy-Item -LiteralPath $app -Destination (Join-Path $payload 'mirage-hub.exe') -Force
+    Copy-Item -LiteralPath $daemon -Destination (Join-Path $payload 'mirage-hub-daemon.exe') -Force
     $env:OPENRAZER_STUDIO_PAYLOAD = $payload
-    CargoBuild -CargoArguments @('build','--release','--locked','--target',$target,'-p','rsrazer-setup')
-    $setup = Join-Path $release 'rsrazer-setup.exe'
+    CargoBuild -CargoArguments @('build','--release','--locked','--target',$target,'-p','mirage-hub-setup')
+    $setup = Join-Path $release 'mirage-hub-setup.exe'
     SelfTest $setup
     & (Join-Path $PSScriptRoot 'check-native.ps1') -Files @($app,$setup,(Join-Path $chroma 'RzChromaSDK64.dll'),(Join-Path $chroma 'RzChromaSDK.dll'))
     if ($IncludeClassic) {
@@ -80,7 +80,7 @@ try {
         try {
             $env:OPENRAZER_EMBED_DAEMON = $daemon
             CargoBuild -CargoArguments @('build','--release','--locked','--target',$target)
-            $classic = Join-Path $repoRoot "gui\target\$target\release\rsrazer-classic.exe"
+            $classic = Join-Path $repoRoot "gui\target\$target\release\mirage-hub-classic.exe"
             SelfTest $classic -RequireDaemon
             & (Join-Path $PSScriptRoot 'check-native.ps1') -Files @($classic)
         } finally { Pop-Location }
@@ -89,13 +89,15 @@ try {
         CopyArtifact $file (Join-Path $outPath (Split-Path $file -Leaf))
     }
     # Remove the duplicate installer left by earlier builds in this output folder.
-    $obsoleteInstaller = Join-Path $outPath 'rsrazer-setup-zh-CN.exe'
-    if (Test-Path -LiteralPath $obsoleteInstaller -PathType Leaf) {
-        Remove-Item -LiteralPath $obsoleteInstaller -Force
+    foreach ($obsoleteName in 'mirage-hub-setup-zh-CN.exe','rsrazer-setup-zh-CN.exe') {
+        $obsoleteInstaller = Join-Path $outPath $obsoleteName
+        if (Test-Path -LiteralPath $obsoleteInstaller -PathType Leaf) {
+            Remove-Item -LiteralPath $obsoleteInstaller -Force
+        }
     }
-    if ($IncludeClassic) { Copy-Item -LiteralPath $classic -Destination (Join-Path $outPath 'rsrazer-classic.exe') -Force }
-    $names = @('rsrazer-daemon.exe','rsrazer.exe','rsrazer-setup.exe')
-    if ($IncludeClassic) { $names += 'rsrazer-classic.exe' }
+    if ($IncludeClassic) { Copy-Item -LiteralPath $classic -Destination (Join-Path $outPath 'mirage-hub-classic.exe') -Force }
+    $names = @('mirage-hub-daemon.exe','mirage-hub.exe','mirage-hub-setup.exe')
+    if ($IncludeClassic) { $names += 'mirage-hub-classic.exe' }
     $lines = foreach ($name in $names) {
         $hash = (Get-FileHash -LiteralPath (Join-Path $outPath $name) -Algorithm SHA256).Hash.ToLowerInvariant()
         "$hash  $name"

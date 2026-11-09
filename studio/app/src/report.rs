@@ -13,8 +13,8 @@ fn mask(serial: &str) -> String {
 
 pub fn build(snap: &Snapshot) -> String {
     let mut out = String::new();
-    let _ = writeln!(out, "RsRazer {}", env!("CARGO_PKG_VERSION"));
-    if let Some(installed) = rsrazer_core::install::installed() {
+    let _ = writeln!(out, "Mirage Hub {}", env!("CARGO_PKG_VERSION"));
+    if let Some(installed) = mirage_hub_core::install::installed() {
         let _ = writeln!(out, "Installed: {} in {}", installed.version, installed.dir.display());
     }
     let _ = writeln!(out, "Windows: {}", std::env::var("OS").unwrap_or_default());
@@ -35,7 +35,7 @@ pub fn build(snap: &Snapshot) -> String {
     }
     let _ = writeln!(out, "\n== Devices ({})", snap.devices.len());
     for device in &snap.devices {
-        let _ = writeln!(out, "- {} [{}] 1532:{:04X} serial {} firmware {}", device.name, device.kind, device.pid, mask(&device.serial), device.firmware.as_deref().unwrap_or("?"));
+        let _ = writeln!(out, "- {} [{}] {:04X}:{:04X} serial {} firmware {}", device.name, device.kind, device.vid, device.pid, mask(&device.serial), device.firmware.as_deref().unwrap_or("?"));
         if let Some(caps) = snap.details.get(&device.serial).and_then(|d| d.caps.as_ref()) {
             let mut caps = caps.clone();
             caps["transport"]["path"] = serde_json::Value::String("…".into());
@@ -45,8 +45,8 @@ pub fn build(snap: &Snapshot) -> String {
             let _ = writeln!(out, "  live effect: {effect}");
         }
     }
-    for (pid, product) in &snap.unsupported {
-        let _ = writeln!(out, "- not supported: 1532:{pid:04X} {product}");
+    for (vid, pid, product) in &snap.unsupported {
+        let _ = writeln!(out, "- not supported: {vid:04X}:{pid:04X} {product}");
     }
     let _ = writeln!(out, "\n== Keys\n{}", serde_json::to_string(&snap.keys).unwrap_or_default());
     for (name, path) in [("daemon.log", crate::daemon::log_path()), ("daemon-start.log", crate::daemon::start_log_path())] {

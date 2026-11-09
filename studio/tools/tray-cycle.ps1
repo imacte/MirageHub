@@ -4,11 +4,11 @@
 param([string]$BinDir = (Join-Path $PSScriptRoot '..\..\dist'))
 $ErrorActionPreference = 'Stop'
 $bin = (Resolve-Path -LiteralPath $BinDir).Path
-$exe = Join-Path $bin 'rsrazer.exe'
-$daemon = Join-Path $bin 'rsrazer-daemon.exe'
-if (Get-Process -Name rsrazer -ErrorAction SilentlyContinue) { throw 'Exit RsRazer from its tray menu before running this test.' }
-$sandbox = Join-Path $env:TEMP ('rsrazer-tray-test-' + [guid]::NewGuid().ToString('N'))
-$config = Join-Path $sandbox 'rsrazer'
+$exe = Join-Path $bin 'mirage-hub.exe'
+$daemon = Join-Path $bin 'mirage-hub-daemon.exe'
+if (Get-Process -Name mirage-hub -ErrorAction SilentlyContinue) { throw 'Exit Mirage Hub from its tray menu before running this test.' }
+$sandbox = Join-Path $env:TEMP ('mirage-hub-tray-test-' + [guid]::NewGuid().ToString('N'))
+$config = Join-Path $sandbox 'mirage-hub'
 $studio = Join-Path $config 'studio'
 $originalLocal = $env:LOCALAPPDATA
 $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
@@ -26,7 +26,7 @@ public static class RazerTrayCycle {
  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
  [DllImport("user32.dll")] public static extern bool PostMessageW(IntPtr h,uint m,UIntPtr w,IntPtr l);
  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h,int c);
- public static IntPtr Window(uint pid) { IntPtr found=IntPtr.Zero; EnumWindows((h,l)=>{uint p; GetWindowThreadProcessId(h,out p);var t=new StringBuilder(256);GetWindowTextW(h,t,256);if(p==pid && t.ToString()=="RsRazer"){found=h;return false;}return true;},IntPtr.Zero);return found; }
+ public static IntPtr Window(uint pid) { IntPtr found=IntPtr.Zero; EnumWindows((h,l)=>{uint p; GetWindowThreadProcessId(h,out p);var t=new StringBuilder(256);GetWindowTextW(h,t,256);if(p==pid && t.ToString()=="Mirage Hub"){found=h;return false;}return true;},IntPtr.Zero);return found; }
 }
 '@
 function Check([string]$name,[bool]$passed) { if(-not$passed){throw "FAIL: $name"}; Write-Host "PASS: $name" }
@@ -34,7 +34,7 @@ function DaemonCommand([string[]]$Arguments) {
  $value = & $daemon @Arguments --emulate --config-dir $config
  if($LASTEXITCODE-ne0){throw "Daemon command failed: $Arguments"}; $value
 }
-function Children { @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $($hostProcess.Id) AND Name = 'rsrazer.exe'") }
+function Children { @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $($hostProcess.Id) AND Name = 'mirage-hub.exe'") }
 function OpenUI {
  $second = Start-Process -FilePath $exe -WindowStyle Normal -PassThru
  Check 'second invocation returns' ($second.WaitForExit(5000) -and $second.ExitCode-eq0)
@@ -99,7 +99,7 @@ try {
  Check 'devices remain available without the UI' ($devices.Count-eq4)
  # Verify the actual named quit event used by the installer, with a UI open.
  $next=OpenUI
- $quit=[Threading.EventWaitHandle]::OpenExisting('Local\rsrazer-quit')
+ $quit=[Threading.EventWaitHandle]::OpenExisting('Local\mirage-hub-quit')
  try{[void]$quit.Set()}finally{$quit.Dispose()}
  Check 'installer quit closes the UI' $next.WaitForExit(10000)
  Check 'installer quit closes the tray' $hostProcess.WaitForExit(10000)
@@ -116,7 +116,7 @@ try {
  Write-Host "Session fixture and logs: $studio"
 } finally {
  if($hostProcess -and -not$hostProcess.HasExited){
-  $window=[RazerTrayCycle]::FindWindowW('RsRazer.TrayHost',$null)
+  $window=[RazerTrayCycle]::FindWindowW('Mirage Hub.TrayHost',$null)
   if($window-ne[IntPtr]::Zero){[void][RazerTrayCycle]::PostMessageW($window,0x8017,[UIntPtr]::Zero,[IntPtr]::Zero)}
   [void]$hostProcess.WaitForExit(5000)
   foreach($candidate in (Children)){$testChildren.Add($candidate.ProcessId)}

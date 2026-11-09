@@ -1,11 +1,11 @@
-//! Other processes: finding them, asking RsRazer to quit, and the app in front.
+//! Other processes: finding them, asking Mirage Hub to quit, and the app in front.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-/// RsRazer waits on this; the installer sets it to have RsRazer quit cleanly
+/// Mirage Hub waits on this; the installer sets it to have Mirage Hub quit cleanly
 /// before its files are replaced or removed.
-pub const QUIT_EVENT: &str = "Local\\rsrazer-quit";
+pub const QUIT_EVENT: &str = "Local\\mirage-hub-quit";
 
 #[derive(Clone, Debug)]
 pub struct Process {
@@ -217,7 +217,7 @@ pub fn running_from(dir: &Path) -> Vec<Process> {
         .collect()
 }
 
-/// End every process running from `dir`: ask RsRazer and the daemon nicely
+/// End every process running from `dir`: ask Mirage Hub and the daemon nicely
 /// first, then insist.  Returns the names of any that would not go.
 pub fn stop_everything_in(dir: &Path) -> Vec<String> {
     let mine = running_from(dir);

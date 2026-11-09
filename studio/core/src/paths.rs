@@ -2,17 +2,13 @@
 
 use std::path::PathBuf;
 
-/// `%LOCALAPPDATA%\rsrazer`: the daemon's settings, profiles, macros
+/// `%LOCALAPPDATA%\mirage-hub`: the daemon's settings, profiles, macros
 /// and logs, separate from OpenRazer's data.
 pub fn data_dir() -> PathBuf {
-    let base = std::env::var_os("LOCALAPPDATA")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("USERPROFILE").map(|home| PathBuf::from(home).join(".config")))
-        .unwrap_or_else(|| PathBuf::from("."));
-    base.join("rsrazer")
+    crate::data_paths::data_dir()
 }
 
-/// Studio settings, inside RsRazer's data folder.
+/// Studio settings, inside Mirage Hub's data folder.
 pub fn studio_dir() -> PathBuf {
     data_dir().join("studio")
 }
@@ -22,7 +18,7 @@ pub fn updates_dir() -> PathBuf {
     studio_dir().join("updates")
 }
 
-/// `%LOCALAPPDATA%\Programs\RsRazer`: installed per user, so that
+/// `%LOCALAPPDATA%\Programs\Mirage Hub`: installed per user, so that
 /// installing, repairing and removing never asks for administrator rights.
 pub fn default_install_dir() -> PathBuf {
     let base = std::env::var_os("LOCALAPPDATA").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));

@@ -127,7 +127,7 @@ pub trait Registry: Send + Sync {
     fn hid_infos(&self) -> Option<Vec<crate::hid::HidInfo>> {
         None
     }
-    fn unsupported(&self) -> Vec<(u16, String)>;
+    fn unsupported(&self) -> Vec<(u16, u16, String)>;
     fn close(&self) -> Result<()>;
     fn warnings(&self) -> Vec<String> {
         Vec::new()
@@ -149,7 +149,7 @@ impl Registry for DeviceManager {
     fn scan(&self, force_bluetooth: bool) -> Result<Vec<SharedDevice>> {
         self.scan(force_bluetooth)
     }
-    fn unsupported(&self) -> Vec<(u16, String)> {
+    fn unsupported(&self) -> Vec<(u16, u16, String)> {
         self.unsupported()
     }
     fn close(&self) -> Result<()> {
@@ -687,6 +687,7 @@ impl DaemonService {
     fn call_device(&self, p: &Parameters<'_>) -> rpc::Result<Value> {
         let method = p.string("method")?;
         if !DEVICE_METHODS.contains(&method) && !crate::protocol::onboard::METHODS.contains(&method)
+            && !crate::protocol::inzone::METHODS.contains(&method)
         {
             return Err(RpcError::new(
                 METHOD_NOT_FOUND,
@@ -968,7 +969,7 @@ impl Service for DaemonService {
                 .registry
                 .unsupported()
                 .into_iter()
-                .map(|(pid, product)| json!({"pid":pid,"product":product}))
+                .map(|(vid, pid, product)| json!({"vid":vid,"pid":pid,"product":product}))
                 .collect::<Vec<_>>())),
             "daemon.rescan" => {
                 self.poll_hotplug(true)?;

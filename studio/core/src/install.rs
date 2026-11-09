@@ -1,4 +1,4 @@
-//! What an installation of RsRazer is, and where Windows is told about it.
+//! What an installation of Mirage Hub is, and where Windows is told about it.
 //!
 //! Everything is per user: the program lives under `%LOCALAPPDATA%\Programs`,
 //! its entry in Apps & features under `HKEY_CURRENT_USER`. No step of
@@ -8,31 +8,32 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-pub const APP_NAME: &str = "RsRazer";
-pub const PUBLISHER: &str = "RsRazer project";
-pub const APP_EXE: &str = "rsrazer.exe";
+pub const APP_NAME: &str = "Mirage Hub";
+pub const PUBLISHER: &str = "Mirage Hub project";
+pub const APP_EXE: &str = "mirage-hub.exe";
 /// The daemon and command line, installed beside the app.
-pub const DAEMON_EXE: &str = "rsrazer-daemon.exe";
+pub const DAEMON_EXE: &str = "mirage-hub-daemon.exe";
 /// A copy of the installer kept in the install folder: Apps & features runs
-/// it to repair or remove RsRazer, and it carries everything it needs to put
+/// it to repair or remove Mirage Hub, and it carries everything it needs to put
 /// back a file that has gone missing, without a download.
 pub const SETUP_EXE: &str = "setup.exe";
 /// What was installed, and how, in the install folder.
 pub const MANIFEST: &str = "install.json";
 
-const UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\RsRazer";
+const UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\Mirage Hub";
+const LEGACY_UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\RsRazer";
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 /// Shared with the classic control panel and the command line's `autostart`,
 /// so that only one of them ever starts at sign-in.
 /// Retain the legacy registry value to replace an existing startup entry.
 pub const RUN_VALUE: &str = "OpenRazerWin";
 
-pub const RELEASES: &str = "https://github.com/imacte/RsRazer/releases";
-pub const REPOSITORY: &str = "https://github.com/imacte/RsRazer";
-pub const DOCUMENTATION: &str = "https://imacte.github.io/RsRazer/";
+pub const RELEASES: &str = "https://github.com/imacte/MirageHub/releases";
+pub const REPOSITORY: &str = "https://github.com/imacte/MirageHub";
+pub const DOCUMENTATION: &str = "https://imacte.github.io/MirageHub/";
 pub const COMMUNITY: &str = REPOSITORY;
 
-/// The choices made when RsRazer was installed, kept so a repair or an update
+/// The choices made when Mirage Hub was installed, kept so a repair or an update
 /// makes the same ones.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
@@ -40,7 +41,7 @@ pub struct Options {
     pub start_menu: bool,
     pub desktop: bool,
     pub autostart: bool,
-    /// Put the install folder on the user's PATH, for `rsrazer-daemon` in a terminal.
+    /// Put the install folder on the user's PATH, for `mirage-hub-daemon` in a terminal.
     pub path: bool,
 }
 
@@ -89,7 +90,12 @@ fn hkcu() -> winreg::RegKey {
 
 /// The installation recorded in Apps & features, if any.
 pub fn installed() -> Option<Installed> {
-    let key = hkcu().open_subkey(UNINSTALL_KEY).ok()?;
+    installed_at(UNINSTALL_KEY).or_else(legacy_installed)
+}
+
+pub fn legacy_installed() -> Option<Installed> { installed_at(LEGACY_UNINSTALL_KEY) }
+fn installed_at(name: &str) -> Option<Installed> {
+    let key = hkcu().open_subkey(name).ok()?;
     let dir: String = key.get_value("InstallLocation").ok()?;
     let version: String = key.get_value("DisplayVersion").unwrap_or_default();
     Some(Installed { dir: PathBuf::from(dir), version })
@@ -125,11 +131,18 @@ pub fn register(dir: &Path, version: &str, size_kb: u32) -> std::io::Result<()> 
     key.set_value("URLInfoAbout", &REPOSITORY)?;
     key.set_value("URLUpdateInfo", &RELEASES)?;
     key.set_value("HelpLink", &format!("{REPOSITORY}/issues"))?;
-    key.set_value("Comments", &"Razer device control without Synapse")?;
+    key.set_value("Comments", &"Razer and Sony INZONE device control")?;
     key.set_value("EstimatedSize", &size_kb)?;
     key.set_value("NoModify", &0u32)?;
     key.set_value("NoRepair", &0u32)?;
     Ok(())
+}
+
+/// Called only after the replacement installation is registered successfully.
+pub fn unregister_legacy() -> std::io::Result<()> {
+    match hkcu().delete_subkey_all(LEGACY_UNINSTALL_KEY) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e), _ => Ok(()),
+    }
 }
 
 pub fn unregister() -> std::io::Result<()> {

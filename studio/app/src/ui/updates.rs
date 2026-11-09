@@ -1,15 +1,15 @@
-//! Updates: whether a newer RsRazer is out, what is in it, and getting it.
+//! Updates: whether a newer Mirage Hub is out, what is in it, and getting it.
 
 use super::app::{scroll, App};
 use crate::notes::{self, Block, Span};
 use crate::updates::{self, newer, Phase, Progress, Release, Status, CURRENT};
 use egui::text::{LayoutJob, TextFormat};
 use egui::{pos2, vec2, Align, Color32, CornerRadius, Frame, Layout, Margin, RichText, Sense, Stroke};
-use rsrazer_core::i18n::{self, Lang};
-use rsrazer_core::install::{self, REPOSITORY};
-use rsrazer_core::theme::{self, icon, ACCENT, BORDER, SURFACE, SURFACE_HI, TEXT, TEXT_DIM, TEXT_FAINT, WELL};
-use rsrazer_core::widgets::{self, Button, IconButton};
-use rsrazer_core::{t, tf};
+use mirage_hub_core::i18n::{self, Lang};
+use mirage_hub_core::install::{self, REPOSITORY};
+use mirage_hub_core::theme::{self, icon, ACCENT, BORDER, SURFACE, SURFACE_HI, TEXT, TEXT_DIM, TEXT_FAINT, WELL};
+use mirage_hub_core::widgets::{self, Button, IconButton};
+use mirage_hub_core::{t, tf};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -68,7 +68,7 @@ fn time_left(seconds: u64) -> String {
 pub fn page(app: &mut App, ui: &mut egui::Ui) {
     let status = app.updates.status();
     let busy = matches!(status.phase, Phase::Checking | Phase::Downloading(_) | Phase::Installing);
-    widgets::page_header(ui, t("Updates"), t("RsRazer and the daemon are updated together, when you say so."), |ui| {
+    widgets::page_header(ui, t("Updates"), t("Mirage Hub and the daemon are updated together, when you say so."), |ui| {
         if ui.add(Button::secondary(t("Check now")).icon(icon::REFRESH).enabled(!busy)).clicked() {
             app.updates.check();
         }
@@ -142,18 +142,18 @@ fn hero(app: &mut App, ui: &mut egui::Ui, status: &Status) {
     };
     let Some(dir) = status.install_dir.clone() else {
         // Nothing here to replace: a copy run from a build folder.
-        let text = format!("{facts}\n{}", t("This copy of RsRazer is not the installed one, so it cannot replace itself."));
+        let text = format!("{facts}\n{}", t("This copy of Mirage Hub is not the installed one, so it cannot replace itself."));
         return card(ui, icon::DOWNLOAD, ACCENT, &tf("Version {} is out", &[&release.version]), &text, 220.0, |ui| {
             widgets::link_button(ui, t("Open the release page"), &release.page);
         }, |_| {});
     };
     match &status.phase {
-        Phase::Installing => card(ui, icon::DOWNLOAD, ACCENT, &tf("Installing {}", &[&release.version]), t("The installer is starting and will close RsRazer. It comes back by itself."), 60.0, |ui| {
+        Phase::Installing => card(ui, icon::DOWNLOAD, ACCENT, &tf("Installing {}", &[&release.version]), t("The installer is starting and will close Mirage Hub. It comes back by itself."), 60.0, |ui| {
             ui.add(egui::Spinner::new().size(20.0).color(ACCENT));
         }, |_| {}),
         Phase::Downloading(progress) => {
             let mut cancelled = false;
-            card(ui, icon::DOWNLOAD, ACCENT, &tf("Downloading {}", &[&release.version]), t("You can carry on using RsRazer. Nothing is installed until you say so."), 130.0, |ui| {
+            card(ui, icon::DOWNLOAD, ACCENT, &tf("Downloading {}", &[&release.version]), t("You can carry on using Mirage Hub. Nothing is installed until you say so."), 130.0, |ui| {
                 cancelled = ui.add(Button::secondary(t("Cancel")).min_width(100.0)).clicked();
             }, |ui| download_bar(ui, progress));
             if cancelled {
@@ -162,7 +162,7 @@ fn hero(app: &mut App, ui: &mut egui::Ui, status: &Status) {
         }
         Phase::Ready => {
             let mut install = false;
-            card(ui, icon::CHECK, ACCENT, &tf("Version {} is ready to install", &[&release.version]), t("RsRazer closes for a few seconds and opens again by itself. Settings, profiles and macros stay where they are."), 190.0, |ui| {
+            card(ui, icon::CHECK, ACCENT, &tf("Version {} is ready to install", &[&release.version]), t("Mirage Hub closes for a few seconds and opens again by itself. Settings, profiles and macros stay where they are."), 190.0, |ui| {
                 install = ui.add(Button::primary(t("Install now")).icon(icon::DOWNLOAD).min_width(150.0)).clicked();
             }, |_| {});
             if install {

@@ -15,14 +15,14 @@ struct Session {
     macros: MacrosUi,
 }
 
-fn path() -> std::path::PathBuf { rsrazer_core::paths::studio_dir().join("session.json") }
+fn path() -> std::path::PathBuf { mirage_hub_core::paths::studio_dir().join("session.json") }
 
 pub fn save(app: &App) -> io::Result<()> {
     let value = serde_json::json!({
         "page": app.page, "selected": app.selected, "device": app.device_ui,
         "edits": app.edits, "lighting": app.lighting, "macros": app.macros,
     });
-    rsrazer_core::paths::write_atomic(&path(), &serde_json::to_vec(&value)?)
+    mirage_hub_core::paths::write_atomic(&path(), &serde_json::to_vec(&value)?)
 }
 
 pub fn restore(app: &mut App) {

@@ -9,9 +9,9 @@
 use super::app::App;
 use crate::worker::{Command, Device, Snapshot};
 use egui::{vec2, Align, Align2, Color32, CornerRadius, Frame, Layout, Margin, RichText, Sense, Stroke};
-use rsrazer_core::theme::{self, icon, CONTROL_H, TEXT, TEXT_DIM, TEXT_FAINT};
-use rsrazer_core::{t, tf};
-use rsrazer_core::widgets::{self, Button, IconButton};
+use mirage_hub_core::theme::{self, icon, CONTROL_H, TEXT, TEXT_DIM, TEXT_FAINT};
+use mirage_hub_core::{t, tf};
+use mirage_hub_core::widgets::{self, Button, IconButton};
 use serde_json::{json, Value};
 
 const KEY_W: f32 = 130.0;

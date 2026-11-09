@@ -1,6 +1,6 @@
-# Install RsRazer, break it, repair it and remove it, checking each step.
+# Install Mirage Hub, break it, repair it and remove it, checking each step.
 #
-#   studio/tools/installer-cycle.ps1 -Setup path\to\rsrazer-setup.exe -Dir C:\some\scratch\folder
+#   studio/tools/installer-cycle.ps1 -Setup path\to\mirage-hub-setup.exe -Dir C:\some\scratch\folder
 #
 # It installs for the current user and leaves nothing behind when it passes:
 # the install folder, its Start menu entries and its Apps & features entry all
@@ -8,14 +8,14 @@
 # settings files out of your own.
 param([Parameter(Mandatory)] [string]$Setup, [Parameter(Mandatory)] [string]$Dir)
 $ErrorActionPreference = 'Stop'
-$key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\RsRazer'
-$menu = Join-Path ([Environment]::GetFolderPath('Programs')) 'RsRazer'
+$key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Mirage Hub'
+$menu = Join-Path ([Environment]::GetFolderPath('Programs')) 'Mirage Hub'
 $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 $Setup = (Resolve-Path -LiteralPath $Setup).Path
 $Dir = [IO.Path]::GetFullPath($Dir)
 # This is a destructive install/repair/uninstall test for a clean CI account.
 # LOCALAPPDATA alone does not isolate HKCU or the user's real Start menu.
-if ((Test-Path -LiteralPath $Dir) -or (Test-Path $key) -or (Test-Path -LiteralPath $menu) -or
+if ((Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\RsRazer') -or (Test-Path -LiteralPath $Dir) -or (Test-Path $key) -or (Test-Path -LiteralPath $menu) -or
     (Get-ItemProperty $runKey -ErrorAction SilentlyContinue).OpenRazerWin) {
     throw 'Use a clean Windows account with no OpenRazer installation, startup entry or existing target directory.'
 }
@@ -26,18 +26,18 @@ $version = (& $Setup --version | Out-String).Trim().Split(' ')[-1]
 
 & $Setup --install --silent --dir $Dir --no-autostart | Out-Host
 Check 'install exit code' ($LASTEXITCODE -eq 0)
-foreach ($f in 'rsrazer.exe', 'rsrazer-daemon.exe', 'setup.exe', 'install.json', 'LICENSE.txt') { Check "installed $f" (Test-Path (Join-Path $Dir $f)) }
+foreach ($f in 'mirage-hub.exe', 'mirage-hub-daemon.exe', 'setup.exe', 'install.json', 'LICENSE.txt', 'THIRD-PARTY-NOTICES.txt') { Check "installed $f" (Test-Path (Join-Path $Dir $f)) }
 $reg = Get-ItemProperty $key
 Check 'registered in Apps & features' ($reg.DisplayVersion -eq $version -and $reg.InstallLocation -eq $Dir)
 Check 'uninstall command' ($reg.UninstallString -like '*setup.exe" --uninstall')
 Check 'modify command' ($reg.ModifyPath -like '*setup.exe" --maintenance')
-Check 'start menu entry' (Test-Path (Join-Path $menu 'RsRazer.lnk'))
+Check 'start menu entry' (Test-Path (Join-Path $menu 'Mirage Hub.lnk'))
 Check 'start menu repair entry' ((Get-ChildItem $menu -Filter '*.lnk').Count -eq 2)
 $run = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue).OpenRazerWin
 Check 'autostart left alone' (-not ($run -like "*$Dir*"))
 
 # Exercise the installed payload, using only simulated devices and isolated data.
-$daemon = Join-Path $Dir 'rsrazer-daemon.exe'
+$daemon = Join-Path $Dir 'mirage-hub-daemon.exe'
 $daemonVersion = (& $daemon --version | Out-String).Trim()
 Check 'native Rust daemon installed' ($LASTEXITCODE -eq 0 -and $daemonVersion -like '*Rust backend*')
 $demoConfig = Join-Path $env:LOCALAPPDATA 'openrazer-install-test'
@@ -64,9 +64,9 @@ try {
 }
 
 # Break it: a missing daemon, a truncated app, unreadable settings, no Start menu.
-Remove-Item (Join-Path $Dir 'rsrazer-daemon.exe')
-Set-Content -Path (Join-Path $Dir 'rsrazer.exe') -Value 'broken' -NoNewline
-$settings = Join-Path $env:LOCALAPPDATA 'rsrazer\studio\settings.json'
+Remove-Item (Join-Path $Dir 'mirage-hub-daemon.exe')
+Set-Content -Path (Join-Path $Dir 'mirage-hub.exe') -Value 'broken' -NoNewline
+$settings = Join-Path $env:LOCALAPPDATA 'mirage-hub\studio\settings.json'
 New-Item -ItemType Directory -Force (Split-Path $settings) | Out-Null
 Get-ChildItem (Split-Path $settings) -Filter 'settings.json.broken-*' | Remove-Item
 Set-Content -Path $settings -Value '{ this is not json' -NoNewline
@@ -74,18 +74,18 @@ Remove-Item -Recurse $menu
 
 & $Setup --repair --silent | Out-Host
 Check 'repair exit code' ($LASTEXITCODE -eq 0)
-Check 'daemon put back' (Test-Path (Join-Path $Dir 'rsrazer-daemon.exe'))
-Check 'app replaced' ((Get-Item (Join-Path $Dir 'rsrazer.exe')).Length -gt 1MB)
-Check 'start menu put back' (Test-Path (Join-Path $menu 'RsRazer.lnk'))
+Check 'daemon put back' (Test-Path (Join-Path $Dir 'mirage-hub-daemon.exe'))
+Check 'app replaced' ((Get-Item (Join-Path $Dir 'mirage-hub.exe')).Length -gt 1MB)
+Check 'start menu put back' (Test-Path (Join-Path $menu 'Mirage Hub.lnk'))
 Check 'broken settings set aside' (-not (Test-Path $settings) -and (Get-ChildItem (Split-Path $settings) -Filter 'settings.json.broken-*').Count -eq 1)
-& (Join-Path $Dir 'rsrazer.exe') --version | Out-Host
+& (Join-Path $Dir 'mirage-hub.exe') --version | Out-Host
 Check 'repaired app runs' ($LASTEXITCODE -eq 0)
 
 # Update it, as Studio does: what was changed since installing has to survive.
 # A clean Windows account may not have a Run key until autostart is enabled.
 if (-not (Test-Path -LiteralPath $runKey)) { New-Item -Path $runKey -Force | Out-Null }
-Set-ItemProperty $runKey -Name OpenRazerWin -Value "`"$(Join-Path $Dir 'rsrazer.exe')`" --background"
-Remove-Item -Recurse (Join-Path ([Environment]::GetFolderPath('Programs')) 'RsRazer')
+Set-ItemProperty $runKey -Name OpenRazerWin -Value "`"$(Join-Path $Dir 'mirage-hub.exe')`" --background"
+Remove-Item -Recurse (Join-Path ([Environment]::GetFolderPath('Programs')) 'Mirage Hub')
 & $Setup --update --silent --dir $Dir | Out-Host
 Check 'update exit code' ($LASTEXITCODE -eq 0)
 Check 'update kept starting with Windows' ((Get-ItemProperty $runKey).OpenRazerWin -like "*$Dir*")
@@ -94,9 +94,9 @@ Check 'update recorded the options in place' ((Get-Content (Join-Path $Dir 'inst
 & $Setup --repair --silent | Out-Host
 
 # An update left waiting is not one of the settings that are kept.
-$updates = Join-Path $env:LOCALAPPDATA 'rsrazer\studio\updates'
+$updates = Join-Path $env:LOCALAPPDATA 'mirage-hub\studio\updates'
 New-Item -ItemType Directory -Force $updates | Out-Null
-Set-Content -Path (Join-Path $updates 'rsrazer-setup-9.9.9.exe') -Value 'waiting' -NoNewline
+Set-Content -Path (Join-Path $updates 'mirage-hub-setup-9.9.9.exe') -Value 'waiting' -NoNewline
 
 # Remove it with the copy Apps & features runs, which hands over to a copy in TEMP.
 & (Join-Path $Dir 'setup.exe') --uninstall --silent | Out-Host
@@ -108,7 +108,7 @@ Check 'settings kept by default' ((Get-ChildItem (Split-Path $settings) -Filter 
 Check 'waiting update removed' (-not (Test-Path $updates))
 Check 'starting with Windows removed' (-not ((Get-ItemProperty $runKey -ErrorAction SilentlyContinue).OpenRazerWin -like "*$Dir*"))
 Start-Sleep -Seconds 6
-Check 'temporary uninstaller cleaned up' ((Get-ChildItem $env:TEMP -Filter 'rsrazer-uninstall-*.exe' -ErrorAction SilentlyContinue).Count -eq 0)
+Check 'temporary uninstaller cleaned up' ((Get-ChildItem $env:TEMP -Filter 'mirage-hub-uninstall-*.exe' -ErrorAction SilentlyContinue).Count -eq 0)
 if ($failed) { exit 1 }
 'ALL OK'
 exit 0

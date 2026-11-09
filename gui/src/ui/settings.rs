@@ -116,16 +116,17 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
 
     ui.add_space(12.0);
     widgets::card(ui, |ui| {
-        ui.label(RichText::new(format!("RsRazer Classic {VERSION}")).font(theme::bold(16.0)));
-        ui.label(widgets::dim("Classic control panel for RsRazer's native Rust daemon on Windows, based on OpenRazer. No Synapse, account or custom kernel driver required."));
+        ui.label(RichText::new(format!("Mirage Hub Classic {VERSION}")).font(theme::bold(16.0)));
+        ui.label(widgets::dim("Classic panel for Mirage Hub's native Rust daemon, based on OpenRazer and OpenInzone. Use the main Mirage Hub app for INZONE audio controls."));
         ui.label(widgets::dim("Control lighting, DPI, macros and profiles. See the documentation for the full application and supported device features."));
         ui.horizontal_wrapped(|ui| {
-            ui.hyperlink_to("Documentation", "https://imacte.github.io/RsRazer/");
+            ui.hyperlink_to("Documentation", "https://imacte.github.io/MirageHub/");
             ui.label(RichText::new("·").color(TEXT_FAINT));
-            ui.hyperlink_to("github.com/imacte/RsRazer", "https://github.com/imacte/RsRazer");
+            ui.hyperlink_to("github.com/imacte/MirageHub", "https://github.com/imacte/MirageHub");
             ui.label(RichText::new("·").color(TEXT_FAINT));
             ui.hyperlink_to("OpenRazer", "https://openrazer.github.io/");
+            ui.hyperlink_to("OpenInzone", "https://github.com/penguinwokrs/openinzone");
         });
-        ui.label(RichText::new("GPL-2.0-or-later. Not affiliated with Razer Inc.").size(12.0).color(TEXT_DIM));
+        ui.label(RichText::new("GPL-3.0-only. Independent of Razer and Sony.").size(12.0).color(TEXT_DIM));
     });
 }

@@ -431,7 +431,7 @@ mod tests {
     #[test]
     fn a_failed_file_write_cannot_activate_delete_or_replace_in_memory() {
         let blocked = std::env::temp_dir().join(format!(
-            "rsrazer-profile-blocked-{}",
+            "mirage-hub-profile-blocked-{}",
             crate::rpc::new_token().unwrap()
         ));
         fs::write(&blocked, "a file cannot contain profiles.json").unwrap();

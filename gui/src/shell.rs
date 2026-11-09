@@ -5,7 +5,7 @@
 //! frame for it and a "show yourself" command would wait forever; ShowWindow
 //! does not care.
 
-pub const WINDOW_TITLE: &str = "RsRazer Classic";
+pub const WINDOW_TITLE: &str = "Mirage Hub Classic";
 
 #[cfg(windows)]
 mod win {
@@ -32,7 +32,7 @@ mod win {
 
     /// True if this is the only control panel in the session.
     pub fn claim_single_instance() -> bool {
-        let name = wide("Local\\rsrazer-classic");
+        let name = wide("Local\\mirage-hub-classic");
         unsafe {
             let handle = CreateMutexW(std::ptr::null(), 0, name.as_ptr());
             // Deliberately never closed: held for the life of the process.
@@ -93,7 +93,7 @@ impl Tray {
         use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
         use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
-        let open = MenuItem::new("Open RsRazer", true, None);
+        let open = MenuItem::new("Open Mirage Hub", true, None);
         let restart = MenuItem::new("Restart the daemon", true, None);
         let quit = MenuItem::new("Quit", true, None);
         let menu = Menu::new();

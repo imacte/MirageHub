@@ -1,4 +1,4 @@
-//! Shared RsRazer linework for the UI, Windows icons and website favicon.
+//! Shared Mirage Hub linework for the UI, Windows icons and website favicon.
 use std::sync::OnceLock;
 
 pub const BACKGROUND: [u8; 3] = [13, 17, 23];
@@ -9,7 +9,7 @@ pub const WIDTH: f32 = 5.5 / VIEW_BOX;
 
 /// Each path starts with one point, followed by cubic control/control/end triples.
 /// The three gaps let the strands pass under one another, without animal heads.
-/// `rsrazer-tools icons` exports these same curves to the website SVG.
+/// `mirage-hub-tools icons` exports these same curves to the website SVG.
 pub const CURVES: [[[f32; 2]; 28]; 3] = [
     [
         [57.51, 99.68],

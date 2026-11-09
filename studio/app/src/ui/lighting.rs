@@ -3,7 +3,7 @@
 //! Quick effects: pick a part of the device on its drawing, pick an effect,
 //! pick a colour -- the device's own effects, the way most people want them.
 //!
-//! RsRazer: per-key lighting in layers. Each layer is one effect painted onto
+//! Mirage Hub: per-key lighting in layers. Each layer is one effect painted onto
 //! the keys chosen for it; upper layers cover lower ones, and the ones that
 //! react to typing let what is below show through. The daemon draws the
 //! result, so it keeps running with this window closed.
@@ -16,9 +16,9 @@ use crate::art::{Art, Region, Shape};
 use crate::preview::{self, Kind, Layer};
 use crate::worker::{Command, Device, Snapshot, Then};
 use egui::{vec2, Align, Color32, CornerRadius, Layout, RichText, Sense};
-use rsrazer_core::theme::{self, icon, ACCENT, TEXT, TEXT_DIM, TEXT_FAINT};
-use rsrazer_core::widgets::{self, Button, IconButton};
-use rsrazer_core::{t, tf};
+use mirage_hub_core::theme::{self, icon, ACCENT, TEXT, TEXT_DIM, TEXT_FAINT};
+use mirage_hub_core::widgets::{self, Button, IconButton};
+use mirage_hub_core::{t, tf};
 use serde_json::{json, Value};
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
@@ -100,7 +100,7 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot, device: &Device) 
 
 // -- quick ---------------------------------------------------------------------------------
 
-/// What a device is showing now, LED by LED, as far as RsRazer can tell.
+/// What a device is showing now, LED by LED, as far as Mirage Hub can tell.
 pub struct Look {
     pub colours: Vec<Color32>,
     pub layers_running: bool,

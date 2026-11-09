@@ -1,6 +1,6 @@
 [package]
-name = "rsrazer"
-description = "RsRazer: Razer device control on Windows"
+name = "mirage-hub"
+description = "Mirage Hub: Razer and Sony INZONE device control on Windows"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,11 +8,11 @@ repository.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "rsrazer"
+name = "mirage-hub"
 path = "src/main.rs"
 
 [dependencies]
-rsrazer-core.workspace = true
+mirage-hub-core.workspace = true
 eframe.workspace = true
 egui.workspace = true
 serde.workspace = true

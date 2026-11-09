@@ -20,8 +20,8 @@ pub fn spawn(rules: Rules, tx: Sender, serials: Arc<Mutex<Vec<String>>>) {
             let mut applied: HashMap<String, (String, bool)> = HashMap::new();
             loop {
                 std::thread::sleep(Duration::from_millis(1000));
-                let Some(exe) = rsrazer_core::process::foreground_exe() else { continue };
-                if exe == last_exe || exe == rsrazer_core::install::APP_EXE {
+                let Some(exe) = mirage_hub_core::process::foreground_exe() else { continue };
+                if exe == last_exe || exe == mirage_hub_core::install::APP_EXE {
                     continue;
                 }
                 last_exe = exe.clone();

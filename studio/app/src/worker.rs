@@ -5,8 +5,8 @@
 //! them against the daemon in order, and what comes back lands in a shared
 //! snapshot the UI reads every frame.
 
-use rsrazer_core::rpc::{Client, RpcError};
-use rsrazer_core::{t, tf};
+use mirage_hub_core::rpc::{Client, RpcError};
+use mirage_hub_core::{t, tf};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
@@ -48,6 +48,7 @@ pub struct Device {
     pub serial: String,
     pub name: String,
     pub kind: String,
+    pub vid: u16,
     pub pid: u16,
     pub image: Option<String>,
     /// A picture per colour it is sold in, when it cannot say which it is.
@@ -57,7 +58,7 @@ pub struct Device {
 
 impl Device {
     pub fn connection_label(&self, caps: Option<&Value>) -> &'static str {
-        use rsrazer_core::connection::{self, Connection};
+        use mirage_hub_core::connection::{self, Connection};
         match connection::detect(self.pid, &self.name, caps.and_then(|c| c["protocol"].as_str())) {
             Connection::Usb => "USB",
             Connection::Wired => t("USB (wired)"),
@@ -119,7 +120,7 @@ pub struct Snapshot {
     /// Razer Synapse processes running now.
     pub synapse: Vec<(u32, String)>,
     /// Razer devices plugged in that the port has no data for.
-    pub unsupported: Vec<(u16, String)>,
+    pub unsupported: Vec<(u16, u16, String)>,
     /// The daemon's integrations: the accent colour, Chroma games.
     pub integrations: Value,
     #[serde(default)]
@@ -341,7 +342,7 @@ impl Worker {
     }
 
     fn slow_poll(&mut self) {
-        let synapse: Vec<(u32, String)> = rsrazer_core::process::list(false)
+        let synapse: Vec<(u32, String)> = mirage_hub_core::process::list(false)
             .into_iter()
             .filter(|p| SYNAPSE.contains(&p.name.to_lowercase().as_str()))
             .map(|p| (p.pid, p.name))
@@ -350,7 +351,7 @@ impl Worker {
             .with(|c| c.call("devices.unsupported", json!({})))
             .ok()
             .and_then(|v| v.as_array().cloned())
-            .map(|rows| rows.iter().map(|r| (r["pid"].as_u64().unwrap_or(0) as u16, r["product"].as_str().unwrap_or("").to_string())).collect())
+            .map(|rows| rows.iter().map(|r| (r["vid"].as_u64().unwrap_or(0x1532) as u16, r["pid"].as_u64().unwrap_or(0) as u16, r["product"].as_str().unwrap_or("").to_string())).collect())
             .unwrap_or_default();
         let mut shared = self.shared.lock().unwrap();
         shared.synapse = synapse;
@@ -472,8 +473,10 @@ impl Worker {
 
     fn read_audio(&mut self, serial: &str) {
         if self.caps(serial).is_some_and(|caps| caps["audio"].is_object()) {
-            if let Ok(audio) = self.with(|c| c.device(serial, "get_audio", vec![], None)) {
-                self.update(serial, |d| d.audio = Some(audio));
+            match self.with(|c| c.device(serial, "get_audio", vec![], None)) {
+                Ok(audio) => self.update(serial, |d| d.audio = Some(audio)),
+                Err(error) if self.caps(serial).is_some_and(|caps|caps["protocol"]=="inzone") => self.update(serial,|d|d.audio=Some(json!({"connected":false,"error":error.to_string()}))),
+                Err(_) => {},
             }
         }
     }
@@ -715,7 +718,7 @@ impl Worker {
                 let running = self.shared.lock().unwrap().synapse.clone();
                 let mut refused = 0;
                 for (pid, _) in &running {
-                    if !rsrazer_core::process::terminate(*pid) {
+                    if !mirage_hub_core::process::terminate(*pid) {
                         refused += 1;
                     }
                 }
@@ -768,8 +771,9 @@ impl Worker {
 fn parse_device(row: &Value) -> Device {
     Device {
         serial: row["serial"].as_str().unwrap_or_default().to_string(),
-        name: row["name"].as_str().unwrap_or("Razer device").to_string(),
+        name: row["name"].as_str().unwrap_or("Device").to_string(),
         kind: row["type"].as_str().unwrap_or("device").to_string(),
+        vid: row["vid"].as_u64().unwrap_or(0x1532) as u16,
         pid: row["pid"].as_u64().unwrap_or(0) as u16,
         image: row["image"].as_str().filter(|s| !s.is_empty()).map(str::to_string),
         images: row["images"]

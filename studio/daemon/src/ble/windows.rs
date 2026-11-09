@@ -426,7 +426,7 @@ mod tests {
 
     #[test]
     fn winrt_factories_survive_between_ble_workers() {
-        const CHILD: &str = "RSRAZER_TEST_WINRT_LIFETIME";
+        const CHILD: &str = "MIRAGE_HUB_TEST_WINRT_LIFETIME";
         if std::env::var_os(CHILD).is_none() {
             // A separate process prevents unrelated COM users in the test suite
             // from keeping the MTA alive and hiding a worker teardown bug.

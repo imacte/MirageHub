@@ -323,7 +323,7 @@ impl App {
             }
             ui.vertical(|ui| {
                 ui.spacing_mut().item_spacing.y = 0.0;
-                ui.label(RichText::new("RsRazer").font(theme::bold(18.0)));
+                ui.label(RichText::new("Mirage Hub").font(theme::bold(18.0)));
                 ui.label(RichText::new("Classic").size(12.0).color(TEXT_DIM));
             });
         });
@@ -348,7 +348,7 @@ impl App {
             if snap.devices.is_empty() {
                 let text = match &snap.daemon {
                     DaemonState::Running(info) if info["state"] == "starting" || info["first_sweep_pending"] == true => "Looking for devices…",
-                    DaemonState::Running(_) => "No Razer devices found",
+                    DaemonState::Running(_) => "No supported devices found",
                     DaemonState::Connecting => "Connecting…",
                     DaemonState::NotRunning(_) => "Waiting for the daemon",
                 };
@@ -456,7 +456,7 @@ impl App {
             let tx = self.tx.clone();
             return empty_state(
                 ui,
-                "No Razer devices found",
+                "No supported devices found",
                 "Plug one in, switch a wireless one on, or close Razer Synapse if it is running — it holds devices to itself.",
                 Some(move |ui: &mut egui::Ui| {
                     if widgets::icon_button(ui, theme::icon::REFRESH, "Look again").clicked() {
@@ -536,7 +536,7 @@ impl App {
                 ui.horizontal_wrapped(|ui| {
                     ui.spacing_mut().item_spacing.x = 6.0;
                     chip(ui, kind_label(&device.kind));
-                    chip(ui, &format!("1532:{:04X}", device.pid));
+                    chip(ui, &format!("{:04X}:{:04X}", device.vid, device.pid));
                     if let Some(firmware) = &device.firmware {
                         chip(ui, &format!("Firmware {firmware}"));
                     }

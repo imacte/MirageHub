@@ -15,7 +15,7 @@ the exact command or code
 ```
 
 **Environment**
-- rsrazer-daemon version (`rsrazer-daemon --version`):
+- mirage-hub-daemon version (`mirage-hub-daemon --version`):
 - Windows version:
-- RsRazer version and executable (application, classic panel or daemon):
+- Mirage Hub version and executable (application, classic panel or daemon):
 - Device:

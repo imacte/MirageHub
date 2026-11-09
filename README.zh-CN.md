@@ -1,18 +1,18 @@
-# RsRazer
+# Mirage Hub
 
 简体中文 · [English](README.md)
 
-用于 Windows 10 / 11 的雷蛇设备控制工具，界面、后台服务和命令行均使用 Rust。
+用于 Windows 10 / 11 的 Razer 外设与 Sony INZONE 耳机控制工具，界面、后台服务和命令行均使用 Rust。
 无需 Synapse、自定义内核驱动或 Python 运行环境。
 
-[![CI](https://github.com/imacte/RsRazer/actions/workflows/ci.yml/badge.svg)](https://github.com/imacte/RsRazer/actions/workflows/ci.yml)
-[![许可证](https://img.shields.io/badge/license-GPL--2.0--or--later-green)](LICENSE)
+[![CI](https://github.com/imacte/MirageHub/actions/workflows/ci.yml/badge.svg)](https://github.com/imacte/MirageHub/actions/workflows/ci.yml)
+[![许可证](https://img.shields.io/badge/license-GPL--3.0--only-green)](LICENSE)
 
-![RsRazer 中文灯光编辑器](docs/images/rsrazer-lighting-zh-CN.png)
+![Mirage Hub 中文灯光编辑器](docs/images/mirage-hub-lighting-zh-CN.png)
 
 ## 下载与安装
 
-下载 **[rsrazer-setup.exe 完整安装包](https://github.com/imacte/RsRazer/releases/latest/download/rsrazer-setup.exe)**，或前往 [Releases](https://github.com/imacte/RsRazer/releases) 查看所有文件。
+下载 **[mirage-hub-setup.exe 完整安装包](https://github.com/imacte/MirageHub/releases/latest/download/mirage-hub-setup.exe)**，或前往 [Releases](https://github.com/imacte/MirageHub/releases) 查看所有文件。
 安装包已包含主程序、Rust 后台和 32/64 位 Chroma SDK DLL，不需要另外下载后台。
 
 按当前用户安装，支持修复和卸载。
@@ -23,18 +23,41 @@
 
 | 文件 | 用途 |
 |---|---|
-| `rsrazer-setup.exe` | 完整安装包，通常下载这一个即可 |
-| `rsrazer.exe` | 主程序；单独使用时，需要将 `rsrazer-daemon.exe` 放在同一目录 |
-| `rsrazer-daemon.exe` | Rust 后台服务和命令行工具 |
-| `rsrazer-classic.exe` | 内嵌后台的经典控制面板 |
+| `mirage-hub-setup.exe` | 完整安装包，通常下载这一个即可 |
+| `mirage-hub.exe` | 主程序；单独使用时，需要将 `mirage-hub-daemon.exe` 放在同一目录 |
+| `mirage-hub-daemon.exe` | Rust 后台服务和命令行工具 |
+| `mirage-hub-classic.exe` | 内嵌后台的经典控制面板 |
 
 发布版静态链接 C 运行库。控制设备前请先关闭 Synapse，避免两个程序同时修改设置。
-设置、灯效配置、宏和日志保存在独立的 `%LOCALAPPDATA%\rsrazer` 目录中，
+设置、灯效配置、宏和日志保存在独立的 `%LOCALAPPDATA%\mirage-hub` 目录中，
 不会自动读取或迁移 `%LOCALAPPDATA%\openrazer-win` 中的旧数据。
+
+## Sony INZONE 耳机
+
+本项目原名 RsRazer，现改名为 Mirage Hub，并接入 [OpenInzone](https://github.com/penguinwokrs/openinzone) 的耳机控制协议。H5（`054C:0EBF`）与 Buds（`054C:0EC2`）通过 HID 控制；H9/H7（`054C:0E53`）通过独占 USB 串口控制。H9 II 等接收器使用耳机返回的型号信息识别。H5 的音量、游戏/聊天平衡、侧音与自动关机计时已通过实机验证；上游已验证 Buds、H9 和 H9 II，其他型号仍需实机验证。详见 [INZONE 支持与验证记录](docs/INZONE.md)。
+
+- 耳机音量、静音、游戏/聊天平衡、侧音与电量；平衡 0 为仅游戏，100 为仅聊天。
+- 调节对应耳机的 Windows 麦克风音量；仅 Buds 支持通过电脑切换耳机的麦克风静音，其他型号显示实体麦克风控制状态。
+- 根据设备能力显示降噪、环境声、人声增强、自动关机与语音提示。H5 不支持的降噪功能不会显示。
+- Buds 分别显示左右耳和充电盒电量；充电盒是上次由耳机传回的读数，未知值不显示成 0%。
+- H9/H7 的串口不能共享，使用前需退出 INZONE Hub。暂不包含 Sony APO 均衡器、空间音效、固件升级和 Stream Deck 插件。
+
+![Mirage Hub INZONE H5 中文控制页面](docs/images/mirage-hub-inzone-zh-CN.png)
+
+```powershell
+mirage-hub-daemon --device "INZONE H5" headset
+mirage-hub-daemon --device "INZONE H5" headset volume 15
+mirage-hub-daemon --device "INZONE H5" headset balance 50
+mirage-hub-daemon --device "INZONE H5" headset sidetone 5
+```
+
+## 从 RsRazer 升级
+
+首次升级请手动运行 `mirage-hub-setup.exe`；旧版更新器将下载地址限制在原仓库。安装程序会识别旧安装并替换程序入口。配置、宏、语言与应用关联会从 `%LOCALAPPDATA%\rsrazer` 一次性复制到 `%LOCALAPPDATA%\mirage-hub`，保留原文件，也不会覆盖已有 Mirage Hub 设置。不迁移后台端点、认证令牌和旧安装包缓存。使用便携版时，请先退出旧 RsRazer。
 
 ## 功能
 
-- 数据库包含 279 个产品 ID，支持 USB HID 和部分蓝牙 LE 设备。
+- 支持 279 个 Razer 产品 ID 和 10 个 Sony INZONE 接收器 ID，包含 HID、INZONE 串口与部分 Razer 蓝牙 LE 设备。
 - 硬件灯效、软件灯效、逐键图层、音乐响应和灯光配置。
 - DPI、轮询率、亮度及设备支持的耳机设置。
 - 宏按键、键位绑定和按应用切换配置。
@@ -42,26 +65,26 @@
 - 本机带令牌验证的 JSON-RPC 接口，以及可用于脚本的原生命令行。
 
 具体功能取决于型号。数据库收录不代表每款设备都经过实机测试。
-可在[设备列表](docs/devices.json)或 `rsrazer-daemon supported` 中查看型号。
+可在[设备列表](docs/devices.json)或 `mirage-hub-daemon supported` 中查看型号。
 
 ## 命令行
 
 ```powershell
-rsrazer-daemon daemon start
-rsrazer-daemon list
-rsrazer-daemon info
-rsrazer-daemon effect static red
-rsrazer-daemon brightness 60
-rsrazer-daemon dpi 1800
-rsrazer-daemon keyswitch typing
-rsrazer-daemon snaptap status
-rsrazer-daemon profile save night
-rsrazer-daemon profile load night
-rsrazer-daemon profile create work
-rsrazer-daemon profile create gaming --source work
-rsrazer-daemon integration accent on
-rsrazer-daemon rpc daemon.version
-rsrazer-daemon doctor
+mirage-hub-daemon daemon start
+mirage-hub-daemon list
+mirage-hub-daemon info
+mirage-hub-daemon effect static red
+mirage-hub-daemon brightness 60
+mirage-hub-daemon dpi 1800
+mirage-hub-daemon keyswitch typing
+mirage-hub-daemon snaptap status
+mirage-hub-daemon profile save night
+mirage-hub-daemon profile load night
+mirage-hub-daemon profile create work
+mirage-hub-daemon profile create gaming --source work
+mirage-hub-daemon integration accent on
+mirage-hub-daemon rpc daemon.version
+mirage-hub-daemon doctor
 ```
 
 使用 `--help` 查看命令及选项。`--device` 可按序列号、产品 ID 或名称片段选择设备，
@@ -83,11 +106,11 @@ Naga V2 Pro 的有线 `1532:00A7` 和接收器 `1532:00A8` 型号提供“板载
 存放其他映射。这些设置与电脑配置文件独立。命令行示例：
 
 ```powershell
-rsrazer-daemon onboard --device 00a7
-rsrazer-daemon onboard action 0x50 --device 00a7
-rsrazer-daemon onboard key 0x50 A --device 00a7
-rsrazer-daemon onboard macro-add 7 "down A; wait 50; up A" --device 00a7
-rsrazer-daemon onboard macro-bind 0x50 7 --device 00a7
+mirage-hub-daemon onboard --device 00a7
+mirage-hub-daemon onboard action 0x50 --device 00a7
+mirage-hub-daemon onboard key 0x50 A --device 00a7
+mirage-hub-daemon onboard macro-add 7 "down A; wait 50; up A" --device 00a7
+mirage-hub-daemon onboard macro-bind 0x50 7 --device 00a7
 ```
 
 请用 `list` 显示的产品 ID 或序列号选择当前设备。`--store 1..5` 选择存储位置，
@@ -101,8 +124,8 @@ rsrazer-daemon onboard macro-bind 0x50 7 --device 00a7
 安装仓库指定的 Rust 工具链，以及包含 Windows SDK 的 Microsoft C++ Build Tools，然后运行：
 
 ```powershell
-git clone git@github.com:imacte/RsRazer.git
-cd RsRazer
+git clone git@github.com:imacte/MirageHub.git
+cd MirageHub
 ./studio/tools/build-native.ps1 -IncludeClassic
 ```
 
@@ -112,8 +135,8 @@ cd RsRazer
 cd studio
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
-cargo run --locked -p rsrazer-tools -- check-translations
-cargo run --locked -p rsrazer-tools -- docs-data --check
+cargo run --locked -p mirage-hub-tools -- check-translations
+cargo run --locked -p mirage-hub-tools -- docs-data --check
 ```
 
 开发说明见 [CONTRIBUTING.md](CONTRIBUTING.md)，设备数据来源见 [data/README.md](data/README.md)。
@@ -131,9 +154,9 @@ cargo run --locked -p rsrazer-tools -- docs-data --check
 
 ## 致谢与反馈
 
-RsRazer 基于 [Ar4ikov/openrazer-win](https://github.com/Ar4ikov/openrazer-win)，
-设备协议知识来自 [OpenRazer](https://github.com/openrazer/openrazer)。保留上游署名与许可证说明。
+Mirage Hub 基于 [Ar4ikov/openrazer-win](https://github.com/Ar4ikov/openrazer-win)，
+设备协议知识来自 [OpenRazer](https://github.com/openrazer/openrazer) 和 [OpenInzone](https://github.com/penguinwokrs/openinzone)。详见[第三方声明](THIRD-PARTY-NOTICES.md)。
 旧 Python 实现可在 Git 历史中查看。
 
-问题和设备支持请求请提交到 [Issues](https://github.com/imacte/RsRazer/issues)。
-安全问题见 [SECURITY.md](SECURITY.md)。本项目采用 [GPL-2.0-or-later](LICENSE) 许可证。
+问题和设备支持请求请提交到 [Issues](https://github.com/imacte/MirageHub/issues)。
+安全问题见 [SECURITY.md](SECURITY.md)。本项目采用 [GPL-3.0-only](LICENSE) 许可证。

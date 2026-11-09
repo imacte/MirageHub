@@ -9,6 +9,7 @@ pub mod demo;
 pub mod device;
 pub mod effects;
 pub mod hid;
+pub mod inzone;
 pub mod integrations;
 pub mod keyboard;
 pub mod keys;
@@ -16,6 +17,8 @@ pub mod logging;
 pub mod manager;
 mod net;
 pub mod persistence;
+#[path = "../../../assets/data_paths.rs"]
+pub mod data_paths;
 mod process;
 pub mod profiles;
 pub mod protocol;

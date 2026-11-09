@@ -8,10 +8,10 @@ use super::app::{scroll, App};
 use crate::chroma;
 use crate::worker::{Command, Snapshot};
 use egui::{vec2, CornerRadius, Frame, Margin, RichText, Sense, Stroke};
-use rsrazer_core::install::REPOSITORY;
-use rsrazer_core::theme::{self, icon, ACCENT, BORDER, SURFACE, SURFACE_HI, TEXT, TEXT_DIM};
-use rsrazer_core::widgets::Button;
-use rsrazer_core::{t, tf, widgets};
+use mirage_hub_core::install::REPOSITORY;
+use mirage_hub_core::theme::{self, icon, ACCENT, BORDER, SURFACE, SURFACE_HI, TEXT, TEXT_DIM};
+use mirage_hub_core::widgets::Button;
+use mirage_hub_core::{t, tf, widgets};
 use serde_json::Value;
 use std::path::Path;
 
@@ -34,14 +34,14 @@ fn apps() -> Vec<Item> {
         Item { glyph: icon::MUSIC, name: t("Music and sound"), text: t("Keys that pulse with whatever is playing."), status: Status::Ready },
         Item { glyph: icon::CHAT, name: "Discord", text: t("Calls, mentions and a muted microphone shown on the keyboard."), status: Status::Idea },
         Item { glyph: icon::SCREEN, name: t("Screen ambience"), text: t("Devices glowing in the colours at the edges of the screen."), status: Status::Idea },
-        Item { glyph: icon::RECORD, name: "OBS RsRazer", text: t("A key that lights up while recording or streaming."), status: Status::Idea },
+        Item { glyph: icon::RECORD, name: "OBS Mirage Hub", text: t("A key that lights up while recording or streaming."), status: Status::Idea },
         Item { glyph: icon::BELL, name: t("Notifications"), text: t("A flash for a low battery, a message, or a finished download."), status: Status::Idea },
     ]
 }
 
 fn devices() -> Vec<Item> {
     vec![
-        Item { glyph: icon::SYNC, name: "OpenRGB", text: t("Razer devices in an OpenRGB setup, and other brands' lights following RsRazer."), status: Status::Planned },
+        Item { glyph: icon::SYNC, name: "OpenRGB", text: t("Razer devices in an OpenRGB setup, and other brands' lights following Mirage Hub."), status: Status::Planned },
         Item { glyph: icon::BULB, name: "Philips Hue", text: t("Room lights matching the desk."), status: Status::Idea },
         Item { glyph: icon::BULB, name: "Nanoleaf", text: t("Panels on the wall in step with the keyboard."), status: Status::Idea },
         Item { glyph: icon::BULB, name: "WLED", text: t("LED strips behind the monitor or desk."), status: Status::Idea },
@@ -73,7 +73,7 @@ fn switch(app: &mut App, ui: &mut egui::Ui, status: &Value, name: &str, label: &
     let known = status[name].is_object();
     widgets::row(ui, label, help, |ui| {
         if !known {
-            ui.label(widgets::faint(t("Needs the daemon from RsRazer 1.6.0 or later, running")));
+            ui.label(widgets::faint(t("Needs the daemon from Mirage Hub 1.6.0 or later, running")));
         } else if widgets::toggle(ui, &mut on).changed() {
             app.send(Command::Integration { name: name.into(), enabled: on });
         }
@@ -153,7 +153,7 @@ fn game_list(app: &mut App, ui: &mut egui::Ui) {
         }
     });
     if !available {
-        widgets::help(ui, t("This build of RsRazer has no Chroma DLL to give games; the one installed from a release has."));
+        widgets::help(ui, t("This build of Mirage Hub has no Chroma DLL to give games; the one installed from a release has."));
     }
     let mut removed = None;
     for (index, game) in app.settings.chroma_games.iter().enumerate() {
@@ -244,15 +244,15 @@ fn developers(ui: &mut egui::Ui) {
             widgets::badge(ui, t("Works now"), ACCENT);
         },
         |ui| {
-            widgets::help(ui, t("Everything RsRazer does goes through the daemon's local API, which any program on this PC can use: JSON-RPC over a loopback port, with a token only your account can read."));
+            widgets::help(ui, t("Everything Mirage Hub does goes through the daemon's local API, which any program on this PC can use: JSON-RPC over a loopback port, with a token only your account can read."));
             let code = |ui: &mut egui::Ui, text: &str| {
                 Frame::new().fill(theme::WELL).stroke(Stroke::new(1.0_f32, BORDER)).corner_radius(CornerRadius::same(4)).inner_margin(Margin::symmetric(8, 4)).show(ui, |ui| {
                     ui.add(egui::Label::new(RichText::new(text).monospace().size(12.5).color(TEXT)).truncate());
                 });
             };
-            widgets::row(ui, t("Command line"), "", |ui| code(ui, "rsrazer-daemon list   ·   rsrazer-daemon effect static ff0000"));
-            let endpoint = rsrazer_core::rpc::Endpoint::read().map(|e| format!("{}:{}", e.host, e.port)).unwrap_or_else(|| t("the daemon is not running").to_string());
-            widgets::row(ui, t("Endpoint"), &rsrazer_core::rpc::Endpoint::path().display().to_string(), |ui| code(ui, &endpoint));
+            widgets::row(ui, t("Command line"), "", |ui| code(ui, "mirage-hub-daemon list   ·   mirage-hub-daemon effect static ff0000"));
+            let endpoint = mirage_hub_core::rpc::Endpoint::read().map(|e| format!("{}:{}", e.host, e.port)).unwrap_or_else(|| t("the daemon is not running").to_string());
+            widgets::row(ui, t("Endpoint"), &mirage_hub_core::rpc::Endpoint::path().display().to_string(), |ui| code(ui, &endpoint));
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = 8.0;
                 widgets::link_button(ui, t("Documentation"), &format!("{REPOSITORY}#readme"));

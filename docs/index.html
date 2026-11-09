@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RsRazer</title>
-<meta name="description" data-i18n="description" data-i18n-attr="content" content="Control Razer keyboards, mice and mousepads on Windows 10 and 11 without Synapse and without a kernel driver. A user-space port of OpenRazer covering 279 devices.">
-<meta property="og:title" content="RsRazer">
-<meta property="og:description" data-i18n="ogDescription" data-i18n-attr="content" content="Razer device control on Windows 10/11 — no Synapse, no kernel driver, no dependencies. 279 devices.">
+<title>Mirage Hub</title>
+<meta name="description" data-i18n="description" data-i18n-attr="content" content="Mirage Hub controls Razer peripherals and Sony INZONE headsets on Windows 10 and 11, with native Rust programs and no custom kernel driver.">
+<meta property="og:title" content="Mirage Hub">
+<meta property="og:description" data-i18n="ogDescription" data-i18n-attr="content" content="Razer and Sony INZONE control in one Windows application. Native Rust, no custom kernel driver.">
 <meta property="og:locale" content="en_US">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://github.com/imacte/RsRazer#readme">
+<meta property="og:url" content="https://github.com/imacte/MirageHub#readme">
 <link rel="icon" type="image/svg+xml" sizes="any" href="favicon.svg?v=2">
 <style>
 :root {
@@ -190,14 +190,14 @@ footer p { margin: 0 0 8px; }
 
 <nav>
   <div class="wrap">
-    <a class="brand" href="#top"><img src="favicon.svg?v=2" width="32" height="32" alt="" aria-hidden="true"><span class="brand-name">Rs<span>Razer</span></span></a>
+    <a class="brand" href="#top"><img src="favicon.svg?v=2" width="32" height="32" alt="" aria-hidden="true"><span class="brand-name">Mirage <span>Hub</span></span></a>
     <div class="links">
       <a href="#install" data-i18n="install">Install</a>
       <a href="#usage" data-i18n="usage">Usage</a>
       <a href="#how" class="opt" data-i18n="how">How it works</a>
       <a href="#devices" data-i18n="devices">Devices</a>
       <a href="#help" class="opt" data-i18n="help">Troubleshooting</a>
-      <a href="https://github.com/imacte/RsRazer">GitHub</a>
+      <a href="https://github.com/imacte/MirageHub">GitHub</a>
     </div>
     <div class="language" hidden>
       <label class="sr-only" for="language-select" data-i18n="language">Language</label>
@@ -212,24 +212,22 @@ footer p { margin: 0 0 8px; }
 
 <header id="top">
   <div class="wrap">
-    <h1 data-i18n="hero">Razer control on Windows,<br><span>without Synapse.</span></h1>
+    <h1 data-i18n="hero">Your devices on Windows,<br><span>one Mirage Hub.</span></h1>
     <p class="lead" data-i18n="lead">
-      A complete port of <a href="https://github.com/openrazer/openrazer">OpenRazer</a> to
-      Windows 10 and 11. The Linux kernel driver becomes user-space HID, D-Bus becomes a loopback
-      daemon, and every per-device quirk is transpiled straight from the upstream C sources.
+      Native Rust control for Razer peripherals and Sony INZONE headsets. Built on <a href="https://github.com/openrazer/openrazer">OpenRazer</a> and <a href="https://github.com/penguinwokrs/openinzone">OpenInzone</a>, with model-specific settings and no custom kernel driver.
     </p>
     <div class="badges">
-      <span class="badge on" data-i18n="deviceTotal">279 devices</span>
+      <span class="badge on" data-i18n="deviceTotal">289 product IDs</span>
       <span class="badge" data-i18n="native">Native Rust backend</span>
       <span class="badge" data-i18n="noDriver">No kernel driver</span>
       <span class="badge" data-i18n="noAdmin">No admin rights</span>
       <span class="badge" data-i18n="noTelemetry">No telemetry</span>
-      <span class="badge">GPL-2.0-or-later</span>
+      <span class="badge">GPL-3.0-only</span>
       <span class="badge on" data-i18n="noPython">No Python runtime</span>
     </div>
     <div class="cta">
       <a class="btn primary" href="#install" data-i18n="getStarted">Get started</a>
-      <a class="btn" href="https://github.com/imacte/RsRazer" data-i18n="source">View source</a>
+      <a class="btn" href="https://github.com/imacte/MirageHub" data-i18n="source">View source</a>
       <a class="btn" href="#devices" data-i18n="supportedQuestion">Is my device supported?</a>
     </div>
   </div>
@@ -238,20 +236,21 @@ footer p { margin: 0 0 8px; }
 <section id="install">
   <div class="wrap">
     <h2><span class="num">01</span><span data-i18n="install">Install</span></h2>
-    <p class="sub" data-i18n="installIntro">Windows 10 / 11 (amd64). RsRazer, the background service and installer are native Rust programs.</p>
+    <p class="sub" data-i18n="installIntro">Windows 10 / 11 (amd64). Mirage Hub, the background service and installer are native Rust programs.</p>
 <pre><code><span class="c-com" data-i18n="commentInstall"># After installing, start the service and list connected devices</span>
-<span class="c-cmd">rsrazer-daemon</span> daemon start
-<span class="c-cmd">rsrazer-daemon</span> list</code></pre>
+<span class="c-cmd">mirage-hub-daemon</span> daemon start
+<span class="c-cmd">mirage-hub-daemon</span> list</code></pre>
     <p class="sub" style="margin-bottom:14px" data-i18n="download">
-      Download <code>rsrazer-setup.exe</code>
-      from the <a href="https://github.com/imacte/RsRazer/releases">releases page</a> when a build
-      is published. The installer contains RsRazer and the Rust background service, with English, Russian and
+      Download <code>mirage-hub-setup.exe</code>
+      from the <a href="https://github.com/imacte/MirageHub/releases">releases page</a> when a build
+      is published. The installer contains Mirage Hub and the Rust background service, with English, Russian and
       Simplified Chinese. Bluetooth LE is built in; no Python, extra packages or driver installation
-      is required. <code>rsrazer-daemon.exe</code> is the standalone CLI and daemon. The application and backend both run natively in Rust.
+      is required. <code>mirage-hub-daemon.exe</code> is the standalone CLI and daemon. The application and backend both run natively in Rust.
     </p>
+    <p class="sub" data-i18n="upgrade">Upgrading from RsRazer? Run <code>mirage-hub-setup.exe</code> once to move to Mirage Hub. Your settings are copied to <code>%LOCALAPPDATA%\mirage-hub</code>, and the original files are preserved.</p>
     <div class="note" data-i18n="closeSynapse">
       <strong>Close Razer Synapse first.</strong> Synapse holds the device open and will fight you
-      for the LEDs. Run <code>rsrazer-daemon doctor</code> to check.
+      for the LEDs. Run <code>mirage-hub-daemon doctor</code> to check.
     </div>
   </div>
 </section>
@@ -269,34 +268,34 @@ footer p { margin: 0 0 8px; }
 
     <div class="panel" id="p-cli" role="tabpanel">
 <pre><code><span class="c-com" data-i18n="commentStart"># start the background service, then look around</span>
-<span class="c-cmd">rsrazer-daemon</span> daemon start
-<span class="c-cmd">rsrazer-daemon</span> list
-<span class="c-cmd">rsrazer-daemon</span> info
+<span class="c-cmd">mirage-hub-daemon</span> daemon start
+<span class="c-cmd">mirage-hub-daemon</span> list
+<span class="c-cmd">mirage-hub-daemon</span> info
 
 <span class="c-com" data-i18n="commentLighting"># lighting</span>
-<span class="c-cmd">rsrazer-daemon</span> effect static red
-<span class="c-cmd">rsrazer-daemon</span> effect spectrum
-<span class="c-cmd">rsrazer-daemon</span> effect wave --direction 2
-<span class="c-cmd">rsrazer-daemon</span> effect breath_dual <span class="c-str">"#ff0080"</span> --colour2 cyan
-<span class="c-cmd">rsrazer-daemon</span> effect ripple green   <span class="c-com" data-i18n="commentRipple"># follows your typing</span>
+<span class="c-cmd">mirage-hub-daemon</span> effect static red
+<span class="c-cmd">mirage-hub-daemon</span> effect spectrum
+<span class="c-cmd">mirage-hub-daemon</span> effect wave --direction 2
+<span class="c-cmd">mirage-hub-daemon</span> effect breath_dual <span class="c-str">"#ff0080"</span> --colour2 cyan
+<span class="c-cmd">mirage-hub-daemon</span> effect ripple green   <span class="c-com" data-i18n="commentRipple"># follows your typing</span>
 
 <span class="c-com" data-i18n="commentZones"># one colour per zone -- on the Bluetooth headset, one per ear</span>
-<span class="c-cmd">rsrazer-daemon</span> zones
-<span class="c-cmd">rsrazer-daemon</span> zones red blue
+<span class="c-cmd">mirage-hub-daemon</span> zones
+<span class="c-cmd">mirage-hub-daemon</span> zones red blue
 
 <span class="c-com" data-i18n="commentProfiles"># active profiles on this PC; later changes are saved automatically</span>
-<span class="c-cmd">rsrazer-daemon</span> profile save night
-<span class="c-cmd">rsrazer-daemon</span> profile load night
-<span class="c-cmd">rsrazer-daemon</span> profile create gaming --source night
+<span class="c-cmd">mirage-hub-daemon</span> profile save night
+<span class="c-cmd">mirage-hub-daemon</span> profile load night
+<span class="c-cmd">mirage-hub-daemon</span> profile create gaming --source night
 
 <span class="c-com" data-i18n="commentSettings"># settings</span>
-<span class="c-cmd">rsrazer-daemon</span> brightness 60
-<span class="c-cmd">rsrazer-daemon</span> dpi 1800
-<span class="c-cmd">rsrazer-daemon</span> poll-rate 1000
-<span class="c-cmd">rsrazer-daemon</span> battery
+<span class="c-cmd">mirage-hub-daemon</span> brightness 60
+<span class="c-cmd">mirage-hub-daemon</span> dpi 1800
+<span class="c-cmd">mirage-hub-daemon</span> poll-rate 1000
+<span class="c-cmd">mirage-hub-daemon</span> battery
 
 <span class="c-com" data-i18n="commentAutostart"># start the daemon with Windows (per-user, no admin rights)</span>
-<span class="c-cmd">rsrazer-daemon</span> autostart enable</code></pre>
+<span class="c-cmd">mirage-hub-daemon</span> autostart enable</code></pre>
       <p class="sub" style="margin:0" data-i18n="cliHelp">
         Every command accepts <code>--device</code> (serial, product id or part of the name),
         <code>--zone</code> and <code>--json</code>. Autostart writes a single
@@ -306,9 +305,9 @@ footer p { margin: 0 0 8px; }
 
     <div class="panel" id="p-api" role="tabpanel" hidden>
 <pre><code><span class="c-com" data-i18n="commentRpc"># Query the same JSON-RPC service used by the desktop app</span>
-<span class="c-cmd">rsrazer-daemon</span> rpc daemon.version
-<span class="c-cmd">rsrazer-daemon</span> rpc devices.list
-<span class="c-cmd">rsrazer-daemon</span> rpc integration.status</code></pre>
+<span class="c-cmd">mirage-hub-daemon</span> rpc daemon.version
+<span class="c-cmd">mirage-hub-daemon</span> rpc devices.list
+<span class="c-cmd">mirage-hub-daemon</span> rpc integration.status</code></pre>
       <p class="sub" style="margin:0" data-i18n="rpcHelp">
         The daemon speaks newline-delimited JSON-RPC over loopback TCP. The local endpoint file
         contains the port and a per-process authentication token. Any language can implement a client.
@@ -317,17 +316,18 @@ footer p { margin: 0 0 8px; }
     </div>
 
     <div class="panel" id="p-gui" role="tabpanel" hidden>
-<pre><code><span class="c-cmd">rsrazer-setup.exe</span></code></pre>
+<pre><code><span class="c-cmd">mirage-hub-setup.exe</span></code></pre>
       <p class="sub" style="margin:0" data-i18n="guiHelp">
-        RsRazer, from the release: every device drawn from its own product photo and lit as
+        Mirage Hub, from the release: every device drawn from its own product photo and lit as
         it is now, one-click effects and colours, per-key lighting in layers, DPI and its stages,
         battery, profiles that follow the app in front, and a macro library &mdash; in English, Simplified Chinese or
         Russian. The installer needs no administrator rights, brings the daemon with it, and repairs
-        or removes RsRazer from <em>Settings &rsaquo; Apps</em>. The classic panel,
-        <code>rsrazer-classic.exe</code>, is still in the release as a single file.
+        or removes Mirage Hub from <em>Settings &rsaquo; Apps</em>. The classic panel,
+        <code>mirage-hub-classic.exe</code>, is still in the release as a single file.
       </p>
-      <img src="images/rsrazer-lighting.png" data-src-zh="images/rsrazer-lighting-zh-CN.png" data-i18n="lightingAlt" data-i18n-attr="alt" alt="RsRazer: per-key lighting in layers" style="width:100%;margin-top:14px;border-radius:12px">
-      <img src="images/rsrazer-home.png" data-i18n="homeAlt" data-i18n-attr="alt" alt="RsRazer: every device at a glance" style="width:100%;margin-top:14px;border-radius:12px">
+      <img src="images/mirage-hub-lighting.png" data-src-zh="images/mirage-hub-lighting-zh-CN.png" data-i18n="lightingAlt" data-i18n-attr="alt" alt="Mirage Hub: per-key lighting in layers" style="width:100%;margin-top:14px;border-radius:12px">
+      <img src="images/mirage-hub-home.png" data-i18n="homeAlt" data-i18n-attr="alt" alt="Mirage Hub: every device at a glance" style="width:100%;margin-top:14px;border-radius:12px">
+      <img src="images/mirage-hub-inzone.png" data-src-zh="images/mirage-hub-inzone-zh-CN.png" data-i18n="inzoneAlt" data-i18n-attr="alt" alt="Mirage Hub: Sony INZONE H5 audio and power controls" style="width:100%;margin-top:14px;border-radius:12px" loading="lazy">
     </div>
   </div>
 </section>
@@ -377,11 +377,11 @@ footer p { margin: 0 0 8px; }
         <text class="lbl" x="46" y="262">usbhid / usbcore</text>
 
         <rect class="box" x="500" y="38" width="370" height="52"/>
-        <text class="lbl" x="516" y="60" data-i18n="nativeCli">RsRazer / native CLI</text>
+        <text class="lbl" x="516" y="60" data-i18n="nativeCli">Mirage Hub / native CLI</text>
         <text class="lbl-s" x="516" y="78" data-i18n="loopback">JSON-RPC over loopback TCP</text>
 
         <rect class="box" x="500" y="102" width="370" height="52"/>
-        <text class="lbl" x="516" y="124">rsrazer-daemon (Rust)</text>
+        <text class="lbl" x="516" y="124">mirage-hub-daemon (Rust)</text>
         <text class="lbl-s" x="516" y="142" data-i18n="tokenWatcher">bearer token, hot-plug watcher</text>
 
         <rect class="box-a" x="500" y="166" width="370" height="62"/>
@@ -479,7 +479,7 @@ footer p { margin: 0 0 8px; }
         <p data-i18n="blackshark">The BlackShark V2 HyperSpeed is a MediaTek design: 64-byte reports with a sequence number
           and a checksum, and a receiver that answers for itself and forwards the rest. There is
           nothing to light, but sidetone, the equalizer and the sleep timer live in the headset,
-          and <code>rsrazer-daemon headset</code> and RsRazer reach all of them.</p>
+          and <code>mirage-hub-daemon headset</code> and Mirage Hub reach all of them.</p>
       </div>
       <div class="card">
         <span class="ico">🎮</span>
@@ -488,6 +488,11 @@ footer p { margin: 0 0 8px; }
           SDK's DLL, put beside a game, passes the game's lighting on to it. Keyboards key by key,
           a mouse's logo and wheel, a headset's ears; and your own lighting back when the game
           closes.</p>
+      </div>
+      <div class="card">
+        <span class="ico">🎧</span>
+        <h4 data-i18n="inzoneTitle">Sony INZONE joins the hub</h4>
+        <p data-i18n="inzone">INZONE control is ported from <a href="https://github.com/penguinwokrs/openinzone">OpenInzone</a>. H5 volume, game/chat balance, sidetone and power-off timers have been verified on hardware. Buds, H9 and H9 II use the upstream protocol; controls appear only when the headset reports support. H9/H7 need INZONE Hub closed because their serial port is exclusive. Sony APO equalization and spatial audio are not included.</p>
       </div>
       <div class="card">
         <span class="ico">🔐</span>
@@ -508,7 +513,7 @@ footer p { margin: 0 0 8px; }
     </p>
 
     <div class="filters">
-      <input type="search" id="device-search" data-i18n="searchPlaceholder" data-i18n-attr="placeholder" data-i18n-label="searchLabel" placeholder="Search 279 devices — try “BlackWidow”, “Viper”, “0203”…" aria-label="Search devices">
+      <input type="search" id="device-search" data-i18n="searchPlaceholder" data-i18n-attr="placeholder" data-i18n-label="searchLabel" placeholder="Search 289 product IDs — try “BlackWidow”, “Viper”, “0203”…" aria-label="Search devices">
       <button class="chip" data-type="" aria-pressed="true" data-i18n="all">All</button>
       <button class="chip" data-type="keyboard" aria-pressed="false" data-i18n="keyboards">Keyboards</button>
       <button class="chip" data-type="mouse" aria-pressed="false" data-i18n="mice">Mice</button>
@@ -540,7 +545,7 @@ footer p { margin: 0 0 8px; }
     <h2><span class="num">05</span><span data-i18n="help">Troubleshooting</span></h2>
     <p class="sub" data-i18n="doctorIntro">Start here — it lists every Razer HID collection Windows can see and marks the
       control interface.</p>
-<pre><code><span class="c-cmd">rsrazer-daemon</span> doctor</code></pre>
+<pre><code><span class="c-cmd">mirage-hub-daemon</span> doctor</code></pre>
     <div class="scroll">
       <table>
         <thead><tr><th style="width:44%" data-i18n="symptom">Symptom</th><th data-i18n="cause">Cause</th></tr></thead>
@@ -549,7 +554,7 @@ footer p { margin: 0 0 8px; }
               <td data-i18n="interfaceHelp">Synapse is running, or another program holds the device. Close it.</td></tr>
           <tr><td data-i18n="unknownDevice">Device shown as <code>NOT IN DATABASE</code></td>
               <td data-i18n="unknownHelp">Newer than the bundled data.
-                  <a href="https://github.com/imacte/RsRazer/issues">Open an issue</a>
+                  <a href="https://github.com/imacte/MirageHub/issues">Open an issue</a>
                   with the product id.</td></tr>
           <tr><td><code>device replied not supported</code></td>
               <td data-i18n="unsupportedHelp">The firmware refused that command; the device genuinely lacks the feature.</td></tr>
@@ -557,9 +562,9 @@ footer p { margin: 0 0 8px; }
               <td data-i18n="sleepHelp">Windows cuts USB power. The daemon replays stored state on reconnect.</td></tr>
           <tr><td data-i18n="bluetoothSymptom">A Bluetooth device is on, but not listed</td>
               <td data-i18n="bluetoothHelp">Bluetooth LE support is built into the Rust daemon. Run
-                  <code>rsrazer-daemon doctor</code> to inspect paired devices and radio advertisements.</td></tr>
+                  <code>mirage-hub-daemon doctor</code> to inspect paired devices and radio advertisements.</td></tr>
           <tr><td data-i18n="emptySymptom">Nothing listed at all</td>
-              <td data-i18n="emptyHelp">Only Razer devices (vendor <code>1532</code>) are handled.</td></tr>
+              <td data-i18n="emptyHelp">Razer (<code>1532</code>) and supported Sony INZONE receivers (<code>054C</code>) are handled.</td></tr>
         </tbody>
       </table>
     </div>
@@ -576,13 +581,12 @@ footer p { margin: 0 0 8px; }
 <footer>
   <div class="wrap">
     <p data-i18n="credits">
-      All protocol knowledge here is <a href="https://github.com/openrazer/openrazer">OpenRazer</a>'s
-      work — years of reverse engineering by Terri Cain, Tim Theede and many contributors. This
-      project adds a Windows transport and a translation layer; it adds no new protocol research.
+      Razer protocol knowledge comes from <a href="https://github.com/openrazer/openrazer">OpenRazer</a>,
+      with contributions by Terri Cain, Tim Theede and many others. Sony INZONE support is ported from
+      <a href="https://github.com/penguinwokrs/openinzone">OpenInzone</a> by penguinwokrs.
     </p>
     <p data-i18n="license">
-      Licensed GPL-2.0-or-later, the same as upstream, because the device database and the
-      transpiled recipes are derived from OpenRazer's GPL sources.
+      The combined project is GPL-3.0-only. OpenRazer portions retain their GPL-2.0-or-later notices; the INZONE port retains OpenInzone’s GPL-3.0-only notices.
     </p>
     <p data-i18n="trademarks">
       Not affiliated with or endorsed by Razer Inc. Razer, Chroma and Synapse are trademarks of
@@ -624,11 +628,11 @@ footer p { margin: 0 0 8px; }
   }
 
   function render() {
-    searchEl.placeholder = i18n.t('search', { total: loadState === 'ready' ? devices.length : 279 });
+    searchEl.placeholder = i18n.t('search', { total: loadState === 'ready' ? devices.length : 289 });
     if (loadState !== 'ready') {
       rowsEl.innerHTML = '<tr><td colspan="6" style="color:var(--text-dim)">' +
         (loadState === 'error'
-          ? escapeHtml(i18n.t('loadError')) + ' <a href="https://github.com/imacte/RsRazer">' +
+          ? escapeHtml(i18n.t('loadError')) + ' <a href="https://github.com/imacte/MirageHub">' +
             escapeHtml(i18n.t('repository')) + '</a>.'
           : escapeHtml(i18n.t('loading'))) + '</td></tr>';
       countEl.textContent = '';
@@ -639,7 +643,7 @@ footer p { margin: 0 0 8px; }
       if (activeType && device.t !== activeType) { return false; }
       if (!needle) { return true; }
       return device.n.toLowerCase().indexOf(needle) !== -1 ||
-             device.p.indexOf(needle.replace(/^0x/, '')) !== -1;
+             (device.v + ':' + device.p).indexOf(needle.replace(/^0x/, '')) !== -1;
     });
 
     if (!shown.length) {
@@ -653,7 +657,7 @@ footer p { margin: 0 0 8px; }
       return '<tr>' +
         '<td>' + escapeHtml(device.n) + '</td>' +
         '<td>' + escapeHtml(i18n.t(device.t)) + '</td>' +
-        '<td class="num-cell">' + device.p + '</td>' +
+        '<td class="num-cell">' + device.v + ':' + device.p + '</td>' +
         '<td class="num-cell">' + (device.m ? device.m[0] + '&times;' + device.m[1]
                                             : '<span class="dash">&mdash;</span>') + '</td>' +
         '<td class="num-cell">' + (device.d ? device.d.toLocaleString(i18n.locale())
@@ -678,7 +682,7 @@ footer p { margin: 0 0 8px; }
     });
   });
 
-  document.addEventListener('rsrazer:languagechange', render);
+  document.addEventListener('mirage-hub:languagechange', render);
   render();
   fetch('devices.json')
     .then(function (response) {

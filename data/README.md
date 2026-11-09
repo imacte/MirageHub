@@ -29,5 +29,5 @@ After changing devices or the upstream version, regenerate the documentation tab
 
 ```powershell
 cd studio
-cargo run --locked -p rsrazer-tools -- docs-data
+cargo run --locked -p mirage-hub-tools -- docs-data
 ```

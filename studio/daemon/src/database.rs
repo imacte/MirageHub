@@ -105,6 +105,8 @@ pub fn devices() -> &'static [DeviceInfo] {
             serde_json::from_str::<Database>(include_str!("../../../data/devices.json"))
                 .expect("the embedded device database must be valid")
                 .devices;
+        entries.extend(serde_json::from_str::<Database>(include_str!("../../../data/inzone-devices.json"))
+            .expect("the INZONE device database must be valid").devices);
         entries.sort_by(|a, b| (&a.device_type, &a.name).cmp(&(&b.device_type, &b.name)));
         entries
     })

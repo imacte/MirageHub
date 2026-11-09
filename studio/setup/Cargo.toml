@@ -1,6 +1,6 @@
 [package]
-name = "rsrazer-setup"
-description = "Installs, repairs and removes RsRazer"
+name = "mirage-hub-setup"
+description = "Installs, repairs and removes Mirage Hub"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,11 +8,11 @@ repository.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "rsrazer-setup"
+name = "mirage-hub-setup"
 path = "src/main.rs"
 
 [dependencies]
-rsrazer-core.workspace = true
+mirage-hub-core.workspace = true
 eframe.workspace = true
 egui.workspace = true
 serde.workspace = true

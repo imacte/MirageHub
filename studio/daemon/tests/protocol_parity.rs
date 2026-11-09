@@ -1,4 +1,4 @@
-use rsrazer_daemon::{database, protocol::builders};
+use mirage_hub_daemon::{database, protocol::builders};
 use serde_json::Value;
 
 #[test]
@@ -24,8 +24,9 @@ fn every_packet_matches_the_python_backend() {
 fn every_device_preserves_its_public_metadata() {
     let fixture: Value = serde_json::from_str(include_str!("fixtures/protocol.json")).unwrap();
     let expected = fixture["devices"].as_array().unwrap();
-    assert_eq!(database::devices().len(), expected.len());
-    for (device, expected) in database::devices().iter().zip(expected) {
+    let razer: Vec<_> = database::devices().iter().filter(|device|device.vid==0x1532).collect();
+    assert_eq!(razer.len(), expected.len());
+    for (device, expected) in razer.into_iter().zip(expected) {
         let mut expected = expected.clone();
         if matches!(device.pid, 0x00a7 | 0x00a8) {
             // #2962 adds these methods after the original Python corpus was

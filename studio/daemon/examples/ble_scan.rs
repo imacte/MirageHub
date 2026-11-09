@@ -1,7 +1,7 @@
 //! Read-only discovery. Never opens a GATT connection or changes a device.
 #[cfg(windows)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use rsrazer_daemon::{
+    use mirage_hub_daemon::{
         ble::{windows::NativeBle, BleBackend, SCAN_SECONDS},
         protocol::ble::COMPANY_ID,
     };

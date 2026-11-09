@@ -1,13 +1,13 @@
-//! Settings: the app, the daemon, repairing and removing RsRazer, and about.
+//! Settings: the app, the daemon, repairing and removing Mirage Hub, and about.
 
 use super::app::{scroll, App, Page};
 use crate::worker::{Command, DaemonState, Snapshot};
 use egui::RichText;
-use rsrazer_core::i18n::Lang;
-use rsrazer_core::install::{self, COMMUNITY, DOCUMENTATION, REPOSITORY};
-use rsrazer_core::theme::{self, icon, ACCENT, TEXT_DIM, TEXT_FAINT};
-use rsrazer_core::widgets::{self, Button};
-use rsrazer_core::{t, tf};
+use mirage_hub_core::i18n::Lang;
+use mirage_hub_core::install::{self, COMMUNITY, DOCUMENTATION, REPOSITORY};
+use mirage_hub_core::theme::{self, icon, ACCENT, TEXT_DIM, TEXT_FAINT};
+use mirage_hub_core::widgets::{self, Button};
+use mirage_hub_core::{t, tf};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -21,7 +21,7 @@ fn uptime(seconds: f64) -> String {
 }
 
 pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
-    widgets::page_header(ui, t("Settings"), t("How RsRazer starts and behaves, and the daemon behind it."), |_| {});
+    widgets::page_header(ui, t("Settings"), t("How Mirage Hub starts and behaves, and the daemon behind it."), |_| {});
     scroll(ui, "settings", |ui| {
         widgets::columns(ui, 0.5, super::device::TWO_COLUMNS, |ui, column| {
             if column == 0 {
@@ -59,7 +59,7 @@ fn general(app: &mut App, ui: &mut egui::Ui) {
         });
         if let Some(language) = chosen {
             app.settings.language = language;
-            rsrazer_core::i18n::set(language);
+            mirage_hub_core::i18n::set(language);
             app.refresh_tray_language();
             app.save_settings();
         }
@@ -98,7 +98,7 @@ fn general(app: &mut App, ui: &mut egui::Ui) {
 
 fn daemon(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
     widgets::panel(ui, t("Daemon"), |ui| {
-        widgets::help(ui, t("The background service that owns the devices. RsRazer is only a window onto it, so your lighting carries on with RsRazer closed."));
+        widgets::help(ui, t("The background service that owns the devices. Mirage Hub is only a window onto it, so your lighting carries on with Mirage Hub closed."));
         match &snap.daemon {
             DaemonState::Running(info) => {
                 let starting = info["state"] == "starting";
@@ -122,7 +122,7 @@ fn daemon(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
                 if !version.is_empty() && version != VERSION {
                     ui.horizontal(|ui| {
                         widgets::icon(ui, icon::WARNING, 14.0, theme::WARN);
-                        ui.add(egui::Label::new(RichText::new(tf("The daemon is version {}; RsRazer is {}. If you just upgraded, restart the daemon.", &[&version, &VERSION])).color(theme::WARN)).wrap());
+                        ui.add(egui::Label::new(RichText::new(tf("The daemon is version {}; Mirage Hub is {}. If you just upgraded, restart the daemon.", &[&version, &VERSION])).color(theme::WARN)).wrap());
                     });
                 }
                 ui.add_space(4.0);
@@ -155,7 +155,7 @@ fn daemon(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
         widgets::divider(ui);
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing = egui::vec2(8.0, 8.0);
-            let dir = rsrazer_core::paths::data_dir();
+            let dir = mirage_hub_core::paths::data_dir();
             if ui.add(Button::ghost(t("Open the data folder")).icon(icon::FOLDER).small()).clicked() {
                 let _ = std::fs::create_dir_all(&dir);
                 let _ = crate::shell::external("explorer").arg(&dir).spawn();
@@ -174,17 +174,17 @@ fn maintenance(app: &mut App, ui: &mut egui::Ui) {
             widgets::help(ui, t("Repair puts back any missing or damaged file, the Start menu entry and starting with Windows, and sets aside settings files that no longer read. Your profiles and macros are kept."));
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = 8.0;
-                if ui.add(Button::secondary(t("Repair RsRazer")).icon(icon::WRENCH)).clicked() {
+                if ui.add(Button::secondary(t("Repair Mirage Hub")).icon(icon::WRENCH)).clicked() {
                     run_setup(app, &installed, "--repair");
                 }
                 if ui.add(Button::danger(t("Uninstall…")).icon(icon::DELETE)).clicked() {
                     run_setup(app, &installed, "--uninstall");
                 }
             });
-            widgets::help(ui, t("Both are also in Windows Settings › Apps › RsRazer, and work even when RsRazer itself will not start."));
+            widgets::help(ui, t("Both are also in Windows Settings › Apps › Mirage Hub, and work even when Mirage Hub itself will not start."));
         }
         None => {
-            widgets::help(ui, t("This copy of RsRazer is not installed, so there is nothing to repair or remove: delete the folder it is in when you are done with it."));
+            widgets::help(ui, t("This copy of Mirage Hub is not installed, so there is nothing to repair or remove: delete the folder it is in when you are done with it."));
             widgets::link_button(ui, t("Get the installer"), install::RELEASES);
         }
     });
@@ -204,16 +204,16 @@ fn support(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
             }
         });
         widgets::divider(ui);
-        widgets::action_row(ui, t("Reset RsRazer's settings"), t("The library of macros, app links and window settings. Devices, profiles and key bindings are kept by the daemon and stay."), 190.0, |ui| {
+        widgets::action_row(ui, t("Reset Mirage Hub's settings"), t("The library of macros, app links and window settings. Devices, profiles and key bindings are kept by the daemon and stay."), 190.0, |ui| {
             let confirm = ui.ctx().data(|d| d.get_temp::<bool>(egui::Id::new("reset-confirm"))).unwrap_or(false);
             let text = if confirm { t("Click again to reset") } else { t("Reset…") };
             if ui.add(Button::danger(text).min_width(160.0)).clicked() {
                 if confirm {
                     app.settings = Default::default();
                     app.save_settings();
-                    rsrazer_core::i18n::set(app.settings.language);
+                    mirage_hub_core::i18n::set(app.settings.language);
                     app.refresh_tray_language();
-                    app.toast(t("RsRazer's settings were reset"), false);
+                    app.toast(t("Mirage Hub's settings were reset"), false);
                 }
                 ui.ctx().data_mut(|d| d.insert_temp(egui::Id::new("reset-confirm"), !confirm));
             }
@@ -221,7 +221,7 @@ fn support(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
     });
 }
 
-/// Start the installed setup to repair or remove RsRazer, which closes this window.
+/// Start the installed setup to repair or remove Mirage Hub, which closes this window.
 fn run_setup(app: &mut App, installed: &install::Installed, action: &str) {
     match crate::shell::external(installed.setup()).arg(action).spawn() {
         Ok(_) => {}
@@ -230,8 +230,8 @@ fn run_setup(app: &mut App, installed: &install::Installed, action: &str) {
 }
 
 fn about(app: &mut App, ui: &mut egui::Ui) {
-    widgets::panel(ui, &format!("RsRazer {VERSION}"), |ui| {
-        widgets::help(ui, t("Razer device control for Windows, written in Rust and based on OpenRazer. No Synapse, account or custom kernel driver required."));
+    widgets::panel(ui, &format!("Mirage Hub {VERSION}"), |ui| {
+        widgets::help(ui, t("Razer and Sony INZONE device control for Windows, written in Rust and based on OpenRazer and OpenInzone."));
         widgets::help(ui, t("Lighting, DPI, macros, automatically saved profiles, software Snap Tap and Chroma, plus onboard storage on supported devices."));
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing = egui::vec2(8.0, 8.0);
@@ -239,11 +239,12 @@ fn about(app: &mut App, ui: &mut egui::Ui) {
             widgets::link_button(ui, "GitHub", REPOSITORY);
             widgets::link_button(ui, t("Community"), COMMUNITY);
             widgets::link_button(ui, "OpenRazer", "https://openrazer.github.io/");
+            widgets::link_button(ui, "OpenInzone", "https://github.com/penguinwokrs/openinzone");
             widgets::link_button(ui, t("Report a problem"), &format!("{REPOSITORY}/issues"));
             if ui.add(Button::ghost(t("Updates")).icon(icon::SYNC).small()).clicked() {
                 app.page = Page::Updates;
             }
         });
-        ui.label(RichText::new(t("GPL-2.0-or-later. Not affiliated with Razer Inc. Product pictures are Razer's, shown from Razer's own site.")).size(12.0).color(TEXT_DIM));
+        ui.label(RichText::new(t("GPL-3.0-only. Independent of Razer and Sony. Upstream copyrights and licenses are preserved.")).size(12.0).color(TEXT_DIM));
     });
 }

@@ -1,6 +1,6 @@
 //! Behavioral cases from openrazer-win#16 (287c2414), exercised through the
 //! Rust daemon and HID emulator. No real input hooks or hardware are opened.
-use rsrazer_daemon::{
+use mirage_hub_daemon::{
     database::{self, DeviceInfo},
     demo::DemoBackend,
     device::{Device, StandardDevice},
@@ -93,7 +93,7 @@ impl Registry for Devices {
     fn scan(&self, _: bool) -> Result<Vec<SharedDevice>> {
         Ok(self.devices())
     }
-    fn unsupported(&self) -> Vec<(u16, String)> {
+    fn unsupported(&self) -> Vec<(u16, u16, String)> {
         vec![]
     }
     fn close(&self) -> Result<()> {
@@ -110,7 +110,7 @@ struct Fixture {
 impl Fixture {
     fn new(pids: &[u16]) -> Self {
         let path = std::env::temp_dir().join(format!(
-            "rsrazer-live-profiles-{}",
+            "mirage-hub-live-profiles-{}",
             rpc::new_token().unwrap()
         ));
         let stores = Stores::load(&path);

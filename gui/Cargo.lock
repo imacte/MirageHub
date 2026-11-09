@@ -1698,6 +1698,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "mirage-hub-classic"
+version = "2.0.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "image",
+ "rfd",
+ "serde",
+ "serde_json",
+ "tray-icon",
+ "ureq",
+ "windows-sys 0.59.0",
+ "winreg",
+ "winresource",
+]
+
+[[package]]
 name = "moxcms"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2464,23 +2481,6 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "rsrazer-classic"
-version = "1.8.2"
-dependencies = [
- "eframe",
- "egui",
- "image",
- "rfd",
- "serde",
- "serde_json",
- "tray-icon",
- "ureq",
- "windows-sys 0.59.0",
- "winreg",
- "winresource",
 ]
 
 [[package]]

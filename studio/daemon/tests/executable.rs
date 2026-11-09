@@ -1,6 +1,6 @@
 #![cfg(windows)]
-use rsrazer_core::rpc::Client as StudioClient;
-use rsrazer_daemon::rpc::{Client, Endpoint};
+use mirage_hub_core::rpc::Client as StudioClient;
+use mirage_hub_daemon::rpc::{Client, Endpoint};
 use serde_json::{json, Value};
 use std::{
     fs,
@@ -20,7 +20,7 @@ impl Session {
     fn new() -> Self {
         let directory = std::env::temp_dir().join(format!(
             "openrazer-native-exe-{} 中文 config",
-            rsrazer_daemon::rpc::new_token().unwrap()
+            mirage_hub_daemon::rpc::new_token().unwrap()
         ));
         Self {
             directory,
@@ -30,7 +30,7 @@ impl Session {
     fn command(&self, args: &[&str]) -> Command {
         let executable = std::env::var_os("OPENRAZER_TEST_DAEMON")
             .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from(env!("CARGO_BIN_EXE_rsrazer-daemon")));
+            .unwrap_or_else(|| PathBuf::from(env!("CARGO_BIN_EXE_mirage-hub-daemon")));
         let mut cmd = Command::new(executable);
         cmd.creation_flags(0x08000000)
             .args(args)
@@ -157,13 +157,27 @@ fn success(output: Output) -> String {
 }
 
 #[test]
+fn native_cli_controls_inzone_without_exposing_unsupported_h5_features() {
+    let mut session=Session::new();session.start();
+    let audio=ok(session.run(&["headset","-d","054c:0ebf","--json"]));
+    assert_eq!(audio[0]["audio"]["connected"],true);
+    let settings=audio[0]["audio"]["settings"].as_array().unwrap();
+    assert!(settings.iter().all(|s|s["key"]!="ambient_mode"));
+    let changed=ok(session.run(&["headset","volume","12","-d","054c:0ebf","--json"]));
+    assert_eq!(changed[0]["audio"]["settings"].as_array().unwrap().iter().find(|s|s["key"]=="headphone_volume").unwrap()["value"],12);
+    success(session.run(&["headset","sidetone","4","-d","0ebf","--json"]));
+    success(session.run(&["headset","auto-off","60","-d","0ebf","--json"]));
+    assert!(!session.run(&["headset","mic-mute","on","-d","0ebf","--json"]).status.success());
+}
+
+#[test]
 fn native_cli_controls_devices_and_keeps_profiles_macros_and_integrations_compatible() {
     let mut session = Session::new();
     session.start();
     let devices = ok(session.run(&["list", "--json"]));
     assert_eq!(
         devices.as_array().unwrap().len(),
-        rsrazer_daemon::demo::PRODUCT_IDS.len()
+        mirage_hub_daemon::demo::DEVICE_COUNT
     );
     assert!(devices
         .as_array()
@@ -336,7 +350,7 @@ fn native_cli_validates_before_io_and_direct_mode_needs_no_daemon() {
             .as_array()
             .unwrap()
             .len(),
-        rsrazer_daemon::demo::PRODUCT_IDS.len()
+        mirage_hub_daemon::demo::DEVICE_COUNT
     );
     assert!(!session.endpoint().exists());
     success(session.run(&["--direct", "effect", "static", "red", "-d", "0203"]));
@@ -406,12 +420,12 @@ fn native_executable_serves_studio_with_devices_profiles_macros_and_restart_pers
     let mut client = session.client();
     let version = client.call("daemon.version", json!({})).unwrap();
     assert_eq!(version["backend"], "fake-rust");
-    assert_eq!(version["devices"], rsrazer_daemon::demo::PRODUCT_IDS.len());
+    assert_eq!(version["devices"], mirage_hub_daemon::demo::DEVICE_COUNT);
     assert_eq!(version["pid"], session.child.as_ref().unwrap().id());
     let devices = client.call("devices.list", json!({})).unwrap();
     assert_eq!(
         devices.as_array().unwrap().len(),
-        rsrazer_daemon::demo::PRODUCT_IDS.len()
+        mirage_hub_daemon::demo::DEVICE_COUNT
     );
     assert!(devices
         .as_array()
@@ -423,7 +437,7 @@ fn native_executable_serves_studio_with_devices_profiles_macros_and_restart_pers
             .as_array()
             .unwrap()
             .iter()
-            .find(|d| d["type"] == kind)
+            .find(|d| d["type"] == kind && d["vid"] == 0x1532)
             .unwrap()["serial"]
             .as_str()
             .unwrap()
@@ -563,7 +577,7 @@ fn duplicate_process_leaves_the_live_daemon_and_endpoint_intact() {
             .as_array()
             .unwrap()
             .len(),
-        rsrazer_daemon::demo::PRODUCT_IDS.len()
+        mirage_hub_daemon::demo::DEVICE_COUNT
     );
     session.stop();
 }
@@ -584,7 +598,7 @@ fn invalid_bind_is_rejected_before_writing_configuration_and_occupied_port_is_re
     assert!(other.directory.join("daemon.log").is_file());
     assert_eq!(
         first.client().call("daemon.version", json!({})).unwrap()["devices"],
-        rsrazer_daemon::demo::PRODUCT_IDS.len()
+        mirage_hub_daemon::demo::DEVICE_COUNT
     );
     first.stop();
 }

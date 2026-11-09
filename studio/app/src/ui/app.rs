@@ -9,8 +9,8 @@ use crate::shell;
 use crate::updates::{Phase, Status, Updater};
 use crate::worker::{self, Command, DaemonState, Device, Shared, Snapshot};
 use egui::{pos2, vec2, Align, Align2, Color32, CornerRadius, Frame, Layout, Margin, Rect, RichText, Sense, Stroke, StrokeKind};
-use rsrazer_core::theme::{self, icon, ACCENT, BORDER_HI, NAV, SURFACE, SURFACE_HI, TEXT, TEXT_DIM, TEXT_FAINT};
-use rsrazer_core::{install, t, tf, widgets};
+use mirage_hub_core::theme::{self, icon, ACCENT, BORDER_HI, NAV, SURFACE, SURFACE_HI, TEXT, TEXT_DIM, TEXT_FAINT};
+use mirage_hub_core::{install, t, tf, widgets};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -111,10 +111,10 @@ impl App {
         #[cfg(not(windows))]
         let custom_frame = false;
         #[cfg(windows)]
-        let custom_frame = rsrazer_core::window::install(cc, true);
+        let custom_frame = mirage_hub_core::window::install(cc, true);
         if !custom_frame { cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(true)); }
         let settings = Settings::load();
-        rsrazer_core::i18n::set(settings.language);
+        mirage_hub_core::i18n::set(settings.language);
         theme::apply(&cc.egui_ctx);
         #[cfg(debug_assertions)]
         if std::env::var_os("OPENRAZER_STUDIO_DEBUG").is_some() {
@@ -308,8 +308,8 @@ impl eframe::App for App {
         self.toast_area(ctx, &snap);
         if self.custom_frame {
             #[cfg(windows)]
-            rsrazer_core::window::sync(_frame, ctx.pixels_per_point(), true);
-            rsrazer_core::chrome::show(ctx, true, true);
+            mirage_hub_core::window::sync(_frame, ctx.pixels_per_point(), true);
+            mirage_hub_core::chrome::show(ctx, true, true);
         }
         self.capture(ctx, &snap);
     }
@@ -345,8 +345,8 @@ impl App {
             ui.add_space(4.0);
             ui.vertical(|ui| {
                 ui.spacing_mut().item_spacing.y = 0.0;
-                ui.label(RichText::new("RsRazer").font(theme::bold(15.5)).color(TEXT));
-                ui.label(RichText::new("RGB CONTROL").font(theme::bold(10.0)).color(ACCENT).extra_letter_spacing(2.6));
+                ui.label(RichText::new("Mirage Hub").font(theme::bold(15.5)).color(TEXT));
+                ui.label(RichText::new("DEVICE CONTROL").font(theme::bold(10.0)).color(ACCENT).extra_letter_spacing(2.6));
             });
         });
         ui.add_space(20.0);
@@ -451,7 +451,7 @@ impl App {
             }
             ui.horizontal(|ui| {
                 ui.add_space(28.0);
-                ui.label(RichText::new(format!("RsRazer {}", env!("CARGO_PKG_VERSION"))).size(11.5).color(TEXT_FAINT));
+                ui.label(RichText::new(format!("Mirage Hub {}", env!("CARGO_PKG_VERSION"))).size(11.5).color(TEXT_FAINT));
             });
         });
         ui.add_space(4.0);

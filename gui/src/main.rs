@@ -1,12 +1,14 @@
-//! RsRazer: the control panel.
+//! Mirage Hub: the control panel.
 //!
-//! A client of the rsrazer-daemon daemon, which owns the devices. Started with
+//! A client of the mirage-hub-daemon daemon, which owns the devices. Started with
 //! `--background` (as it is at sign-in) it lives in the tray and makes sure
 //! the daemon is running; otherwise it opens its window.
 
 #![windows_subsystem = "windows"]
 
 mod daemon;
+#[path = "../../assets/data_paths.rs"]
+mod data_paths;
 #[path = "../../studio/core/src/connection.rs"]
 mod connection;
 mod images;
@@ -21,7 +23,7 @@ fn main() -> eframe::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.iter().any(|a| a == "--version" || a == "-V") {
         attach_console();
-        println!("rsrazer-classic {}", env!("CARGO_PKG_VERSION"));
+        println!("mirage-hub-classic {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
     if args.iter().any(|a| a == "--self-test") {
@@ -30,6 +32,7 @@ fn main() -> eframe::Result<()> {
         let icon_ok = icon.len() == 64 * 64 * 4 && icon[(32 * 64 + 32) * 4 + 3] == 255;
         std::process::exit(if icon_ok && daemon::embedded_daemon_ok(args.iter().any(|a| a == "--require-daemon")) { 0 } else { 1 });
     }
+    if let Err(error) = data_paths::migrate_rsrazer() { eprintln!("Settings migration failed: {error}"); return Ok(()); }
     // Older autostart entries ran this program as "daemon run"; they mean the
     // same thing now: come up in the background and keep the daemon running.
     let background = args.iter().any(|a| a == "--background" || a == "--tray")

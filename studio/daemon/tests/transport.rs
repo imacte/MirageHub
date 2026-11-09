@@ -1,4 +1,4 @@
-use rsrazer_daemon::{
+use mirage_hub_daemon::{
     hid::{HidBackend, HidHandle, HidInfo, InputReader},
     protocol::report::Report,
     recipes::Sender,

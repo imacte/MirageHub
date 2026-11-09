@@ -116,7 +116,7 @@ impl Backend {
                 let serial = d.serial();
                 let firmware = d.firmware().ok();
                 let info = d.info();
-                json!({"serial":serial,"name":info.name,"type":info.device_type,"pid":info.pid,"firmware":firmware})
+                json!({"serial":serial,"name":info.name,"type":info.device_type,"vid":info.vid,"pid":info.pid,"firmware":firmware})
             }).collect::<Vec<_>>()));
         }
         if method == "effect.set" {
@@ -220,6 +220,7 @@ fn select(devices: Vec<Value>, selector: Option<&str>) -> Result<Vec<Value>> {
         .filter(|d| {
             string(d, "serial").to_lowercase() == needle
                 || format!("{:04x}", d["pid"].as_u64().unwrap_or_default()) == needle
+                || format!("{:04x}:{:04x}",d["vid"].as_u64().unwrap_or(0x1532),d["pid"].as_u64().unwrap_or_default()) == needle
         })
         .cloned()
         .collect();
@@ -232,7 +233,7 @@ fn select(devices: Vec<Value>, selector: Option<&str>) -> Result<Vec<Value>> {
         .collect();
     if matched.is_empty() {
         return Err(Error::Invalid(format!(
-            "no device matches {selector:?}; try: rsrazer-daemon list"
+            "no device matches {selector:?}; try: mirage-hub-daemon list"
         )));
     }
     Ok(matched)
@@ -349,7 +350,7 @@ fn colour_zones(caps: &Value) -> Vec<String> {
 }
 fn summary(device: &Value) -> Value {
     json!({"name":device["name"],"serial":device["serial"],"type":device["type"],
-        "pid":format!("{:04x}",device["pid"].as_u64().unwrap_or_default()),"firmware":device["firmware"]})
+        "vid":format!("{:04x}",device["vid"].as_u64().unwrap_or(0x1532)),"pid":format!("{:04x}",device["pid"].as_u64().unwrap_or_default()),"firmware":device["firmware"]})
 }
 
 pub(super) const EFFECTS: &[&str] = &[
@@ -470,6 +471,8 @@ pub(super) fn validate(args: &Arguments) -> Result<()> {
                     .get(2)
                     .ok_or_else(|| Error::Invalid(format!("{setting} needs a value")))?;
                 match setting.as_str() {
+                    "volume" | "balance" | "mic-level" | "ambient" | "ambient-level" | "auto-off" | "voice-language" => {integer(value)?;}
+                    "mute" | "mic-mute" | "voice-focus" | "voice-guidance" | "bluetooth-switch" => {on_off(value)?;}
                     "sidetone" => {
                         if !["on", "off"].contains(&value.as_str()) {
                             integer(value)?;
@@ -573,7 +576,7 @@ pub(super) fn run(args: &Arguments) -> Result<i32> {
             print_json(&json!(devices.iter().map(summary).collect::<Vec<_>>()));
         } else if devices.is_empty() {
             println!(
-                "No supported Razer devices found. Run rsrazer-daemon doctor to diagnose detection."
+                "No supported devices found. Run mirage-hub-daemon doctor to diagnose detection."
             );
             return Ok(1);
         } else {
@@ -747,8 +750,7 @@ pub(super) fn run(args: &Arguments) -> Result<i32> {
                             backend.device(serial, "get_battery_level", json!([]), None)?;
                         result["charging"] =
                             backend.device(serial, "is_charging", json!([]), None)?;
-                        result["idle_time"] =
-                            backend.device(serial, "get_idle_time", json!([]), None)?;
+                        if caps["idle_time"] == true { result["idle_time"] = backend.device(serial, "get_idle_time", json!([]), None)?; }
                     }
                     Ok(Some(result))
                 }
@@ -928,7 +930,24 @@ fn apply_effect(
 
 fn set_headset(backend: &mut Backend, serial: &str, setting: &str, value: &str) -> Result<()> {
     let (method, args) = match setting {
+        "volume" => ("set_headphone_volume",json!([integer(value)?])),
+        "balance" => ("set_game_chat_balance",json!([integer(value)?])),
+        "mic-level" => ("set_microphone_level",json!([integer(value)?])),
+        "ambient" => ("set_ambient_mode",json!([integer(value)?])),
+        "ambient-level" => ("set_ambient_level",json!([integer(value)?])),
+        "auto-off" => ("set_auto_power_off",json!([integer(value)?])),
+        "voice-language" => ("set_voice_guidance_language",json!([integer(value)?])),
+        "mute" => ("set_headphone_muted",json!([on_off(value)?])),
+        "mic-mute" => ("set_microphone_muted",json!([on_off(value)?])),
+        "voice-focus" => ("set_voice_focus",json!([on_off(value)?])),
+        "voice-guidance" => ("set_voice_guidance",json!([on_off(value)?])),
+        "bluetooth-switch" => ("set_bluetooth_auto_switch",json!([on_off(value)?])),
         "sidetone" => {
+            if backend.call("device.capabilities", json!({"serial":serial}))?["protocol"] == "inzone" {
+                let level=if value=="off" {0} else if value=="on" {return Err(Error::Invalid("INZONE sidetone needs a level from 0 to 10".into()));} else {integer(value)?};
+                backend.device(serial,"set_sidetone_level",json!([level]),None)?;
+                return Ok(());
+            }
             if !["on", "off"].contains(&value) {
                 backend.device(serial, "set_sidetone_level", json!([integer(value)?]), None)?;
             }

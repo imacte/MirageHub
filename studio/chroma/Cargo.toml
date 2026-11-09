@@ -1,6 +1,6 @@
 [package]
-name = "rsrazer-chroma"
-description = "A stand-in for Razer's Chroma SDK DLL that passes games' lighting to the rsrazer-daemon daemon"
+name = "mirage-hub-chroma"
+description = "A stand-in for Razer's Chroma SDK DLL that passes games' lighting to the mirage-hub-daemon daemon"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

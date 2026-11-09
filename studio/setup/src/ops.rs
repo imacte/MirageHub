@@ -1,22 +1,22 @@
-//! Installing, repairing and removing RsRazer: the work itself, without a window.
+//! Installing, repairing and removing Mirage Hub: the work itself, without a window.
 //!
 //! Every step says what it is doing through `progress`, and every step that
 //! finds something to fix says so in the report, so the window -- or the log
 //! of a silent run -- can tell the user exactly what was done.
 
-use rsrazer_core::install::{self, Manifest, Options, APP_EXE, APP_NAME, DAEMON_EXE, MANIFEST, SETUP_EXE};
-use rsrazer_core::{paths, process, t, tf};
+use mirage_hub_core::install::{self, Manifest, Options, APP_EXE, APP_NAME, DAEMON_EXE, MANIFEST, SETUP_EXE};
+use mirage_hub_core::{paths, process, t, tf};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg(payload)]
-const APP: Option<&[u8]> = Some(include_bytes!(concat!(env!("OUT_DIR"), "/rsrazer.exe")));
+const APP: Option<&[u8]> = Some(include_bytes!(concat!(env!("OUT_DIR"), "/mirage-hub.exe")));
 #[cfg(not(payload))]
 const APP: Option<&[u8]> = None;
 #[cfg(payload)]
-const DAEMON: Option<&[u8]> = Some(include_bytes!(concat!(env!("OUT_DIR"), "/rsrazer-daemon.exe")));
+const DAEMON: Option<&[u8]> = Some(include_bytes!(concat!(env!("OUT_DIR"), "/mirage-hub-daemon.exe")));
 #[cfg(not(payload))]
 const DAEMON: Option<&[u8]> = None;
 const LICENSE: &str = include_str!("../../../LICENSE");
@@ -42,6 +42,7 @@ fn payload() -> Result<Vec<File>, String> {
         (DAEMON_EXE, std::borrow::Cow::Borrowed(daemon)),
         (SETUP_EXE, std::borrow::Cow::Owned(setup)),
         ("LICENSE.txt", std::borrow::Cow::Borrowed(LICENSE.as_bytes())),
+        ("THIRD-PARTY-NOTICES.txt", std::borrow::Cow::Borrowed(include_bytes!("../../../THIRD-PARTY-NOTICES.md"))),
     ])
 }
 
@@ -87,6 +88,15 @@ fn desktop_link() -> PathBuf {
     desktop().join(format!("{APP_NAME}.lnk"))
 }
 
+fn remove_legacy_shortcuts() {
+    let menu = start_menu().with_file_name("RsRazer");
+    for name in ["RsRazer.lnk", "Repair or remove RsRazer.lnk", "修复或卸载 RsRazer.lnk", "Восстановить или удалить RsRazer.lnk"] {
+        let _ = std::fs::remove_file(menu.join(name));
+    }
+    let _ = std::fs::remove_dir(menu);
+    let _ = std::fs::remove_file(desktop().join("RsRazer.lnk"));
+}
+
 fn shortcut(target: &Path, arguments: Option<&str>, link: &Path, description: &str) -> Result<(), String> {
     if let Some(dir) = link.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
@@ -100,10 +110,11 @@ fn shortcut(target: &Path, arguments: Option<&str>, link: &Path, description: &s
 }
 
 /// The options as they stand now, for an update. The manifest has what was
-/// chosen when installing, and RsRazer's own settings change some of that
+/// chosen when installing, and Mirage Hub's own settings change some of that
 /// since: an update must not quietly put those back.
 pub fn options_in_place(dir: &Path) -> Options {
-    Options { start_menu: start_menu().exists(), desktop: desktop_link().exists(), autostart: install::autostart_points_into(dir), path: install::on_user_path(dir) }
+    let legacy=install::legacy_installed().is_some_and(|old|install::same_path(&old.dir,dir));
+    Options { start_menu: start_menu().exists() || legacy && start_menu().with_file_name("RsRazer").exists(), desktop: desktop_link().exists() || legacy && desktop().join("RsRazer.lnk").exists(), autostart: install::autostart_points_into(dir), path: install::on_user_path(dir) }
 }
 
 // -- installing -------------------------------------------------------------------------
@@ -136,16 +147,24 @@ fn put(path: &Path, bytes: &[u8]) -> Result<bool, String> {
 /// also looks over the settings files and the daemon's endpoint.
 pub fn install(dir: &Path, options: &Options, repair: bool, progress: &dyn Progress) -> Result<(), String> {
     let files = payload()?;
-    progress.step(t("Closing RsRazer and the daemon…").into(), 0.05);
+    let legacy = install::legacy_installed();
+    progress.step(t("Closing Mirage Hub and the daemon…").into(), 0.05);
     let stuck = process::stop_everything_in(dir);
     if !stuck.is_empty() {
         progress.note(tf("Could not close: {}", &[&stuck.join(", ")]));
     }
-    // A daemon from somewhere else (a legacy installation or the classic panel) would be the one
-    // RsRazer talks to; stop it too, so this version's starts in its place.
-    if rsrazer_core::rpc::shutdown_daemon(Duration::from_secs(10)) {
-        progress.note(t("Stopped the running daemon; RsRazer starts this version's").into());
+    if let Some(old) = &legacy {
+        if !install::same_path(dir, &old.dir) {
+            let stuck = process::stop_everything_in(&old.dir);
+            if !stuck.is_empty() { return Err(format!("Cannot close RsRazer: {}",stuck.join(", "))); }
+        }
     }
+    // A daemon from somewhere else (a legacy installation or the classic panel) would be the one
+    // Mirage Hub talks to; stop it too, so this version's starts in its place.
+    if mirage_hub_core::rpc::shutdown_daemon(Duration::from_secs(10)) {
+        progress.note(t("Stopped the running daemon; Mirage Hub starts this version's").into());
+    }
+    mirage_hub_core::data_paths::migrate_rsrazer().map_err(|e|format!("Cannot migrate RsRazer settings: {e}"))?;
 
     progress.step(tf("Copying files to {}…", &[&dir.display()]), 0.15);
     std::fs::create_dir_all(dir).map_err(|e| format!("cannot create {}: {e}", dir.display()))?;
@@ -177,13 +196,13 @@ pub fn install(dir: &Path, options: &Options, repair: bool, progress: &dyn Progr
     let app = dir.join(APP_EXE);
     let menu = start_menu();
     if options.start_menu {
-        shortcut(&app, None, &menu.join(format!("{APP_NAME}.lnk")), t("Razer device control"))?;
-        shortcut(&dir.join(SETUP_EXE), Some("--maintenance"), &menu.join(format!("{}.lnk", t("Repair or remove RsRazer"))), t("Repair or remove RsRazer"))?;
+        shortcut(&app, None, &menu.join(format!("{APP_NAME}.lnk")), t("Razer and Sony INZONE device control"))?;
+        shortcut(&dir.join(SETUP_EXE), Some("--maintenance"), &menu.join(format!("{}.lnk", t("Repair or remove Mirage Hub"))), t("Repair or remove Mirage Hub"))?;
     } else if menu.exists() {
         let _ = std::fs::remove_dir_all(&menu);
     }
     if options.desktop {
-        shortcut(&app, None, &desktop_link(), t("Razer device control"))?;
+        shortcut(&app, None, &desktop_link(), t("Razer and Sony INZONE device control"))?;
     } else {
         let _ = std::fs::remove_file(desktop_link());
     }
@@ -191,10 +210,22 @@ pub fn install(dir: &Path, options: &Options, repair: bool, progress: &dyn Progr
     progress.step(t("Starting with Windows…").into(), 0.88);
     if options.autostart {
         install::set_autostart(Some(&install::autostart_command(&app)))?;
-    } else if install::autostart_points_into(dir) {
+    } else if install::autostart_points_into(dir) || legacy.as_ref().is_some_and(|old|install::autostart_points_into(&old.dir)) {
         install::set_autostart(None)?;
     }
     install::set_on_user_path(dir, options.path).map_err(|e| e.to_string())?;
+
+    if let Some(old) = legacy {
+        // Only the obsolete product executables/known shortcuts are removed.
+        // Other files in a custom installation folder are left in place.
+        for name in ["rsrazer.exe", "rsrazer-daemon.exe"] {
+            let path = old.dir.join(name);
+            if path.is_file() { std::fs::remove_file(path).map_err(|e|e.to_string())?; }
+        }
+        if !install::same_path(dir,&old.dir) { install::set_on_user_path(&old.dir,false).map_err(|e|e.to_string())?; }
+        remove_legacy_shortcuts();
+        install::unregister_legacy().map_err(|e|e.to_string())?;
+    }
 
     if repair {
         progress.step(t("Checking settings files…").into(), 0.93);
@@ -210,7 +241,7 @@ fn days() -> i64 {
 
 /// Set aside settings files that no longer read, and a stale endpoint.
 ///
-/// Everything a file held is kept, renamed beside it: the daemon and RsRazer
+/// Everything a file held is kept, renamed beside it: the daemon and Mirage Hub
 /// start afresh rather than refusing to, and nothing is lost for good.
 pub fn check_settings(progress: &dyn Progress) {
     let data = paths::data_dir();
@@ -231,8 +262,8 @@ pub fn check_settings(progress: &dyn Progress) {
             }
         }
     }
-    let endpoint = rsrazer_core::rpc::Endpoint::path();
-    if endpoint.exists() && rsrazer_core::rpc::Client::connect().is_err() && std::fs::remove_file(&endpoint).is_ok() {
+    let endpoint = mirage_hub_core::rpc::Endpoint::path();
+    if endpoint.exists() && mirage_hub_core::rpc::Client::connect().is_err() && std::fs::remove_file(&endpoint).is_ok() {
         progress.note(t("Removed a leftover note of a daemon that is no longer running").into());
     }
 }
@@ -241,15 +272,16 @@ pub fn check_settings(progress: &dyn Progress) {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Removal {
-    /// RsRazer's own settings and macro library.
+    /// Mirage Hub's own settings and macro library.
     pub settings: bool,
-    /// Everything in `%LOCALAPPDATA%\rsrazer`: device settings,
+    /// Everything in `%LOCALAPPDATA%\mirage-hub`: device settings,
     /// profiles, key bindings, logs -- shared with the classic panel and command line.
     pub all_data: bool,
 }
 
 pub fn uninstall(dir: &Path, removal: Removal, progress: &dyn Progress) -> Result<(), String> {
-    progress.step(t("Closing RsRazer and the daemon…").into(), 0.1);
+    let legacy = install::legacy_installed().is_some_and(|old| install::same_path(&old.dir, dir));
+    progress.step(t("Closing Mirage Hub and the daemon…").into(), 0.1);
     let stuck = process::stop_everything_in(dir);
     if !stuck.is_empty() {
         return Err(tf("These are still running and could not be closed: {}. Close them and try again.", &[&stuck.join(", ")]));
@@ -257,15 +289,20 @@ pub fn uninstall(dir: &Path, removal: Removal, progress: &dyn Progress) -> Resul
     progress.step(t("Removing shortcuts and settings in Windows…").into(), 0.3);
     if install::autostart_points_into(dir) {
         install::set_autostart(None)?;
-        progress.note(t("RsRazer no longer starts with Windows").into());
+        progress.note(t("Mirage Hub no longer starts with Windows").into());
     }
     let _ = install::set_on_user_path(dir, false);
-    let menu = start_menu();
-    if menu.exists() {
-        let _ = std::fs::remove_dir_all(&menu);
+    if legacy {
+        remove_legacy_shortcuts();
+        install::unregister_legacy().map_err(|e| e.to_string())?;
+    } else {
+        let menu = start_menu();
+        if menu.exists() {
+            let _ = std::fs::remove_dir_all(&menu);
+        }
+        let _ = std::fs::remove_file(desktop_link());
+        install::unregister().map_err(|e| e.to_string())?;
     }
-    let _ = std::fs::remove_file(desktop_link());
-    install::unregister().map_err(|e| e.to_string())?;
     let taken = take_back_chroma();
     if taken > 0 {
         progress.note(tf("Took the Chroma DLL back from {} game(s)", &[&taken]));
@@ -274,7 +311,10 @@ pub fn uninstall(dir: &Path, removal: Removal, progress: &dyn Progress) -> Resul
     progress.step(tf("Deleting {}…", &[&dir.display()]), 0.55);
     let manifest = Manifest::read(dir).unwrap_or_default();
     let mut names: Vec<String> = manifest.files.iter().map(|(name, _)| name.clone()).collect();
-    for known in [APP_EXE, DAEMON_EXE, SETUP_EXE, "LICENSE.txt", MANIFEST] {
+    if legacy {
+        names.extend(["rsrazer.exe".into(), "rsrazer-daemon.exe".into()]);
+    }
+    for known in [APP_EXE, DAEMON_EXE, SETUP_EXE, "LICENSE.txt", "THIRD-PARTY-NOTICES.txt", MANIFEST] {
         if !names.iter().any(|n| n == known) {
             names.push(known.to_string());
         }
@@ -323,10 +363,10 @@ pub fn uninstall(dir: &Path, removal: Removal, progress: &dyn Progress) -> Resul
 }
 
 /// Take the stand-in for Razer's Chroma SDK DLL back from beside the games
-/// RsRazer gave it to: with no daemon to pass their lighting to, it would only
+/// Mirage Hub gave it to: with no daemon to pass their lighting to, it would only
 /// tell them Synapse is there. A DLL without its mark is Razer's, and stays.
 fn take_back_chroma() -> usize {
-    const MARK: &[u8] = b"rsrazer-chroma";
+    const MARK: &[u8] = b"mirage-hub-chroma";
     let Ok(text) = std::fs::read_to_string(paths::studio_dir().join("settings.json")) else { return 0 };
     let Ok(settings) = serde_json::from_str::<serde_json::Value>(&text) else { return 0 };
     let mut taken = 0;
@@ -334,7 +374,7 @@ fn take_back_chroma() -> usize {
         let Some(dir) = Path::new(game).parent() else { continue };
         for name in ["RzChromaSDK64.dll", "RzChromaSDK.dll"] {
             let dll = dir.join(name);
-            let ours = std::fs::read(&dll).is_ok_and(|bytes| bytes.windows(MARK.len()).any(|w| w == MARK));
+            let ours = std::fs::read(&dll).is_ok_and(|bytes| [MARK, b"rsrazer-chroma", b"openrazer-chroma"].into_iter().any(|mark| bytes.windows(mark.len()).any(|w| w == mark)));
             if ours && std::fs::remove_file(&dll).is_ok() {
                 taken += 1;
             }
@@ -345,7 +385,7 @@ fn take_back_chroma() -> usize {
 
 /// Have Windows delete `file` once this process has exited.
 ///
-/// The installer that removes RsRazer is a copy of itself in the temporary
+/// The installer that removes Mirage Hub is a copy of itself in the temporary
 /// folder; it cannot delete its own running file, so a hidden command waits a
 /// moment and deletes it.
 pub fn delete_after_exit(file: &Path) {

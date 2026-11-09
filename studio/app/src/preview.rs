@@ -17,7 +17,7 @@ pub const REACTIVE_FADE: f32 = 1.0;
 pub const RIPPLE_DURATION: f32 = 0.8;
 
 pub fn hue(h: f32) -> Color32 {
-    rsrazer_core::widgets::hsv(h, 1.0, 1.0)
+    mirage_hub_core::widgets::hsv(h, 1.0, 1.0)
 }
 
 fn mix(a: Color32, b: Color32, t: f32) -> Color32 {
@@ -54,7 +54,7 @@ impl Kind {
     pub const ALL: [Kind; 8] = [Kind::Static, Kind::Gradient, Kind::Breath, Kind::Spectrum, Kind::Wave, Kind::Starlight, Kind::Reactive, Kind::Ripple];
 
     pub fn label(self) -> &'static str {
-        use rsrazer_core::t;
+        use mirage_hub_core::t;
         match self {
             Kind::Static => t("Static"),
             Kind::Gradient => t("Gradient"),
@@ -68,7 +68,7 @@ impl Kind {
     }
 
     pub fn hint(self) -> &'static str {
-        use rsrazer_core::t;
+        use mirage_hub_core::t;
         match self {
             Kind::Static => t("One steady colour."),
             Kind::Gradient => t("Fades from one colour to another, left to right."),

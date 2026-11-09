@@ -248,7 +248,7 @@ mod tests {
     impl Directory {
         fn new() -> Self {
             let path = std::env::temp_dir().join(format!(
-                "rsrazer-snaptap-test-{}",
+                "mirage-hub-snaptap-test-{}",
                 crate::rpc::new_token().unwrap()
             ));
             fs::create_dir(&path).unwrap();

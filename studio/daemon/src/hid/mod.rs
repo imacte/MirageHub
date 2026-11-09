@@ -50,4 +50,8 @@ pub trait HidBackend: Send + Sync {
     fn enumerate(&self, vendor_id: Option<u16>, product_id: Option<u16>) -> Result<Vec<HidInfo>>;
     fn open(&self, info: &HidInfo) -> Result<Box<dyn HidHandle>>;
     fn open_input(&self, info: &HidInfo) -> Result<Box<dyn InputReader>>;
+    /// Interrupt output, used by Sony receivers rather than HID feature reports.
+    fn write_interrupt(&self, info: &HidInfo, data: &[u8]) -> Result<()> {
+        self.open(info)?.send_output(data)
+    }
 }

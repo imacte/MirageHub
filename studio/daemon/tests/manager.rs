@@ -1,4 +1,4 @@
-use rsrazer_daemon::{
+use mirage_hub_daemon::{
     ble::{Advertiser, BleBackend, GattLink},
     database,
     hid::{HidBackend, HidHandle, HidInfo, InputReader},
@@ -25,8 +25,7 @@ struct Hid {
 }
 impl HidBackend for Hid {
     fn enumerate(&self, vid: Option<u16>, _: Option<u16>) -> Result<Vec<HidInfo>> {
-        assert_eq!(vid, Some(0x1532));
-        Ok(self.devices.lock().unwrap().clone())
+        Ok(self.devices.lock().unwrap().iter().filter(|i|vid.is_none_or(|v|v==i.vendor_id)).cloned().collect())
     }
     fn open(&self, _: &HidInfo) -> Result<Box<dyn HidHandle>> {
         self.opens.fetch_add(1, Ordering::SeqCst);
@@ -81,6 +80,21 @@ fn mouse() -> HidInfo {
 }
 
 #[test]
+fn sony_control_collections_are_distinct_from_razer_and_each_other() {
+    let hid=Arc::new(Hid::default());
+    let control=HidInfo{vendor_id:0x054c,product_id:0x0ebf,path:"sony-a".into(),usage_page:0xff04,input_length:64,output_length:64,..Default::default()};
+    *hid.devices.lock().unwrap()=vec![mouse(),control.clone(),HidInfo{path:"sony-b".into(),..control.clone()},HidInfo{path:"sony-consumer".into(),usage_page:0x000c,..control}];
+    let manager=DeviceManager::new(hid.clone(),None,Persistence::memory().shared());
+    let devices=manager.scan_usb().unwrap();
+    assert_eq!(devices.len(),3);
+    let sony:Vec<_>=devices.iter().filter(|d|lock_device(d).info().vid==0x054c).collect();
+    assert_eq!(sony.len(),2);
+    assert_ne!(lock_device(sony[0]).serial(),lock_device(sony[1]).serial());
+    assert_eq!(lock_device(sony[0]).capabilities()["protocol"],"inzone");
+    assert_eq!(hid.opens.load(Ordering::SeqCst),0);
+}
+
+#[test]
 fn hid_rescans_keep_the_same_object_then_close_removed_handles_and_report_unknown_models() {
     let hid = Arc::new(Hid::default());
     let info = mouse();
@@ -104,7 +118,7 @@ fn hid_rescans_keep_the_same_object_then_close_removed_handles_and_report_unknow
     }];
     assert!(manager.scan(false).unwrap().is_empty());
     assert_eq!(hid.closes.load(Ordering::SeqCst), 1);
-    assert_eq!(manager.unsupported(), [(0xffff, "Unknown Razer".into())]);
+    assert_eq!(manager.unsupported(), [(0x1532, 0xffff, "Unknown Razer".into())]);
     manager.close().unwrap();
 }
 

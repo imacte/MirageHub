@@ -1,14 +1,14 @@
 [package]
-name = "rsrazer-classic"
-version = "1.8.2"
+name = "mirage-hub-classic"
+version = "2.0.0"
 edition = "2021"
-description = "Control panel for rsrazer-daemon: Razer device control on Windows"
-license = "GPL-2.0-or-later"
-repository = "https://github.com/imacte/RsRazer"
+description = "Control panel for mirage-hub-daemon: Razer device control on Windows"
+license = "GPL-3.0-only"
+repository = "https://github.com/imacte/MirageHub"
 publish = false
 
 [[bin]]
-name = "rsrazer-classic"
+name = "mirage-hub-classic"
 path = "src/main.rs"
 
 [dependencies]

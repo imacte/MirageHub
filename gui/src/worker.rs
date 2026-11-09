@@ -30,6 +30,7 @@ pub struct Device {
     pub serial: String,
     pub name: String,
     pub kind: String,
+    pub vid: u16,
     pub pid: u16,
     pub image: Option<String>,
     /// A picture per colour it is sold in, when it cannot say which it is.
@@ -514,8 +515,9 @@ impl Worker {
 fn parse_device(row: &Value) -> Device {
     Device {
         serial: row["serial"].as_str().unwrap_or_default().to_string(),
-        name: row["name"].as_str().unwrap_or("Razer device").to_string(),
+        name: row["name"].as_str().unwrap_or("Device").to_string(),
         kind: row["type"].as_str().unwrap_or("device").to_string(),
+        vid: row["vid"].as_u64().unwrap_or(0x1532) as u16,
         pid: row["pid"].as_u64().unwrap_or(0) as u16,
         image: row["image"].as_str().filter(|s| !s.is_empty()).map(str::to_string),
         images: row["images"]

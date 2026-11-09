@@ -45,6 +45,7 @@ impl Default for ZoneEdit {
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct AudioEdit {
+    pub settings: HashMap<String, f64>,
     pub sidetone: bool,
     pub sidetone_level: f64,
     pub equalizer: bool,
@@ -56,6 +57,7 @@ pub struct AudioEdit {
 impl AudioEdit {
     fn read(audio: &Value) -> AudioEdit {
         AudioEdit {
+            settings: audio["settings"].as_array().into_iter().flatten().filter_map(|s| Some((s["key"].as_str()?.to_string(), s["value"].as_f64()?))).collect(),
             sidetone: audio["sidetone"] == true,
             sidetone_level: audio["sidetone_level"].as_f64().unwrap_or(0.0),
             equalizer: audio["equalizer"] == true,
@@ -97,7 +99,7 @@ impl DeviceEdit {
 
     pub fn refresh(&mut self, device: &Device, detail: &Detail, snap: &Snapshot) {
         let Some(caps) = detail.caps.as_ref() else { return };
-        // The headset is the one holding these, and it can be used without RsRazer.
+        // The headset is the one holding these, and it can be used without Mirage Hub.
         if let Some(audio) = detail.audio.as_ref().filter(|_| !self.recently_touched()) {
             self.audio = AudioEdit::read(audio);
         }

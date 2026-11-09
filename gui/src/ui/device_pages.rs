@@ -253,7 +253,7 @@ pub fn info(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapshot) 
             };
             row("Name", device.name.clone());
             row("Type", kind_label(&device.kind).to_string());
-            row("USB id", format!("1532:{:04X}", device.pid));
+            row("USB id", format!("{:04X}:{:04X}", device.vid, device.pid));
             row("Serial", device.serial.clone());
             row("Firmware", device.firmware.clone().unwrap_or_else(|| "—".into()));
             if let Some(dims) = caps["matrix_dimensions"].as_array() {

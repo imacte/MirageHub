@@ -260,7 +260,7 @@ impl KeyboardHook {
         let (thread_id, is_running, stopping) = (id.clone(), running.clone(), stop.clone());
         let (ready, receive) = mpsc::sync_channel(1);
         let worker = thread::Builder::new()
-            .name("rsrazer-keyboard".into())
+            .name("mirage-hub-keyboard".into())
             .spawn(move || unsafe {
                 let mut message: MSG = std::mem::zeroed();
                 PeekMessageW(&mut message, ptr::null_mut(), 0, 0, PM_NOREMOVE);

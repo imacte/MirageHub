@@ -1,6 +1,6 @@
 //! Wire expectations from openrazer-win #14 tests/test_keyswitch.py at
 //! 9fe3e5dba5899e0eb6e58beda0b4f732a92210af. No physical device is opened.
-use rsrazer_daemon::{
+use mirage_hub_daemon::{
     database,
     demo::DemoBackend,
     device::{Device, StandardDevice},

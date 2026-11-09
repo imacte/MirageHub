@@ -1,9 +1,9 @@
-//! RsRazer's own settings: how the window behaves, the macro library, and
+//! Mirage Hub's own settings: how the window behaves, the macro library, and
 //! which profile each app switches to.  The daemon keeps everything about
 //! the devices themselves.
 
 use crate::layout::Variant;
-use rsrazer_core::i18n::Lang;
+use mirage_hub_core::i18n::Lang;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -68,7 +68,7 @@ impl Default for Settings {
 
 impl Settings {
     pub fn path() -> PathBuf {
-        rsrazer_core::paths::studio_dir().join("settings.json")
+        mirage_hub_core::paths::studio_dir().join("settings.json")
     }
 
     /// The saved settings; a file that will not read is set aside, not lost.
@@ -86,7 +86,7 @@ impl Settings {
 
     pub fn save(&self) {
         if let Ok(text) = serde_json::to_string_pretty(self) {
-            let _ = rsrazer_core::paths::write_atomic(&Self::path(), text.as_bytes());
+            let _ = mirage_hub_core::paths::write_atomic(&Self::path(), text.as_bytes());
         }
     }
 

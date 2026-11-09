@@ -9,7 +9,7 @@ use windows_sys::Win32::{
     UI::WindowsAndMessaging::*,
 };
 
-const CLASS: &str = "RsRazer.TrayHost";
+const CLASS: &str = "Mirage Hub.TrayHost";
 const OPEN: u32 = WM_APP + 21;
 const RESTART: u32 = WM_APP + 22;
 const QUIT: u32 = WM_APP + 23;
@@ -38,7 +38,7 @@ struct Runtime {
 impl Runtime {
     fn new() -> Arc<Self> {
         let settings = Settings::load();
-        rsrazer_core::i18n::set(settings.language);
+        mirage_hub_core::i18n::set(settings.language);
         let shared = Shared::default();
         let serials = Arc::new(Mutex::new(Vec::new()));
         let changed = Arc::new(Changed::default());
@@ -64,11 +64,11 @@ impl Drop for UiChild {
 }
 
 fn launch(runtime: Arc<Runtime>, window: usize) -> io::Result<UiChild> {
-    let logs = rsrazer_core::paths::studio_dir();
+    let logs = mirage_hub_core::paths::studio_dir();
     std::fs::create_dir_all(&logs)?;
     let stderr = std::fs::OpenOptions::new().create(true).append(true).open(logs.join("ui.log"))?;
     let mut process = std::process::Command::new(std::env::current_exe()?)
-        .arg("--ui").env("RSRAZER_UI_CHILD", "1")
+        .arg("--ui").env("MIRAGE_HUB_UI_CHILD", "1")
         .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(stderr).spawn()?;
     let mut input = process.stdin.take().expect("piped stdin");
     let output = process.stdout.take().expect("piped stdout");
@@ -146,7 +146,7 @@ pub fn run(background: bool) -> io::Result<()> {
         return Ok(());
     }
     let class = wide(CLASS);
-    let title = wide("RsRazer Background");
+    let title = wide("Mirage Hub Background");
     let window = unsafe {
         let instance = GetModuleHandleW(std::ptr::null());
         let descriptor = WNDCLASSW { lpfnWndProc: Some(window_proc), hInstance: instance, lpszClassName: class.as_ptr(), ..std::mem::zeroed() };
@@ -157,7 +157,7 @@ pub fn run(background: bool) -> io::Result<()> {
     let address = window as usize;
     let runtime = Runtime::new();
     let tray = Tray::new(move |action| post(address, match action { TrayAction::Open => OPEN, TrayAction::RestartDaemon => RESTART, TrayAction::Quit => QUIT }));
-    rsrazer_core::process::listen_for_quit(move || post(address, QUIT));
+    mirage_hub_core::process::listen_for_quit(move || post(address, QUIT));
     unsafe { SetTimer(window, 1, 500, None); }
     let mut child: Option<UiChild> = None;
     let mut reopen = !background || tray.is_none();
@@ -188,7 +188,7 @@ pub fn run(background: bool) -> io::Result<()> {
                 }
                 RESTART => { let _ = runtime.commands.send(Command::RestartDaemon); }
                 SETTINGS => {
-                    rsrazer_core::i18n::set(runtime.rules.lock().unwrap().language);
+                    mirage_hub_core::i18n::set(runtime.rules.lock().unwrap().language);
                     if let Some(tray) = &tray { tray.refresh_language(); }
                 }
                 QUIT => {

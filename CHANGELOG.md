@@ -6,6 +6,22 @@ uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-09
+
+### Added
+
+- Sony INZONE support from OpenInzone: shared HID control and H9/H7 serial transport, model detection, device-reported audio settings, per-part battery readings and the matching Windows microphone level.
+- H5 hardware verification for volume, game/chat balance, sidetone, voice-language reads and all power-off choices. Preserve other fields during writes and hide unsupported controls.
+- Multi-vendor discovery and USB identifiers, an H5 emulator, protocol fixtures and an installer migration smoke test.
+
+### Changed
+
+- Rename RsRazer to **Mirage Hub**, including the application, executable names, installer, repository, website, documentation and About pages. Keep the approved green line emblem.
+- Move data to `%LOCALAPPDATA%\mirage-hub`; copy durable RsRazer settings once without overwriting new settings or deleting the originals. Do not copy old daemon tokens or reuse openrazer-win data.
+- Distribute the combined work under GPL-3.0-only, retaining upstream copyrights and license notices.
+
+The first upgrade from RsRazer requires manually running `mirage-hub-setup.exe`, because older update clients restrict downloads to the former repository address. H5 was tested here; Buds/H9/H9 II support relies on upstream hardware findings. Sony APO equalization, spatial audio, firmware flashing and the OpenInzone Stream Deck plugin are not included.
+
 ## [1.8.2] - 2026-11-08
 
 ### Changed

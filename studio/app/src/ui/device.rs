@@ -6,9 +6,9 @@ use super::app::{draw_picture, kind_label, scroll, App};
 use crate::settings::AppRule;
 use crate::worker::{Command, Created, Device, Snapshot, Then};
 use egui::{vec2, Align, CornerRadius, Frame, Layout, Margin, Rect, RichText, Sense, Stroke};
-use rsrazer_core::theme::{self, icon, ACCENT, BORDER, SURFACE_HI, TEXT, TEXT_DIM};
-use rsrazer_core::widgets::{self, Button, IconButton};
-use rsrazer_core::{t, tf};
+use mirage_hub_core::theme::{self, icon, ACCENT, BORDER, SURFACE_HI, TEXT, TEXT_DIM};
+use mirage_hub_core::widgets::{self, Button, IconButton};
+use mirage_hub_core::{t, tf};
 use serde_json::json;
 
 const DPI_PRESETS: [i64; 8] = [400, 800, 1200, 1600, 3200, 6400, 12800, 25600];
@@ -172,7 +172,7 @@ fn header(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapshot) {
             let (rect, response) = ui.allocate_exact_size(vec2(text_width, 30.0), Sense::hover());
             ui.painter().galley(egui::pos2(rect.left(), rect.center().y - name.size().y / 2.0), name, TEXT);
             response.on_hover_text(&device.name);
-            let mut facts = vec![kind_label(&device.kind).to_string(), device.connection_label(caps).into(), format!("1532:{:04X}", device.pid)];
+            let mut facts = vec![kind_label(&device.kind).to_string(), device.connection_label(caps).into(), format!("{:04X}:{:04X}", device.vid, device.pid)];
             if let Some(firmware) = &device.firmware {
                 facts.push(tf("Firmware {}", &[firmware]));
             }
@@ -396,6 +396,13 @@ fn performance(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapsho
 fn power(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapshot) {
     let Some(detail) = snap.details.get(&device.serial) else { return };
     let Some(caps) = detail.caps.clone() else { return };
+    if caps["protocol"]=="inzone" {
+        if app.device_ui.audio_read.is_none_or(|at|at.elapsed()>=std::time::Duration::from_secs(3)) {
+            app.device_ui.audio_read=Some(std::time::Instant::now());
+            app.send(Command::ReadAudio(device.serial.clone()));
+        }
+        return super::audio::inzone_battery(ui,detail.audio.as_ref().unwrap_or(&serde_json::Value::Null));
+    }
     let serial = device.serial.clone();
     let mut later: Vec<(String, Command)> = Vec::new();
     let edit = app.edits.entry(serial.clone()).or_default();
@@ -662,7 +669,7 @@ fn profile_row(app: &mut App, ui: &mut egui::Ui, serial: &str, profile: &serde_j
             }
             if ui.add(Button::ghost(t("Link an app")).icon(icon::LINK).small()).clicked() {
                 app.device_ui.linking = Some(name.clone());
-                app.device_ui.apps = rsrazer_core::process::windowed_apps();
+                app.device_ui.apps = mirage_hub_core::process::windowed_apps();
                 app.device_ui.app_name.clear();
             }
         });
@@ -705,7 +712,7 @@ fn link_app_dialog(app: &mut App, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical().max_height(150.0).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = vec2(6.0, 6.0);
-                let apps: Vec<String> = app.device_ui.apps.iter().filter(|exe| exe.as_str() != rsrazer_core::install::APP_EXE && exe.as_str() != "explorer.exe").cloned().collect();
+                let apps: Vec<String> = app.device_ui.apps.iter().filter(|exe| exe.as_str() != mirage_hub_core::install::APP_EXE && exe.as_str() != "explorer.exe").cloned().collect();
                 if apps.is_empty() {
                     ui.label(widgets::faint(t("None found")));
                 }
@@ -783,7 +790,7 @@ fn about(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapshot) {
                 }
                 widgets::fact(ui, t("Name"), &device.name);
                 widgets::fact(ui, t("Type"), kind_label(&device.kind));
-                widgets::fact(ui, t("USB id"), &format!("1532:{:04X}", device.pid));
+                widgets::fact(ui, t("USB id"), &format!("{:04X}:{:04X}", device.vid, device.pid));
                 widgets::fact(ui, t("Serial"), &device.serial);
                 widgets::fact(ui, t("Firmware"), device.firmware.as_deref().unwrap_or("—"));
                 if let Some(dims) = caps["matrix_dimensions"].as_array().filter(|d| d.len() == 2) {

@@ -1,6 +1,6 @@
-//! Console entry point. Studio starts `rsrazer-daemon daemon run` with
+//! Console entry point. Studio starts `mirage-hub-daemon daemon run` with
 //! CREATE_NO_WINDOW, so the native daemon needs no helper or interpreter.
-use rsrazer_daemon::{cli, logging};
+use mirage_hub_daemon::{cli, logging};
 fn main() {
     let code = match cli::run(std::env::args().skip(1).collect()) {
         Ok(code) => code,
@@ -8,7 +8,7 @@ fn main() {
             log::error!("{error}");
             eprintln!("error: {error}");
             match error {
-                rsrazer_daemon::Error::Device(_) | rsrazer_daemon::Error::NotSupported(_) => 3,
+                mirage_hub_daemon::Error::Device(_) | mirage_hub_daemon::Error::NotSupported(_) => 3,
                 _ => 2,
             }
         }

@@ -1,6 +1,6 @@
 [package]
-name = "rsrazer-tools"
-description = "Repository checks and release/documentation generators for RsRazer"
+name = "mirage-hub-tools"
+description = "Repository checks and release/documentation generators for Mirage Hub"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

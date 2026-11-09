@@ -1,4 +1,4 @@
-use rsrazer_daemon::{
+use mirage_hub_daemon::{
     protocol::{builders, report::Report},
     recipes::{self, Environment, Sender},
     Result,

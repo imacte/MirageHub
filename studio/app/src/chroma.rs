@@ -3,7 +3,7 @@
 //! The daemon answers Razer's REST API, which some games use. Most load the
 //! SDK's DLL instead, and without Synapse there is none to load; a copy of
 //! `studio/chroma` beside the game's program is found first and passes what
-//! the game shows on to the daemon. Only a copy put there by RsRazer is ever
+//! the game shows on to the daemon. Only a copy put there by Mirage Hub is ever
 //! taken away again.
 
 use std::path::{Path, PathBuf};
@@ -18,9 +18,9 @@ const DLL32: Option<&[u8]> = Some(include_bytes!(concat!(env!("OUT_DIR"), "/RzCh
 const DLL32: Option<&[u8]> = None;
 
 /// In every copy of the stand-in, which exports it, and in none of Razer's.
-const MARK: &[u8] = b"rsrazer-chroma";
+const MARK: &[u8] = b"mirage-hub-chroma";
 
-/// Whether this build of RsRazer carries the DLL to give.
+/// Whether this build of Mirage Hub carries the DLL to give.
 pub fn available() -> bool {
     DLL64.is_some() && DLL32.is_some()
 }
@@ -75,7 +75,7 @@ fn bits(game: &Path) -> Result<Bits, String> {
 
 fn is_ours(dll: &Path) -> bool {
     // Existing game installations must still be repairable and removable after renaming.
-    std::fs::read(dll).is_ok_and(|bytes| [MARK, b"openrazer-chroma"].into_iter().any(|mark| bytes.windows(mark.len()).any(|w| w == mark)))
+    std::fs::read(dll).is_ok_and(|bytes| [MARK, b"rsrazer-chroma", b"openrazer-chroma"].into_iter().any(|mark| bytes.windows(mark.len()).any(|w| w == mark)))
 }
 
 fn beside(game: &Path, bits: Bits) -> Option<PathBuf> {
@@ -90,7 +90,7 @@ pub fn given(game: &Path) -> bool {
 /// Put the stand-in beside `game`, as the DLL it loads.
 pub fn give(game: &Path) -> Result<(), String> {
     let bits = bits(game)?;
-    let bytes = bits.dll().ok_or("this build of RsRazer has no Chroma DLL to give")?;
+    let bytes = bits.dll().ok_or("this build of Mirage Hub has no Chroma DLL to give")?;
     let dll = beside(game, bits).ok_or("the game is in no folder")?;
     if dll.exists() && !is_ours(&dll) {
         // A game that ships Razer's own: it would be gone for good.
@@ -99,7 +99,7 @@ pub fn give(game: &Path) -> Result<(), String> {
     std::fs::write(&dll, bytes).map_err(|e| e.to_string())
 }
 
-/// Take the stand-in away from beside `game`, if RsRazer put it there.
+/// Take the stand-in away from beside `game`, if Mirage Hub put it there.
 pub fn take_back(game: &Path) -> Result<(), String> {
     for bits in [Bits::X64, Bits::X86] {
         if let Some(dll) = beside(game, bits).filter(|dll| is_ours(dll)) {
@@ -136,7 +136,7 @@ mod tests {
         if !available() {
             return; // a build without the DLL has nothing to give
         }
-        let dir = std::env::temp_dir().join(format!("rsrazer-chroma-give-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("mirage-hub-chroma-give-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let game = dir.join("old-game.exe");
         std::fs::write(&game, program(0x014C)).unwrap();
@@ -151,7 +151,7 @@ mod tests {
 
     #[test]
     fn only_studio_s_own_copy_is_taken_back() {
-        let dir = std::env::temp_dir().join(format!("rsrazer-chroma-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("mirage-hub-chroma-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let game = dir.join("game.exe");
         std::fs::write(&game, program(0x8664)).unwrap();
@@ -163,7 +163,7 @@ mod tests {
         }
         take_back(&game).unwrap();
         assert!(razer.exists(), "Razer's DLL must not be removed");
-        std::fs::write(&razer, b"...rsrazer-chroma...").unwrap();
+        std::fs::write(&razer, b"...mirage-hub-chroma...").unwrap();
         assert!(given(&game));
         take_back(&game).unwrap();
         assert!(!razer.exists());

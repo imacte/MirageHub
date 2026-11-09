@@ -30,18 +30,7 @@ pub fn lock(store: &SharedStore) -> MutexGuard<'_, Persistence> {
 }
 
 pub fn config_dir() -> PathBuf {
-    std::env::var_os("LOCALAPPDATA")
-        .filter(|v| !v.is_empty())
-        .or_else(|| std::env::var_os("XDG_CONFIG_HOME").filter(|v| !v.is_empty()))
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            std::env::var_os("USERPROFILE")
-                .or_else(|| std::env::var_os("HOME"))
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from("."))
-                .join(".config")
-        })
-        .join("rsrazer")
+    crate::data_paths::data_dir()
 }
 
 pub fn default_zone() -> Map<String, Value> {

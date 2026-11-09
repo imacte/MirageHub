@@ -4,10 +4,10 @@
 use crate::{
     ble::{Advertiser, BleBackend, BleTransport, SCAN_SECONDS},
     database::{self, DeviceInfo},
-    device::{BlackSharkDevice, BleDevice, Device, KrakenDevice, StandardDevice},
+    device::{BlackSharkDevice, BleDevice, Device, InzoneDevice, KrakenDevice, StandardDevice},
     hid::{HidBackend, HidInfo},
     persistence::{self, SharedStore},
-    protocol::{blackshark, ble},
+    protocol::{blackshark, ble, inzone},
     recipes::recipes,
     transport::{self, ReportChannel, Transport},
     Result,
@@ -31,7 +31,7 @@ const VENDOR_ID: u16 = 0x1532;
 struct Registry {
     devices: Vec<(String, SharedDevice)>,
     hid_infos: Vec<HidInfo>,
-    unsupported: Vec<(u16, String)>,
+    unsupported: Vec<(u16, u16, String)>,
     identities: BTreeMap<u64, u64>,
     warnings: Vec<String>,
 }
@@ -46,6 +46,7 @@ pub struct DeviceManager {
     created_at: Instant,
     bluetooth_interval: Duration,
     first_sweep_done: AtomicBool,
+    native_serial: bool,
 }
 impl DeviceManager {
     pub fn new(
@@ -63,15 +64,18 @@ impl DeviceManager {
             created_at: Instant::now(),
             bluetooth_interval: Duration::from_secs(60),
             first_sweep_done: AtomicBool::new(false),
+            native_serial: false,
         }
     }
     #[cfg(windows)]
     pub fn native(persistence: SharedStore, bluetooth: bool) -> Self {
-        Self::new(
+        let mut manager = Self::new(
             Arc::new(crate::hid::windows::NativeHid),
             bluetooth.then(|| Arc::new(crate::ble::windows::NativeBle) as Arc<dyn BleBackend>),
             persistence,
-        )
+        );
+        manager.native_serial = true;
+        manager
     }
     fn registry(&self) -> MutexGuard<'_, Registry> {
         self.registry.lock().unwrap_or_else(|e| e.into_inner())
@@ -132,10 +136,28 @@ impl DeviceManager {
         } else {
             None
         };
-        let hid_infos = self.hid.enumerate(Some(VENDOR_ID), None)?;
-        let mut by_pid: BTreeMap<u16, Vec<HidInfo>> = BTreeMap::new();
+        let mut hid_infos = self.hid.enumerate(Some(VENDOR_ID), None)?;
+        match self.hid.enumerate(Some(inzone::VENDOR), None) {
+            Ok(sony) => hid_infos.extend(sony),
+            Err(error) => warnings.push(format!("Sony HID scan failed: {error}")),
+        }
+        #[cfg(windows)]
+        if self.native_serial {
+            match crate::inzone::native::serial_receivers() {
+                Ok(ports) => hid_infos.extend(ports),
+                Err(error) => warnings.push(format!("INZONE serial scan failed: {error}")),
+            }
+        }
+        let mut by_pid: BTreeMap<(u16, u16, String), Vec<HidInfo>> = BTreeMap::new();
         for info in hid_infos.iter().cloned() {
-            by_pid.entry(info.product_id).or_default().push(info);
+            let instance = if info.vendor_id == inzone::VENDOR {
+                if !inzone::PRODUCTS.contains(&info.product_id) { continue; }
+                let hid_control=info.usage_page == 0xff04 && info.input_length == 64 && info.output_length == 64;
+                let serial_control=info.product_id == 0x0e53 && info.path.to_ascii_lowercase().starts_with(r"\\?\usb#");
+                if !hid_control && !serial_control { continue; }
+                info.path.to_ascii_lowercase()
+            } else { String::new() };
+            by_pid.entry((info.vendor_id, info.product_id, instance)).or_default().push(info);
         }
         // These snapshots permit list/get requests during device I/O and radio sweeps.
         let (mut devices, mut identities) = {
@@ -144,15 +166,15 @@ impl DeviceManager {
         };
         let mut seen = BTreeSet::new();
         let mut unsupported = Vec::new();
-        for (pid, infos) in by_pid {
-            let Some(meta) = database::lookup(VENDOR_ID, pid) else {
-                unsupported.push((pid, infos[0].product.clone()));
+        for ((vid, pid, instance), infos) in by_pid {
+            let Some(meta) = database::lookup(vid, pid) else {
+                unsupported.push((vid, pid, infos[0].product.clone()));
                 continue;
             };
             if meta.transport == "ble" {
                 continue;
             }
-            let key = meta.key();
+            let key = if instance.is_empty() { meta.key() } else { format!("{}:{instance}",meta.key()) };
             seen.insert(key.clone());
             if devices.iter().any(|(k, _)| k == &key) {
                 continue;
@@ -233,7 +255,18 @@ impl DeviceManager {
         Ok(result)
     }
     fn build_hid(&self, meta: &DeviceInfo, infos: &[HidInfo]) -> Result<Option<Box<dyn Device>>> {
-        let device: Box<dyn Device> = if recipes().is_kraken(meta.pid) {
+        let device: Box<dyn Device> = if meta.vid == inzone::VENDOR {
+            let Some(control) = infos.first() else { return Ok(None); };
+            let io: Box<dyn crate::inzone::Io> = if meta.pid == 0x0e53 {
+                #[cfg(windows)]
+                { Box::new(crate::inzone::native::SerialIo::new(control.path.clone())) }
+                #[cfg(not(windows))]
+                { return Ok(None); }
+            } else {
+                Box::new(crate::inzone::HidIo::new(self.hid.clone(),control.clone()))
+            };
+            Box::new(InzoneDevice::new(meta.clone(),control.clone(),io,self.persistence.clone()).with_native_microphone(self.native_serial))
+        } else if recipes().is_kraken(meta.pid) {
             let Some(control) = transport::select_kraken(infos) else {
                 return Ok(None);
             };
@@ -288,7 +321,7 @@ impl DeviceManager {
             .map(|(_, device)| device.clone())
             .collect()
     }
-    pub fn unsupported(&self) -> Vec<(u16, String)> {
+    pub fn unsupported(&self) -> Vec<(u16, u16, String)> {
         self.registry().unsupported.clone()
     }
     pub fn warnings(&self) -> Vec<String> {
@@ -309,7 +342,7 @@ impl DeviceManager {
         let mut matches = Vec::new();
         for device in self.devices() {
             let mut locked = lock_device(&device);
-            if needle == locked.serial().to_lowercase()
+            if needle == locked.serial().to_lowercase() || needle == locked.info().key()
                 || needle == format!("{:04x}", locked.info().pid)
             {
                 drop(locked);

@@ -40,7 +40,7 @@ const UNTRANSLATED_KEYS: &[&str] = &[
     "Page Down",
     "Print Screen",
 ];
-const DOWNLOAD: &str = "**RsRazer** — download `rsrazer-setup.exe`. The installer includes the native Rust application and daemon, with English, Simplified Chinese and Russian. No Python installation is required.\n\n`rsrazer-classic.exe` is the standalone classic panel; `rsrazer-daemon.exe` is the CLI and background service. `SHA256SUMS.txt` lists the file checksums.\n\nBased on [OpenRazer](https://github.com/openrazer/openrazer) and [Ar4ikov/openrazer-win](https://github.com/Ar4ikov/openrazer-win). See the [RsRazer documentation](https://github.com/imacte/RsRazer#readme).\n";
+const DOWNLOAD: &str = "**Mirage Hub** — download `mirage-hub-setup.exe`. The installer includes the native Rust application and daemon, with English, Simplified Chinese and Russian. No Python installation is required.\n\n**Upgrading from RsRazer:** download and run this installer once. Existing settings are copied to `%LOCALAPPDATA%\\mirage-hub`; the old settings remain intact. Subsequent updates use Mirage Hub's built-in updater.\n\n`mirage-hub-classic.exe` is the standalone classic panel; `mirage-hub-daemon.exe` is the CLI and background service. `SHA256SUMS.txt` lists the file checksums.\n\nBased on [OpenRazer](https://github.com/openrazer/openrazer), [Ar4ikov/openrazer-win](https://github.com/Ar4ikov/openrazer-win) and [OpenInzone](https://github.com/penguinwokrs/openinzone). See the [Mirage Hub documentation](https://imacte.github.io/MirageHub/).\n";
 
 #[derive(Default)]
 struct Strings(BTreeSet<String>);
@@ -159,21 +159,22 @@ fn check_translations(root: &Path) -> Result<()> {
 }
 fn docs_data(root: &Path, check: bool) -> Result<()> {
     let database: Value = serde_json::from_slice(&fs::read(root.join("data/devices.json"))?)?;
-    let mut rows = database["devices"].as_array().ok_or("database has no devices")?.iter().map(|d| {
-        json!({"n":d["name"],"p":format!("{:04x}",d["pid"].as_u64().unwrap_or_default()),"t":d["type"],
-            "m":d["matrix_dims"],"d":d["dpi_max"],"b":d["methods"].as_array().is_some_and(|m|m.iter().any(|v|v=="get_battery")),
+    let inzone: Value = serde_json::from_slice(&fs::read(root.join("data/inzone-devices.json"))?)?;
+    let mut rows = database["devices"].as_array().ok_or("database has no devices")?.iter().chain(inzone["devices"].as_array().ok_or("INZONE database has no devices")?).map(|d| {
+        json!({"n":d["name"],"v":format!("{:04x}",d["vid"].as_u64().unwrap_or_default()),"p":format!("{:04x}",d["pid"].as_u64().unwrap_or_default()),"t":d["type"],
+            "m":d["matrix_dims"],"d":d["dpi_max"],"b":d["methods"].as_array().is_some_and(|m|m.iter().any(|v|v=="get_battery" || v=="get_battery_level")),
             "i":d["image"].as_str().unwrap_or_default()})
     }).collect::<Vec<_>>();
     rows.sort_by(|a, b| {
         (a["t"].as_str(), a["n"].as_str()).cmp(&(b["t"].as_str(), b["n"].as_str()))
     });
     let version = fs::read_to_string(root.join("data/upstream-version.txt"))?;
-    let output = json!({"generated_from":format!("openrazer {}",version.trim()),"count":rows.len(),"devices":rows});
+    let output = json!({"generated_from":format!("openrazer {}; openinzone {}",version.trim(),inzone["revision"].as_str().unwrap_or_default()),"count":rows.len(),"devices":rows});
     let path = root.join("docs/devices.json");
     if check {
         let saved: Value = serde_json::from_slice(&fs::read(&path)?)?;
         if saved != output {
-            return Err("docs/devices.json is stale; run rsrazer-tools docs-data".into());
+            return Err("docs/devices.json is stale; run mirage-hub-tools docs-data".into());
         }
     } else {
         fs::write(&path, format!("{}\n", serde_json::to_string(&output)?))?;
@@ -223,7 +224,7 @@ fn run() -> Result<()> {
                 &fs::read_to_string(root.join("CHANGELOG.zh-CN.md")).unwrap_or_default())?;
             std::io::stdout().write_all(body.as_bytes())?; Ok(())
         }
-        _ => Err("Usage: rsrazer-tools check-translations | docs-data [--check] | release-notes <version> | icons".into()),
+        _ => Err("Usage: mirage-hub-tools check-translations | docs-data [--check] | release-notes <version> | icons".into()),
     }
 }
 fn icons(root: &Path) -> Result<()> {
@@ -252,16 +253,16 @@ fn icons(root: &Path) -> Result<()> {
     for bytes in &images {
         ico.extend(bytes);
     }
-    fs::write(root.join("assets/rsrazer.ico"), ico)?;
-    fs::write(root.join("assets/rsrazer.png"), &images[6])?;
+    fs::write(root.join("assets/mirage-hub.ico"), ico)?;
+    fs::write(root.join("assets/mirage-hub.png"), &images[6])?;
     fs::write(root.join("docs/favicon.svg"), icon_svg())?;
-    println!("Generated assets/rsrazer.ico, assets/rsrazer.png and docs/favicon.svg");
+    println!("Generated assets/mirage-hub.ico, assets/mirage-hub.png and docs/favicon.svg");
     Ok(())
 }
 fn icon_svg() -> String {
     let [r, g, b] = branding::BACKGROUND;
     let mut svg = format!(
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 {0} {0}\">\n  <title>RsRazer</title>\n  <rect width=\"{0}\" height=\"{0}\" rx=\"{1}\" fill=\"#{r:02x}{g:02x}{b:02x}\"/>\n",
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 {0} {0}\">\n  <title>Mirage Hub</title>\n  <rect width=\"{0}\" height=\"{0}\" rx=\"{1}\" fill=\"#{r:02x}{g:02x}{b:02x}\"/>\n",
         branding::VIEW_BOX,
         branding::CORNER_RADIUS * branding::VIEW_BOX,
     );
@@ -309,7 +310,7 @@ mod tests {
         for language in ["en", "ru", "zh-CN"] {
             assert!(text.contains(&format!("<!-- notes:{language} -->")));
         }
-        assert!(text.contains("rsrazer-setup.exe"));
+        assert!(text.contains("mirage-hub-setup.exe"));
         assert!(!text.contains("pip install"));
         let text = release_body("1.5.3", NOTES, "", "").unwrap();
         assert!(!text.contains("<details>"));

@@ -32,21 +32,21 @@ jobs:
       - name: Test the shipped native daemon with simulated devices
         working-directory: studio
         env:
-          OPENRAZER_TEST_DAEMON: ${{ github.workspace }}/dist/rsrazer-daemon.exe
-        run: cargo test --locked -p rsrazer-daemon --test executable
+          OPENRAZER_TEST_DAEMON: ${{ github.workspace }}/dist/mirage-hub-daemon.exe
+        run: cargo test --locked -p mirage-hub-daemon --test executable
 
       - name: Smoke-test the executable
         # The runner appends `exit $LASTEXITCODE`, so the script has to end on a
         # deliberate exit: `autostart status` reports 1 when autostart is off,
         # which is the expected state on a fresh runner.
         run: |
-          .\dist\rsrazer-daemon.exe --version
+          .\dist\mirage-hub-daemon.exe --version
           if ($LASTEXITCODE -ne 0) { exit 1 }
-          .\dist\rsrazer-daemon.exe supported viper
+          .\dist\mirage-hub-daemon.exe supported viper
           if ($LASTEXITCODE -ne 0) { exit 1 }
-          .\dist\rsrazer-daemon.exe doctor
+          .\dist\mirage-hub-daemon.exe doctor
           if ($LASTEXITCODE -ne 0) { exit 1 }
-          .\dist\rsrazer-daemon.exe autostart status
+          .\dist\mirage-hub-daemon.exe autostart status
           if ($LASTEXITCODE -notin 0, 1) { exit 1 }
           exit 0
         shell: pwsh
@@ -54,7 +54,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: exe
-          path: dist/rsrazer-daemon.exe
+          path: dist/mirage-hub-daemon.exe
           if-no-files-found: error
 
   gui:
@@ -77,27 +77,27 @@ jobs:
       - name: Build
         working-directory: gui
         env:
-          OPENRAZER_EMBED_DAEMON: ${{ github.workspace }}/daemon/rsrazer-daemon.exe
+          OPENRAZER_EMBED_DAEMON: ${{ github.workspace }}/daemon/mirage-hub-daemon.exe
           RUSTFLAGS: -C target-feature=+crt-static
         run: cargo build --release --locked --target x86_64-pc-windows-msvc
       - name: Smoke-test the executable
         shell: pwsh
         run: |
           # --self-test also fails a build whose embedded daemon is missing or broken.
-          $p = Start-Process -FilePath gui/target/x86_64-pc-windows-msvc/release/rsrazer-classic.exe -ArgumentList '--self-test','--require-daemon' -WindowStyle Hidden -Wait -PassThru
+          $p = Start-Process -FilePath gui/target/x86_64-pc-windows-msvc/release/mirage-hub-classic.exe -ArgumentList '--self-test','--require-daemon' -WindowStyle Hidden -Wait -PassThru
           if ($p.ExitCode -ne 0) { exit 1 }
-          ./studio/tools/check-native.ps1 -Files gui/target/x86_64-pc-windows-msvc/release/rsrazer-classic.exe
+          ./studio/tools/check-native.ps1 -Files gui/target/x86_64-pc-windows-msvc/release/mirage-hub-classic.exe
           New-Item -ItemType Directory -Force dist | Out-Null
-          Copy-Item gui/target/x86_64-pc-windows-msvc/release/rsrazer-classic.exe dist/
+          Copy-Item gui/target/x86_64-pc-windows-msvc/release/mirage-hub-classic.exe dist/
           exit 0
       - uses: actions/upload-artifact@v4
         with:
           name: gui
-          path: dist/rsrazer-classic.exe
+          path: dist/mirage-hub-classic.exe
           if-no-files-found: error
 
   studio:
-    name: Build RsRazer and its installer
+    name: Build Mirage Hub and its installer
     # The installer carries the native daemon, so it is built after that.
     needs: build
     runs-on: windows-latest
@@ -117,20 +117,23 @@ jobs:
         run: rustup toolchain install
       - name: Build Studio, both Chroma DLLs and the installer
         shell: pwsh
-        run: ./tools/build-native.ps1 -DaemonPath ../daemon/rsrazer-daemon.exe
+        run: ./tools/build-native.ps1 -DaemonPath ../daemon/mirage-hub-daemon.exe
       - name: Install, repair and remove
         shell: pwsh
         run: |
           $env:LOCALAPPDATA = "$env:RUNNER_TEMP\lad"
-          ./tools/installer-cycle.ps1 -Setup ../dist/rsrazer-setup.exe -Dir "$env:RUNNER_TEMP\studio-install"
+          ./tools/installer-cycle.ps1 -Setup ../dist/mirage-hub-setup.exe -Dir "$env:RUNNER_TEMP\studio-install"
           if ($LASTEXITCODE -ne 0) { exit 1 }
           exit 0
+      - name: Upgrade an existing RsRazer installation
+        shell: pwsh
+        run: ./tools/installer-upgrade.ps1 -Setup ../dist/mirage-hub-setup.exe -Root "$env:RUNNER_TEMP\rsrazer-upgrade"
       - uses: actions/upload-artifact@v4
         with:
           name: studio
           path: |
-            dist/rsrazer-setup.exe
-            dist/rsrazer.exe
+            dist/mirage-hub-setup.exe
+            dist/mirage-hub.exe
           if-no-files-found: error
 
   release:
@@ -166,7 +169,7 @@ jobs:
         env:
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
         working-directory: studio
-        run: cargo run --quiet --locked -p rsrazer-tools -- release-notes "$TAG" > ../release-body.md
+        run: cargo run --quiet --locked -p mirage-hub-tools -- release-notes "$TAG" > ../release-body.md
 
       - uses: softprops/action-gh-release@v2
         with:

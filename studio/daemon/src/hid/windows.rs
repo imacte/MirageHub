@@ -253,6 +253,9 @@ fn describe(path: String) -> Result<(HidInfo, bool)> {
 }
 
 impl HidBackend for NativeHid {
+    fn write_interrupt(&self, info: &HidInfo, data: &[u8]) -> Result<()> {
+        crate::inzone::native::Stream::open(&info.path, false)?.write(data)
+    }
     fn enumerate(&self, vendor_id: Option<u16>, product_id: Option<u16>) -> Result<Vec<HidInfo>> {
         static CACHE: OnceLock<Mutex<DescriptionCache>> = OnceLock::new();
         // Serialize enumeration and cache pruning, including filtered callers.

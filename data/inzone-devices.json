@@ -1,0 +1,136 @@
+{
+  "source": "https://github.com/penguinwokrs/openinzone",
+  "revision": "4dccfdef99755c51b9f7cce109565da622625169",
+  "devices": [
+    {
+      "name": "Sony INZONE receiver",
+      "vid": 1356,
+      "pid": 3581,
+      "type": "headset",
+      "class_name": "InzoneDevice",
+      "transport": "hid",
+      "methods": [
+        "get_audio",
+        "get_battery_level",
+        "get_battery_parts"
+      ]
+    },
+    {
+      "name": "Sony INZONE receiver",
+      "vid": 1356,
+      "pid": 3655,
+      "type": "headset",
+      "class_name": "InzoneDevice",
+      "transport": "hid",
+      "methods": [
+        "get_audio",
+        "get_battery_level",
+        "get_battery_parts"
+      ]
+    },
+    {
+      "name": "Sony INZONE H9 / H7",
+      "vid": 1356,
+      "pid": 3667,
+      "type": "headset",
+      "class_name": "InzoneDevice",
+      "transport": "serial",
+      "methods": [
+        "get_audio",
+        "get_battery_level",
+        "get_battery_parts"
+      ]
+    },
+    {
+      "name": "Sony INZONE H5",
+      "vid": 1356,
+      "pid": 3775,
+      "type": "headset",
+      "class_name": "InzoneDevice",
+      "transport": "hid",
+      "methods": [
+        "get_audio",
+        "get_battery_level",
+        "get_battery_parts"
+      ]
+    },
+    {
+      "name": "Sony INZONE Buds",
+      "vid": 1356,
+      "pid": 3778,
+      "type": "headset",
+      "class_name": "InzoneDevice",
+      "transport": "hid",
+      "methods": [
+        "get_audio",
+        "get_battery_level",
+        "get_battery_parts"
+      ]
+    },
+    {
+      "name": "Sony INZONE receiver",
+      "vid": 1356,
+      "pid": 3968,
+      "type": "headset",
+      "class_name": "InzoneDevice",
+      "transport": "hid",
+      "methods": [
+        "get_audio",
+        "get_battery_level",
+        "get_battery_parts"
+      ]
+    },
+    {
+      "name": "Sony INZONE receiver",
+      "vid": 1356,
+      "pid": 3969,
+      "type": "headset",
+      "class_name": "InzoneDevice",
+      "transport": "hid",
+      "methods": [
+        "get_audio",
+        "get_battery_level",
+        "get_battery_parts"
+      ]
+    },
+    {
+      "name": "Sony INZONE receiver",
+      "vid": 1356,
+      "pid": 4008,
+      "type": "headset",
+      "class_name": "InzoneDevice",
+      "transport": "hid",
+      "methods": [
+        "get_audio",
+        "get_battery_level",
+        "get_battery_parts"
+      ]
+    },
+    {
+      "name": "Sony INZONE receiver",
+      "vid": 1356,
+      "pid": 4032,
+      "type": "headset",
+      "class_name": "InzoneDevice",
+      "transport": "hid",
+      "methods": [
+        "get_audio",
+        "get_battery_level",
+        "get_battery_parts"
+      ]
+    },
+    {
+      "name": "Sony INZONE receiver",
+      "vid": 1356,
+      "pid": 4033,
+      "type": "headset",
+      "class_name": "InzoneDevice",
+      "transport": "hid",
+      "methods": [
+        "get_audio",
+        "get_battery_level",
+        "get_battery_parts"
+      ]
+    }
+  ]
+}

@@ -81,7 +81,7 @@ pub fn glow(painter: &egui::Painter, centre: egui::Pos2, radius: egui::Vec2, col
     painter.add(egui::Shape::mesh(mesh));
 }
 
-/// The RsRazer mark, shared with the executable and tray icons.
+/// The Mirage Hub mark, shared with the executable and tray icons.
 pub fn logo(painter: &egui::Painter, centre: egui::Pos2, size: f32) {
     let origin = centre - egui::vec2(size / 2.0, size / 2.0);
     let background = crate::branding::BACKGROUND;
@@ -367,7 +367,7 @@ mod tests {
             let _ = ctx.run(egui::RawInput::default(), |ctx| {
                 ctx.fonts(|fonts| {
                     for font in [body(14.0), bold(16.0), heavy(22.0), light(14.0)] {
-                        assert!(fonts.has_glyphs(&font, "RsRazer 123 Привет"));
+                        assert!(fonts.has_glyphs(&font, "Mirage Hub 123 Привет"));
                         if definitions.font_data.contains_key("cjk") {
                             assert!(fonts.has_glyphs(&font, "汉字输入，鼠标键盘"));
                         }

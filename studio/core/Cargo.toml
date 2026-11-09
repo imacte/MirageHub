@@ -1,6 +1,6 @@
 [package]
-name = "rsrazer-core"
-description = "What RsRazer and its installer share: the daemon's protocol, paths, look and words"
+name = "mirage-hub-core"
+description = "What Mirage Hub and its installer share: the daemon's protocol, paths, look and words"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

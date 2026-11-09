@@ -1,6 +1,6 @@
-//! RsRazer: Razer device control on Windows.
+//! Mirage Hub: Razer and Sony INZONE device control on Windows.
 //!
-//! A client of the rsrazer-daemon daemon, which owns the devices. Started with
+//! A client of the mirage-hub-daemon daemon, which owns the devices. Started with
 //! `--background` (as it is at sign-in) it lives in the tray and makes sure
 //! the daemon is running; otherwise it opens its window.
 
@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.iter().any(|a| a == "--version" || a == "-V") {
         attach_console();
-        println!("rsrazer {}", env!("CARGO_PKG_VERSION"));
+        println!("mirage-hub {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
     if args.iter().any(|a| a == "--self-test") {
@@ -42,11 +42,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let ok = icon.len() == 64 * 64 * 4 && icon[(32 * 64 + 32) * 4 + 3] == 255 && drawn.shapes.len() > 100;
         std::process::exit(if ok { 0 } else { 1 });
     }
+    mirage_hub_core::data_paths::migrate_rsrazer()?;
     let background = args.iter().any(|a| a == "--background" || a == "--tray");
 
-    // A run that only takes a screenshot leaves a RsRazer already open alone.
+    // A run that only takes a screenshot leaves a Mirage Hub already open alone.
     let capturing = std::env::var_os("OPENRAZER_STUDIO_CAPTURE").is_some();
-    let managed_ui = args.iter().any(|a| a == "--ui") && std::env::var_os("RSRAZER_UI_CHILD").is_some();
+    let managed_ui = args.iter().any(|a| a == "--ui") && std::env::var_os("MIRAGE_HUB_UI_CHILD").is_some();
     #[cfg(windows)]
     if !capturing && !managed_ui { return host::run(background).map_err(Into::into); }
 

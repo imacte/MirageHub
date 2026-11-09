@@ -6,9 +6,9 @@
 use super::app::App;
 use super::device::TWO_COLUMNS;
 use crate::worker::{Command, Detail, Device, Snapshot, Then};
-use rsrazer_core::theme::{self, icon, ACCENT};
-use rsrazer_core::widgets::{self, Button};
-use rsrazer_core::t;
+use mirage_hub_core::theme::{self, icon, ACCENT};
+use mirage_hub_core::widgets::{self, Button};
+use mirage_hub_core::t;
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
 
@@ -55,14 +55,15 @@ fn call(serial: &str, method: &str, argument: Value) -> Command {
 pub fn page(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapshot) {
     let Some(detail) = snap.details.get(&device.serial) else { return };
     let Some(caps) = detail.caps.clone() else { return };
-    let Some(audio) = detail.audio.clone() else {
-        ui.label(widgets::dim(t("Not reported yet.")));
-        return;
-    };
     if app.device_ui.audio_read.is_none_or(|at| at.elapsed() >= MIC_POLL) {
         app.device_ui.audio_read = Some(Instant::now());
         app.send(Command::ReadAudio(device.serial.clone()));
     }
+    let Some(audio) = detail.audio.clone() else {
+        ui.label(widgets::dim(t("Not reported yet.")));
+        return;
+    };
+    if caps["protocol"] == "inzone" { return inzone(app, ui, device, &audio); }
     let tx = app.tx.clone();
     if !snap.synapse.is_empty() {
         widgets::banner(
@@ -218,6 +219,15 @@ pub fn quick(app: &mut App, ui: &mut egui::Ui, device: &Device, detail: &Detail,
         return;
     };
     let serial = device.serial.clone();
+    if caps["protocol"] == "inzone" {
+        if let Some(settings) = audio["settings"].as_array() {
+            for setting in settings.iter().filter(|s| matches!(s["key"].as_str(),Some("headphone_volume" | "game_chat_balance"))) {
+                let key = setting["key"].as_str().unwrap_or_default();
+                widgets::fact(ui, inzone_label(key), &setting["value"].to_string());
+            }
+        }
+        return;
+    }
     let presets = names(&caps["audio"]["equalizer_presets"]);
     let current = if audio["equalizer"] == true { audio["equalizer_preset"].as_str().unwrap_or_default() } else { "" };
     let mut chosen = None;
@@ -238,6 +248,111 @@ pub fn quick(app: &mut App, ui: &mut egui::Ui, device: &Device, detail: &Detail,
             widgets::badge(ui, t("Muted"), theme::WARN);
         } else {
             widgets::badge(ui, t("On"), ACCENT);
+        }
+    });
+}
+
+fn inzone_label(key: &str) -> &'static str {
+    match key {
+        "headphone_volume" => t("Headphone volume"),
+        "headphone_muted" => t("Mute headphones"),
+        "game_chat_balance" => t("Game / chat balance"),
+        "microphone_muted" => t("Microphone muted"),
+        "microphone_level" => t("Microphone level"),
+        "sidetone_level" => t("Hear your own voice"),
+        "ambient_mode" => t("Noise control"),
+        "ambient_level" => t("Ambient sound level"),
+        "voice_focus" => t("Voice focus"),
+        "auto_power_off" => t("Automatic power off"),
+        "voice_guidance" => t("Voice guidance"),
+        "voice_guidance_language" => t("Voice guidance language"),
+        "bluetooth_auto_switch" => t("Bluetooth automatic switching"),
+        _ => "",
+    }
+}
+
+fn inzone_choice(key: &str, value: i64) -> String {
+    match (key,value) {
+        ("ambient_mode",0) => t("Off").into(),
+        ("ambient_mode",1) => t("Noise cancelling").into(),
+        ("ambient_mode",2) => t("Ambient sound").into(),
+        ("voice_guidance_language",0) => t("English").into(),
+        ("voice_guidance_language",1) => t("Japanese").into(),
+        ("voice_guidance_language",2) => t("Simplified Chinese").into(),
+        ("auto_power_off",0) => t("Never").into(),
+        ("auto_power_off",minutes) => mirage_hub_core::tf("{} minutes", &[&minutes]),
+        _ => value.to_string(),
+    }
+}
+
+fn inzone(app: &mut App, ui: &mut egui::Ui, device: &Device, audio: &Value) {
+    if let Some(error)=audio["error"].as_str() {
+        widgets::plain_panel(ui,|ui| {widgets::help(ui,t("Not reported yet."));ui.label(error);});
+        return;
+    }
+    if audio["connected"] != true {
+        widgets::plain_panel(ui, |ui| widgets::empty_state(ui, t("The headset is switched off"), t("Switch it on to see and change its settings."), |_| {}));
+        return;
+    }
+    let Some(settings) = audio["settings"].as_array() else { return };
+    let serial = device.serial.clone();
+    let edit = app.edits.entry(serial.clone()).or_default();
+    let mut send = Vec::new();
+    let mut later = Vec::new();
+    widgets::columns(ui, 0.5, TWO_COLUMNS, |ui, column| {
+        let is_sound = |key: &str| matches!(key,"headphone_volume"|"headphone_muted"|"game_chat_balance"|"microphone_muted"|"microphone_level"|"sidetone_level");
+        let entries: Vec<_> = settings.iter().filter(|s| is_sound(s["key"].as_str().unwrap_or_default()) == (column==0)).collect();
+        if !entries.is_empty() {
+            widgets::panel(ui, if column==0 {t("Sound")} else {t("Headset settings")}, |ui| {
+                for (index,setting) in entries.iter().enumerate() {
+                    let key=setting["key"].as_str().unwrap_or_default();
+                    if index>0 {widgets::divider(ui);}
+                    let value=edit.audio.settings.entry(key.into()).or_insert_with(||setting["value"].as_f64().unwrap_or_default());
+                    let hint=match key {
+                        "game_chat_balance" => t("0: game only · 50: balanced · 100: chat only"),
+                        "microphone_level" => t("Changes this headset's microphone level in Windows."),
+                        "microphone_muted" if setting["readonly"]==true => t("Use the headset's physical microphone control."),
+                        _ => "",
+                    };
+                    ui.add_enabled_ui(setting["readonly"]!=true && setting["enabled"]!=false, |ui| {
+                        match setting["kind"].as_str() {
+                            Some("toggle") => {
+                                let mut on=*value!=0.0;
+                                if widgets::toggle_row(ui,inzone_label(key),hint,&mut on) { *value=u8::from(on) as f64; send.push(call(&serial,setting["method"].as_str().unwrap_or_default(),json!(on))); }
+                            }
+                            Some("choice") => widgets::row(ui,inzone_label(key),hint,|ui| {
+                                widgets::select(ui,("inzone-choice",&serial,key),inzone_choice(key,*value as i64),200.0,|ui| {
+                                    for choice in setting["choices"].as_array().into_iter().flatten().filter_map(Value::as_i64) {
+                                        if widgets::option(ui,*value as i64==choice,&inzone_choice(key,choice)).clicked() {*value=choice as f64;send.push(call(&serial,setting["method"].as_str().unwrap_or_default(),json!(choice)));}
+                                    }
+                                });
+                            }),
+                            _ => widgets::row(ui,inzone_label(key),hint,|ui| {
+                                let range=setting["min"].as_f64().unwrap_or_default()..=setting["max"].as_f64().unwrap_or(100.0);
+                                if widgets::slider_field(ui,("inzone",&serial,key),value,range,1.0,0,"",72.0) {later.push((format!("inzone:{serial}:{key}"),call(&serial,setting["method"].as_str().unwrap_or_default(),json!(value.round() as i64))));}
+                            }),
+                        }
+                    });
+                }
+            });
+        }
+        if column==1 {
+            inzone_battery(ui,audio);
+        }
+    });
+    if !send.is_empty() || !later.is_empty() {edit.touch();}
+    for command in send {app.send(command);}
+    for (key,command) in later {app.debounce(key,command,250);}
+}
+
+pub fn inzone_battery(ui: &mut egui::Ui, audio: &Value) {
+    widgets::panel(ui,t("Battery"),|ui| {
+        let Some(parts)=audio["battery_parts"].as_array() else {widgets::help(ui,t("Not reported yet."));return;};
+        for part in parts {
+            let label=match part["part"].as_str() {Some("left")=>t("Left earbud"),Some("right")=>t("Right earbud"),Some("case")=>t("Charging case"),_=>t("Headset")};
+            let value=part["percent"].as_u64().map(|v|format!("{v}%")).unwrap_or_else(||"—".into());
+            widgets::fact(ui,label,&value);
+            if part["snapshot"]==true {widgets::help(ui,t("Case battery is the last reading relayed by an earbud."));}
         }
     });
 }

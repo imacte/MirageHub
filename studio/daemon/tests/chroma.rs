@@ -1,4 +1,4 @@
-use rsrazer_daemon::{
+use mirage_hub_daemon::{
     chroma::{
         bridge::{ChromaBridge, EffectControl},
         grid,

@@ -3,10 +3,10 @@
 use crate::ops::{self, Removal};
 use crate::{Action, Args};
 use egui::{vec2, Align, CornerRadius, Frame, Layout, Margin, RichText, Sense};
-use rsrazer_core::install::{self, Installed, Options, APP_EXE};
-use rsrazer_core::theme::{self, icon, ACCENT, NAV, TEXT, TEXT_DIM, TEXT_FAINT};
-use rsrazer_core::widgets::{self, Button};
-use rsrazer_core::{t, tf};
+use mirage_hub_core::install::{self, Installed, Options, APP_EXE};
+use mirage_hub_core::theme::{self, icon, ACCENT, NAV, TEXT, TEXT_DIM, TEXT_FAINT};
+use mirage_hub_core::widgets::{self, Button};
+use mirage_hub_core::{t, tf};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -59,7 +59,7 @@ struct Setup {
 pub fn run(args: Args) -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title(t("RsRazer Setup"))
+            .with_title(t("Mirage Hub Setup"))
             .with_decorations(!cfg!(windows))
             .with_inner_size([720.0, 560.0])
             .with_resizable(false)
@@ -67,11 +67,11 @@ pub fn run(args: Args) -> eframe::Result<()> {
             .with_icon(Arc::new(egui::IconData { rgba: icon_rgba(64), width: 64, height: 64 })),
         ..Default::default()
     };
-    eframe::run_native("RsRazer Setup", options, Box::new(move |cc| {
+    eframe::run_native("Mirage Hub Setup", options, Box::new(move |cc| {
         #[cfg(not(windows))]
         let custom_frame = false;
         #[cfg(windows)]
-        let custom_frame = rsrazer_core::window::install(cc, false);
+        let custom_frame = mirage_hub_core::window::install(cc, false);
         if !custom_frame { cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(true)); }
         theme::apply(&cc.egui_ctx);
         // Documentation captures use their explicit demo directory, not the
@@ -79,7 +79,7 @@ pub fn run(args: Args) -> eframe::Result<()> {
         let installed = if std::env::var_os("OPENRAZER_SETUP_CAPTURE").is_some() { None } else {
             args.dir.clone().filter(|_| args.from_temp).map(|dir| Installed { version: install::Manifest::read(&dir).map(|m| m.version).unwrap_or_default(), dir }).or_else(install::installed)
         };
-        let dir = installed.as_ref().map(|i| i.dir.clone()).or(args.dir.clone()).unwrap_or_else(rsrazer_core::paths::default_install_dir);
+        let dir = installed.as_ref().map(|i| i.dir.clone()).or(args.dir.clone()).unwrap_or_else(mirage_hub_core::paths::default_install_dir);
         let saved = installed.as_ref().and_then(|i| install::Manifest::read(&i.dir)).map(|m| m.options);
         let updating = args.action == Some(Action::Update) && installed.is_some();
         let mut setup = Setup {
@@ -110,7 +110,7 @@ pub fn run(args: Args) -> eframe::Result<()> {
     }))
 }
 
-use rsrazer_core::branding::icon_rgba;
+use mirage_hub_core::branding::icon_rgba;
 
 impl Setup {
     fn start(&mut self, ctx: &egui::Context, what: &'static str) {
@@ -152,19 +152,19 @@ impl eframe::App for Setup {
                     Ok(()) => (
                         true,
                         match what {
-                            "uninstall" => t("RsRazer has been removed.").to_string(),
-                            "repair" => t("RsRazer has been repaired.").to_string(),
-                            "update" => t("RsRazer has been updated.").to_string(),
-                            _ => t("RsRazer is installed.").to_string(),
+                            "uninstall" => t("Mirage Hub has been removed.").to_string(),
+                            "repair" => t("Mirage Hub has been repaired.").to_string(),
+                            "update" => t("Mirage Hub has been updated.").to_string(),
+                            _ => t("Mirage Hub is installed.").to_string(),
                         },
                     ),
                     Err(error) => (false, error),
                 };
                 let app = PathBuf::from(self.dir.trim()).join(APP_EXE);
-                // A failed update still leaves a RsRazer to go back to.
+                // A failed update still leaves a Mirage Hub to go back to.
                 self.page = Page::Done { ok, message, launch: if what == "update" { app.exists() } else { ok && what != "uninstall" } };
                 self.installed = install::installed();
-                // The person is waiting for RsRazer, not for this window.
+                // The person is waiting for Mirage Hub, not for this window.
                 if what == "update" && ok && std::process::Command::new(app).spawn().is_ok() {
                     ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                 }
@@ -196,7 +196,7 @@ impl eframe::App for Setup {
                 ui.vertical(|ui| {
                     ui.spacing_mut().item_spacing.y = 0.0;
                     ui.add_space(16.0);
-                    ui.label(RichText::new("RsRazer").font(theme::bold(18.0)).color(TEXT));
+                    ui.label(RichText::new("Mirage Hub").font(theme::bold(18.0)).color(TEXT));
                     ui.label(RichText::new(tf("Setup · version {}", &[&ops::VERSION])).size(12.5).color(TEXT_DIM));
                 });
             });
@@ -220,15 +220,15 @@ impl eframe::App for Setup {
         });
         if self.custom_frame {
             #[cfg(windows)]
-            rsrazer_core::window::sync(_frame, ctx.pixels_per_point(), false);
-            rsrazer_core::chrome::show(ctx, false, !matches!(self.page, Page::Working(_)));
+            mirage_hub_core::window::sync(_frame, ctx.pixels_per_point(), false);
+            mirage_hub_core::chrome::show(ctx, false, !matches!(self.page, Page::Working(_)));
         }
     }
 }
 
 impl Setup {
     fn footer(&mut self, ui: &mut egui::Ui) {
-        ui.label(RichText::new(t("GPL-2.0-or-later. Not affiliated with Razer Inc.")).size(12.0).color(TEXT_FAINT));
+        ui.label(RichText::new(t("GPL-3.0-only. Independent of Razer and Sony.")).size(12.0).color(TEXT_FAINT));
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             ui.spacing_mut().item_spacing.x = 8.0;
             match self.page.clone() {
@@ -260,7 +260,7 @@ impl Setup {
                     ui.add(Button::secondary(t("Close")).min_width(100.0).enabled(false));
                 }
                 Page::Done { ok, launch, .. } => {
-                    if launch && ui.add(Button::primary(t("Open RsRazer")).icon(icon::OPEN)).clicked() {
+                    if launch && ui.add(Button::primary(t("Open Mirage Hub")).icon(icon::OPEN)).clicked() {
                         let _ = std::process::Command::new(PathBuf::from(self.dir.trim()).join(APP_EXE)).spawn();
                         ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                     }
@@ -281,7 +281,7 @@ impl Setup {
                 widgets::link_button(ui, t("Releases"), install::RELEASES);
             });
         }
-        widgets::help(ui, t("Razer device control without Synapse: lighting, DPI, macros and profiles. Installed for you alone, so it never asks for administrator rights, and it can be repaired or removed cleanly at any time."));
+        widgets::help(ui, t("Razer and Sony INZONE device control without Synapse: lighting, DPI, macros and profiles. Installed for you alone, so it never asks for administrator rights, and it can be repaired or removed cleanly at any time."));
         ui.add_enabled_ui(ops::has_payload(), |ui| {
             widgets::panel(ui, t("Install to"), |ui| {
                 ui.horizontal(|ui| {
@@ -298,13 +298,13 @@ impl Setup {
     }
 
     fn options(&mut self, ui: &mut egui::Ui) {
-        widgets::toggle_row(ui, t("Start menu shortcuts"), t("Adds app and repair shortcuts to All apps and search. To pin RsRazer, right-click it and choose Pin to Start."), &mut self.options.start_menu);
+        widgets::toggle_row(ui, t("Start menu shortcuts"), t("Adds app and repair shortcuts to All apps and search. To pin Mirage Hub, right-click it and choose Pin to Start."), &mut self.options.start_menu);
         widgets::divider(ui);
         widgets::toggle_row(ui, t("Desktop shortcut"), "", &mut self.options.desktop);
         widgets::divider(ui);
         widgets::toggle_row(ui, t("Start with Windows"), t("In the tray, keeping your devices set up."), &mut self.options.autostart);
         widgets::divider(ui);
-        widgets::toggle_row(ui, t("Command line in PATH"), t("For rsrazer-daemon in a terminal."), &mut self.options.path);
+        widgets::toggle_row(ui, t("Command line in PATH"), t("For mirage-hub-daemon in a terminal."), &mut self.options.path);
     }
 
     fn maintenance(&mut self, ui: &mut egui::Ui) {
@@ -353,10 +353,10 @@ impl Setup {
     }
 
     fn confirm_removal(&mut self, ui: &mut egui::Ui) {
-        ui.label(RichText::new(t("Remove RsRazer")).font(theme::bold(17.0)).color(TEXT));
+        ui.label(RichText::new(t("Remove Mirage Hub")).font(theme::bold(17.0)).color(TEXT));
         widgets::help(ui, &tf("The program in {} and its shortcuts go. Your devices keep whatever lighting they show until they lose power.", &[&self.dir]));
         widgets::panel(ui, t("Also remove"), |ui| {
-            widgets::toggle_row(ui, t("Also remove RsRazer's settings"), t("The macro library, links between apps and profiles, and window settings."), &mut self.removal.settings);
+            widgets::toggle_row(ui, t("Also remove Mirage Hub's settings"), t("The macro library, links between apps and profiles, and window settings."), &mut self.removal.settings);
             widgets::divider(ui);
             widgets::toggle_row(ui, t("Also remove everything the daemon keeps"), t("Device settings, profiles, macro key bindings and logs, shared with the classic control panel and the command line."), &mut self.removal.all_data);
         });
@@ -390,7 +390,7 @@ impl Setup {
         let colour = if ok { ACCENT } else { theme::DANGER };
         widgets::banner(ui, colour, if ok { icon::CHECK } else { icon::WARNING }, message, "", |ui| {
             if !ok {
-                ui.label(widgets::faint(tf("The details are also in {}", &[&std::env::temp_dir().join("rsrazer-setup.log").display()])));
+                ui.label(widgets::faint(tf("The details are also in {}", &[&std::env::temp_dir().join("mirage-hub-setup.log").display()])));
             }
         });
         let notes = self.shared.lock().unwrap().notes.clone();
@@ -400,7 +400,7 @@ impl Setup {
                     ui.label(widgets::dim(format!("· {note}")));
                 }
             });
-        } else if ok && message == t("RsRazer has been repaired.") {
+        } else if ok && message == t("Mirage Hub has been repaired.") {
             widgets::help(ui, t("Nothing needed fixing: every file was as it should be."));
         }
     }

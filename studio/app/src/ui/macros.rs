@@ -1,7 +1,7 @@
 //! Macros: a library to build them in, and the keys to put them on.
 //!
 //! The daemon stores what each macro key does, per device. The library is
-//! RsRazer's: macros are made and named once, then put on any key of any
+//! Mirage Hub's: macros are made and named once, then put on any key of any
 //! device -- the binding is a copy, so changing the library later does not
 //! change a key until the macro is put on it again.
 
@@ -9,9 +9,9 @@ use super::app::{scroll, short_name, App};
 use crate::settings::LibraryMacro;
 use crate::worker::{Command, Device, Snapshot};
 use egui::{vec2, Align, CornerRadius, Frame, Layout, Margin, RichText, Sense, Stroke};
-use rsrazer_core::theme::{self, icon, ACCENT, TEXT, TEXT_DIM, TEXT_FAINT};
-use rsrazer_core::widgets::{self, Button, IconButton};
-use rsrazer_core::{t, tf};
+use mirage_hub_core::theme::{self, icon, ACCENT, TEXT, TEXT_DIM, TEXT_FAINT};
+use mirage_hub_core::widgets::{self, Button, IconButton};
+use mirage_hub_core::{t, tf};
 use serde_json::{json, Value};
 use std::time::Instant;
 
@@ -790,6 +790,6 @@ mod tests {
     }
 
     fn set_english() {
-        rsrazer_core::i18n::set(rsrazer_core::i18n::Lang::En);
+        mirage_hub_core::i18n::set(mirage_hub_core::i18n::Lang::En);
     }
 }

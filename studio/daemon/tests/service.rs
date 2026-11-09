@@ -1,4 +1,4 @@
-use rsrazer_daemon::{
+use mirage_hub_daemon::{
     database::{self, DeviceInfo},
     device::Device,
     effects::{
@@ -175,8 +175,8 @@ impl Registry for Devices {
         }
         Ok(self.devices())
     }
-    fn unsupported(&self) -> Vec<(u16, String)> {
-        vec![(0xffff, "unknown model".into())]
+    fn unsupported(&self) -> Vec<(u16, u16, String)> {
+        vec![(0x1532, 0xffff, "unknown model".into())]
     }
     fn close(&self) -> Result<()> {
         self.current.lock().unwrap().clear();
@@ -258,7 +258,7 @@ fn startup_is_observable_before_scan_finishes_and_retries_failed_devices() {
     eventually(|| f.registry.scans.load(Ordering::SeqCst) == 1);
     let server = RpcServer::start(f.service.clone(), 0).unwrap();
     let ep = serde_json::from_value(serde_json::to_value(server.endpoint()).unwrap()).unwrap();
-    let mut client = rsrazer_core::rpc::Client::connect_to(ep).unwrap();
+    let mut client = mirage_hub_core::rpc::Client::connect_to(ep).unwrap();
     let version = client.call("daemon.version", json!({})).unwrap();
     *f.registry.gate.0.lock().unwrap() = false;
     f.registry.gate.1.notify_all();
@@ -283,7 +283,7 @@ fn startup_is_observable_before_scan_finishes_and_retries_failed_devices() {
 
 #[test]
 fn runtime_starts_bluetooth_immediately_after_usb_and_publishes_pending_state() {
-    use rsrazer_daemon::{rpc::SingleInstance, runtime::RunningDaemon};
+    use mirage_hub_daemon::{rpc::SingleInstance, runtime::RunningDaemon};
     use std::sync::mpsc;
 
     struct StartupRegistry {
@@ -312,7 +312,7 @@ fn runtime_starts_bluetooth_immediately_after_usb_and_publishes_pending_state() 
         fn first_sweep_pending(&self) -> bool {
             !self.done.load(Ordering::SeqCst)
         }
-        fn unsupported(&self) -> Vec<(u16, String)> {
+        fn unsupported(&self) -> Vec<(u16, u16, String)> {
             vec![]
         }
         fn close(&self) -> Result<()> {
@@ -338,8 +338,8 @@ fn runtime_starts_bluetooth_immediately_after_usb_and_publishes_pending_state() 
         },
     );
     let token = rpc::new_token().unwrap();
-    let directory = std::env::temp_dir().join(format!("rsrazer-startup-test-{token}"));
-    let instance = SingleInstance::acquire(&format!("Local\\rsrazer-startup-test-{token}"))
+    let directory = std::env::temp_dir().join(format!("mirage-hub-startup-test-{token}"));
+    let instance = SingleInstance::acquire(&format!("Local\\mirage-hub-startup-test-{token}"))
         .unwrap()
         .unwrap();
     let mut daemon = RunningDaemon::start(service.clone(), &directory, 0, instance).unwrap();
@@ -428,7 +428,7 @@ fn rpc_lookup_allowlist_validation_and_error_codes_match_the_service_contract() 
     }
     assert_eq!(
         f.call("devices.unsupported", json!({})),
-        json!([{"pid":65535,"product":"unknown model"}])
+        json!([{"vid":0x1532,"pid":65535,"product":"unknown model"}])
     );
 }
 

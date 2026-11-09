@@ -3,9 +3,9 @@
 //! Asynchronous Win32 activation can restore a sleeping UI without blocking
 //! the tray thread or applying the tray process's hidden startup state.
 
-use rsrazer_core::t;
+use mirage_hub_core::t;
 
-pub const WINDOW_TITLE: &str = "RsRazer";
+pub const WINDOW_TITLE: &str = "Mirage Hub";
 
 /// External tools must not inherit the UI's private pipes. Otherwise an open
 /// log viewer could keep the closed UI's command pipe alive indefinitely.
@@ -41,7 +41,7 @@ mod win {
 
     /// True if this is the only control panel in the session.
     pub fn claim_single_instance() -> bool {
-        let name = wide("Local\\rsrazer");
+        let name = wide("Local\\mirage-hub");
         unsafe {
             let handle = CreateMutexW(std::ptr::null(), 0, name.as_ptr());
             // Deliberately never closed: held for the life of the process.
@@ -78,7 +78,7 @@ mod win {
 
 pub use win::{claim_single_instance, is_visible, show};
 
-pub use rsrazer_core::branding::icon_rgba;
+pub use mirage_hub_core::branding::icon_rgba;
 
 pub enum TrayAction {
     Open,
@@ -99,7 +99,7 @@ impl Tray {
         use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
         use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
-        let open = MenuItem::new(t("Open RsRazer"), true, None);
+        let open = MenuItem::new(t("Open Mirage Hub"), true, None);
         let restart = MenuItem::new(t("Restart the daemon"), true, None);
         let quit = MenuItem::new(t("Quit"), true, None);
         let menu = Menu::new();
@@ -134,7 +134,7 @@ impl Tray {
     }
 
     pub fn refresh_language(&self) {
-        self.open.set_text(t("Open RsRazer"));
+        self.open.set_text(t("Open Mirage Hub"));
         self.restart.set_text(t("Restart the daemon"));
         self.quit.set_text(t("Quit"));
     }

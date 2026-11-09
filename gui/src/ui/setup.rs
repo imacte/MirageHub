@@ -39,7 +39,7 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot, reason: &str) {
             ui.label(widgets::dim("Download the complete application from the releases page. It includes the background service."));
             ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
-                ui.label(RichText::new("Or put rsrazer-daemon.exe from").size(12.5).color(TEXT_FAINT));
+                ui.label(RichText::new("Or put mirage-hub-daemon.exe from").size(12.5).color(TEXT_FAINT));
                 ui.hyperlink_to(RichText::new("the latest release").size(12.5), crate::daemon::RELEASES);
                 ui.label(RichText::new("next to this program and try again.").size(12.5).color(TEXT_FAINT));
             });

@@ -1,7 +1,7 @@
 //! Release notes: finding the reader's language in a release's text, and
 //! reading the little Markdown the changelog is written in.
 
-use rsrazer_core::i18n::Lang;
+use mirage_hub_core::i18n::Lang;
 
 /// A stretch of text in one style.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -29,7 +29,7 @@ fn section<'a>(body: &'a str, language: &str) -> Option<&'a str> {
     Some(rest[..rest.find("<!-- /notes -->").unwrap_or(rest.len())].trim())
 }
 
-/// The part of a release's text for `language`: `rsrazer-tools release-notes` marks
+/// The part of a release's text for `language`: `mirage-hub-tools release-notes` marks
 /// out each one. English stands in for a translation not written, and the
 /// whole text for a release not made that way.
 pub fn for_language(body: &str, language: Lang) -> &str {
@@ -173,7 +173,7 @@ pub fn inline(text: &str) -> Vec<Span> {
 mod tests {
     use super::*;
 
-    const BODY: &str = "<!-- notes:en -->\n### Added\n\n- One\n<!-- /notes -->\n\n<details>\n<summary>По-русски</summary>\n\n<!-- notes:ru -->\n### Добавлено\n\n- Раз\n<!-- /notes -->\n\n</details>\n\n**RsRazer** -- download it\n";
+    const BODY: &str = "<!-- notes:en -->\n### Added\n\n- One\n<!-- /notes -->\n\n<details>\n<summary>По-русски</summary>\n\n<!-- notes:ru -->\n### Добавлено\n\n- Раз\n<!-- /notes -->\n\n</details>\n\n**Mirage Hub** -- download it\n";
 
     #[test]
     fn the_notes_come_in_the_readers_language() {

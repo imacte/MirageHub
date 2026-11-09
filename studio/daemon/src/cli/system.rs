@@ -29,7 +29,8 @@ fn hid(args: &Arguments) -> Result<Arc<dyn HidBackend>> {
 
 pub(super) fn doctor(args: &Arguments) -> Result<i32> {
     let backend = hid(args)?;
-    let collections = backend.enumerate(Some(0x1532), None)?;
+    let mut collections = backend.enumerate(Some(0x1532), None)?;
+    collections.extend(backend.enumerate(Some(0x054c), None)?);
     let mut result = json!({"version":env!("CARGO_PKG_VERSION"),"backend":"native Rust",
         "platform":std::env::consts::OS,"architecture":std::env::consts::ARCH,
         "database":database::devices().len(),"endpoint":args.directory().join("daemon.json"),
@@ -39,7 +40,7 @@ pub(super) fn doctor(args: &Arguments) -> Result<i32> {
     if !args.flag("--emulate") {
         use crate::ble::BleBackend;
         match crate::hid::windows::attached_devices(0x1532) {
-            Ok(devices) => result["attached"] = json!(devices),
+            Ok(mut devices) => { devices.extend(crate::hid::windows::attached_devices(0x054c).unwrap_or_default()); result["attached"] = json!(devices); },
             Err(error) => result["attached_error"] = json!(error.to_string()),
         }
         if !args.flag("--json") {
@@ -58,7 +59,7 @@ pub(super) fn doctor(args: &Arguments) -> Result<i32> {
         return Ok(0);
     }
     println!(
-        "rsrazer-daemon {} — native Rust backend ({})",
+        "mirage-hub-daemon {} — native Rust backend ({})",
         env!("CARGO_PKG_VERSION"),
         std::env::consts::ARCH
     );
@@ -82,7 +83,7 @@ pub(super) fn doctor(args: &Arguments) -> Result<i32> {
             "running"
         }
     );
-    println!("\nRazer HID collections ({}):", collections.len());
+    println!("\nRazer / Sony HID collections ({}):", collections.len());
     for info in &collections {
         let control = info.feature_length == 91
             || crate::transport::select_blackshark(std::slice::from_ref(info)).is_some();
@@ -249,8 +250,8 @@ pub(super) fn autostart(args: &Arguments) -> Result<i32> {
             let exe = std::env::current_exe()?;
             // Explicit daemon flags must reach the backend. Otherwise prefer
             // Studio's tray startup when the complete application is installed.
-            let studio = exe.with_file_name("rsrazer.exe");
-            let gui = exe.with_file_name("rsrazer-classic.exe");
+            let studio = exe.with_file_name("mirage-hub.exe");
+            let gui = exe.with_file_name("mirage-hub-classic.exe");
             let (program, mut flags) = if !args.flag("--no-effects") && studio.is_file() {
                 (studio, vec!["--background".into()])
             } else if !args.flag("--no-effects") && gui.is_file() {
