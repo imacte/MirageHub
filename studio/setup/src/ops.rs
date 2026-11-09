@@ -412,7 +412,7 @@ pub fn target_dir(explicit: Option<PathBuf>) -> Option<PathBuf> {
     if here.join(MANIFEST).exists() && here.join(APP_EXE).exists() {
         return Some(here);
     }
-    install::installed().map(|i| i.dir)
+    install::installed().or_else(install::legacy_installed).map(|i| i.dir)
 }
 
 #[cfg(test)]

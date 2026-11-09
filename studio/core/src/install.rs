@@ -90,7 +90,7 @@ fn hkcu() -> winreg::RegKey {
 
 /// The installation recorded in Apps & features, if any.
 pub fn installed() -> Option<Installed> {
-    installed_at(UNINSTALL_KEY).or_else(legacy_installed)
+    installed_at(UNINSTALL_KEY)
 }
 
 pub fn legacy_installed() -> Option<Installed> { installed_at(LEGACY_UNINSTALL_KEY) }

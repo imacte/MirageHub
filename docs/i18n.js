@@ -83,7 +83,7 @@
     krakenLimitation: '<strong>读取 Kraken 耳机的当前状态</strong>：Linux 内核从设备主动发送的 HID 输入报告中收集状态；本后台服务改为从本地持久化文件提供这些值。设置灯效功能可正常使用。',
     credits: 'Razer 协议知识源自 <a href="https://github.com/openrazer/openrazer">OpenRazer</a>，凝聚了 Terri Cain、Tim Theede 和众多贡献者的成果。Sony INZONE 支持移植自 penguinwokrs 的 <a href="https://github.com/penguinwokrs/openinzone">OpenInzone</a>。',
     license: '合并后的项目使用 GPL-3.0-only。OpenRazer 部分保留 GPL-2.0-or-later 声明，INZONE 移植部分保留 OpenInzone 的 GPL-3.0-only 声明。',
-    trademarks: '本项目与 Razer Inc. 无隶属关系，也未获其认可。Razer、Chroma 和 Synapse 均为 Razer Inc. 的商标。',
+    trademarks: '本项目与 Razer 或 Sony 无隶属关系，也未获其认可。产品名称及商标属于各自所有者。',
     loading: '正在加载…', noMatches: '没有符合搜索条件的设备。',
     loadError: '无法加载设备列表。请查看', repository: '项目仓库',
     countAll: '{total} 款设备', countFiltered: '显示 {shown} 款，共 {total} 款设备',

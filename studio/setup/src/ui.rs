@@ -77,7 +77,7 @@ pub fn run(args: Args) -> eframe::Result<()> {
         // Documentation captures use their explicit demo directory, not the
         // current user's installation from the registry.
         let installed = if std::env::var_os("OPENRAZER_SETUP_CAPTURE").is_some() { None } else {
-            args.dir.clone().filter(|_| args.from_temp).map(|dir| Installed { version: install::Manifest::read(&dir).map(|m| m.version).unwrap_or_default(), dir }).or_else(install::installed)
+            args.dir.clone().filter(|_| args.from_temp).map(|dir| Installed { version: install::Manifest::read(&dir).map(|m| m.version).unwrap_or_default(), dir }).or_else(install::installed).or_else(install::legacy_installed)
         };
         let dir = installed.as_ref().map(|i| i.dir.clone()).or(args.dir.clone()).unwrap_or_else(mirage_hub_core::paths::default_install_dir);
         let saved = installed.as_ref().and_then(|i| install::Manifest::read(&i.dir)).map(|m| m.options);
