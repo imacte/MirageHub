@@ -12,6 +12,9 @@ use mirage_hub_core::t;
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
 
+#[path = "inzone_volume.rs"]
+mod inzone_volume;
+
 /// How often to look at the mute button while its state is on screen.
 const MIC_POLL: Duration = Duration::from_secs(3);
 
@@ -223,7 +226,10 @@ pub fn quick(app: &mut App, ui: &mut egui::Ui, device: &Device, detail: &Detail,
         if let Some(settings) = audio["settings"].as_array() {
             for setting in settings.iter().filter(|s| matches!(s["key"].as_str(),Some("headphone_volume" | "game_chat_balance"))) {
                 let key = setting["key"].as_str().unwrap_or_default();
-                widgets::fact(ui, inzone_label(key), &setting["value"].to_string());
+                let value = if key == "headphone_volume" {
+                    setting["value"].as_f64().map(|level| format!("{:.0}%", inzone_volume::to_percent(level))).unwrap_or_else(|| "—".into())
+                } else { setting["value"].to_string() };
+                widgets::fact(ui, inzone_label(key), &value);
             }
         }
         return;
@@ -328,8 +334,19 @@ fn inzone(app: &mut App, ui: &mut egui::Ui, device: &Device, audio: &Value) {
                                 });
                             }),
                             _ => widgets::row(ui,inzone_label(key),hint,|ui| {
-                                let range=setting["min"].as_f64().unwrap_or_default()..=setting["max"].as_f64().unwrap_or(100.0);
-                                if widgets::slider_field(ui,("inzone",&serial,key),value,range,1.0,0,"",72.0) {later.push((format!("inzone:{serial}:{key}"),call(&serial,setting["method"].as_str().unwrap_or_default(),json!(value.round() as i64))));}
+                                let changed = if key == "headphone_volume" {
+                                    let mut percent = inzone_volume::to_percent(*value);
+                                    if widgets::slider_field(ui,("inzone",&serial,key),&mut percent,0.0..=100.0,inzone_volume::PERCENT_STEP,0,"%",72.0) {
+                                        let level = inzone_volume::from_percent(percent);
+                                        let changed = level != *value;
+                                        *value = level;
+                                        changed
+                                    } else { false }
+                                } else {
+                                    let range=setting["min"].as_f64().unwrap_or_default()..=setting["max"].as_f64().unwrap_or(100.0);
+                                    widgets::slider_field(ui,("inzone",&serial,key),value,range,1.0,0,"",72.0)
+                                };
+                                if changed {later.push((format!("inzone:{serial}:{key}"),call(&serial,setting["method"].as_str().unwrap_or_default(),json!(value.round() as i64))));}
                             }),
                         }
                     });

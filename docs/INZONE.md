@@ -17,7 +17,7 @@ The serial channel uses 460800 baud, 8N1, no flow control, with RTS/DTR enabled.
 
 ## Controls
 
-Volume is 0–30. Game/chat balance is 0–100: **0 = game, 50 = balanced, 100 = chat**. Sidetone is 0–10. Writes first read the current packet and change only the selected field; sentinel and sibling bytes are preserved. A matching acknowledgement is required before reporting success.
+The GUI displays headphone volume as 0–100% (hardware level 15 = 50%). Adjustments snap to the nearest supported hardware level. The CLI and RPC use the protocol's 0–30 volume levels. Game/chat balance is 0–100: **0 = game, 50 = balanced, 100 = chat**. Sidetone is 0–10. Writes first read the current packet and change only the selected field; sentinel and sibling bytes are preserved. A matching acknowledgement is required before reporting success.
 
 Microphone mute is writable only on Buds. Other headsets report their physical mute state. Microphone level is a separate Windows capture-endpoint control, matched by USB topology, and is disabled if no unique matching endpoint exists. Emulated devices cannot access the real microphone.
 

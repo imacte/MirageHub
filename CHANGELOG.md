@@ -6,6 +6,12 @@ uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-11-09
+
+### Fixed
+
+- Show INZONE headphone volume as 0–100% in the sound controls and home summary, converting to the nearest supported hardware level when adjusted.
+
 ## [2.0.0] - 2026-11-09
 
 ### Added
