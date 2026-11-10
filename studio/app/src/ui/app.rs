@@ -73,6 +73,7 @@ pub struct App {
     ipc: Option<crate::ipc::Sender>,
     pub autostart: bool,
     pub device_ui: super::device::DeviceUi,
+    pub microphone_test: Option<crate::microphone_test::Test>,
     pub lighting: super::lighting::LightingUi,
     pub macros: super::macros::MacrosUi,
     pub arts: super::canvas::Arts,
@@ -155,6 +156,7 @@ impl App {
             ipc,
             autostart: crate::daemon::autostart_enabled(),
             device_ui: Default::default(),
+            microphone_test: None,
             lighting: Default::default(),
             macros: Default::default(),
             arts: Default::default(),
@@ -173,8 +175,26 @@ impl App {
     }
 
     pub fn send(&self, command: Command) {
-        if self.capture.is_some() && std::env::var_os("OPENRAZER_STUDIO_AUDIO_FIXTURE").is_some() && matches!(command,Command::Call{..}) {return;}
+        if self.capture.is_some() && std::env::var_os("OPENRAZER_STUDIO_AUDIO_FIXTURE").is_some() && matches!(command,Command::Call{..}|Command::Audio{..}) {return;}
         let _ = self.tx.send(command);
+    }
+
+    pub fn send_audio(&mut self, command: Command) {
+        let Command::Audio { serial, change } = &command else { self.send(command); return; };
+        if self.capture.is_some() && std::env::var_os("OPENRAZER_STUDIO_AUDIO_FIXTURE").is_some() { return; }
+        self.edits.entry(serial.clone()).or_default().begin_audio(change);
+        let (serial, change) = (serial.clone(), change.clone());
+        if let Err(error) = self.tx.send(command) {
+            self.edits.entry(serial).or_default().cancel_audio(&change);
+            self.toast(error, true);
+        }
+    }
+
+    pub fn debounce_audio(&mut self, key: String, command: Command, delay_ms: u64) {
+        if let Command::Audio { serial, change } = &command {
+            self.edits.entry(serial.clone()).or_default().begin_audio(change);
+        }
+        self.debounce(key, command, delay_ms);
     }
 
     /// A slider's final value belongs to the profile being left. Queue it
@@ -223,7 +243,7 @@ impl App {
         let (due, waiting): (Vec<_>, Vec<_>) = std::mem::take(&mut self.pending).into_iter().partition(|p| p.due <= now);
         self.pending = waiting;
         for pending in due {
-            self.send(pending.command);
+            self.send_audio(pending.command);
         }
         if let Some(next) = self.pending.iter().map(|p| p.due).min() {
             ctx.request_repaint_after(next.saturating_duration_since(now));
@@ -258,6 +278,11 @@ fn quit() {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if self.microphone_test.as_ref().is_some_and(|test| self.page != Page::Device
+            || self.device_ui.tab != Tab::Sound || self.selected.as_ref() != Some(&test.serial)
+            || ctx.input(|i| i.viewport().close_requested()) || !shell::is_visible()) {
+            self.microphone_test = None;
+        }
         if ctx.input(|i| i.viewport().close_requested()) && !self.closing && self.capture.is_none() {
             match super::session::save(self) {
                 Ok(()) => {

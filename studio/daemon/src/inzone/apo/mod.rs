@@ -13,6 +13,11 @@ pub fn state() -> Value {
         native::state().unwrap_or_else(|e| json!({"available":false,"error":e.to_string()}));
     #[cfg(not(windows))]
     let mut state = json!({"available":false,"reason":"windows_only"});
+    #[cfg(windows)]
+    {
+        state["microphone"] = native::microphone_state()
+            .unwrap_or_else(|e| json!({"available":false,"error":e.to_string()}));
+    }
     state["components"] = components::state();
     state
 }

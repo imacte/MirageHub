@@ -4,7 +4,7 @@
 
 use super::app::App;
 use super::device::TWO_COLUMNS;
-use crate::worker::{Command, Detail, Device, Snapshot, Then};
+use crate::worker::{AudioChange, Command, Detail, Device, Snapshot};
 use mirage_hub_core::theme::{self, icon, ACCENT};
 use mirage_hub_core::widgets::{self, Button};
 use mirage_hub_core::t;
@@ -51,20 +51,34 @@ fn names(list: &Value) -> Vec<String> {
 }
 
 fn call(serial: &str, method: &str, argument: Value) -> Command {
-    Command::Call { serial: serial.into(), method: method.into(), args: vec![argument], zone: None, then: Then::Audio }
+    Command::Audio { serial: serial.into(), change: AudioChange::new(method, argument) }
 }
 
-pub fn page(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapshot) {
+pub fn page(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapshot, effects: bool) {
     let Some(detail) = snap.details.get(&device.serial) else { return };
     let Some(caps) = detail.caps.clone() else { return };
-    if app.device_ui.audio_read.is_none_or(|at| at.elapsed() >= MIC_POLL) {
+    if !app.edits.get(&device.serial).is_some_and(|edit| edit.audio_pending())
+        && app.device_ui.audio_read.is_none_or(|at| at.elapsed() >= MIC_POLL) {
         app.device_ui.audio_read = Some(Instant::now());
-        app.send(Command::ReadAudio(device.serial.clone()));
+        app.send_audio(Command::ReadAudio(device.serial.clone()));
     }
     let Some(audio) = detail.audio.clone() else {
         ui.label(widgets::dim(t("Not reported yet.")));
         return;
     };
+    if effects {
+        if let Some(error) = audio["error"].as_str() {
+            widgets::plain_panel(ui, |ui| { widgets::help(ui,t("Not reported yet.")); ui.label(error); });
+        } else if audio["connected"] != true {
+            widgets::plain_panel(ui, |ui| widgets::empty_state(ui, t("The headset is switched off"), t("Switch it on to see and change its settings."), |_| {}));
+        } else if caps["protocol"] == "inzone" {
+            if audio["sony_apo"].is_null() { widgets::help(ui,t("Not reported yet.")); }
+            else { sony_apo(app,ui,device,&audio["sony_apo"]); }
+        } else {
+            equalizer(app,ui,device,&caps);
+        }
+        return;
+    }
     if caps["protocol"] == "inzone" { return inzone(app, ui, device, &audio); }
     let tx = app.tx.clone();
     if !snap.synapse.is_empty() {
@@ -88,14 +102,8 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, device: &Device, snap: &Snapshot) 
         receiver(app, ui, device, &audio, &leds);
         return;
     }
-    widgets::columns(ui, 0.46, TWO_COLUMNS, |ui, column| {
-        if column == 0 {
-            microphone(app, ui, device, &audio, &caps);
-            receiver(app, ui, device, &audio, &leds);
-        } else {
-            equalizer(app, ui, device, &caps);
-        }
-    });
+    microphone(app, ui, device, &audio, &caps);
+    receiver(app, ui, device, &audio, &leds);
 }
 
 fn microphone(app: &mut App, ui: &mut egui::Ui, device: &Device, audio: &Value, caps: &Value) {
@@ -133,10 +141,10 @@ fn microphone(app: &mut App, ui: &mut egui::Ui, device: &Device, audio: &Value, 
         edit.touch();
     }
     for command in send {
-        app.send(command);
+        app.send_audio(command);
     }
     for (key, command) in later {
-        app.debounce(key, command, 250);
+        app.debounce_audio(key, command, 250);
     }
 }
 
@@ -183,10 +191,10 @@ fn equalizer(app: &mut App, ui: &mut egui::Ui, device: &Device, caps: &Value) {
         edit.touch();
     }
     for command in send {
-        app.send(command);
+        app.send_audio(command);
     }
     for (key, command) in later {
-        app.debounce(key, command, 300);
+        app.debounce_audio(key, command, 300);
     }
 }
 
@@ -210,7 +218,7 @@ fn receiver(app: &mut App, ui: &mut egui::Ui, device: &Device, audio: &Value, le
         });
     });
     if let Some(mode) = chosen {
-        app.send(call(&serial, "set_dongle_led", json!(mode)));
+        app.send_audio(call(&serial, "set_dongle_led", json!(mode)));
     }
 }
 
@@ -246,7 +254,7 @@ pub fn quick(app: &mut App, ui: &mut egui::Ui, device: &Device, detail: &Detail,
         });
     });
     if let Some(preset) = chosen {
-        app.send(call(&serial, "set_equalizer_preset", json!(preset)));
+        app.send_audio(call(&serial, "set_equalizer_preset", json!(preset)));
     }
     widgets::row(ui, t("Microphone"), "", |ui| {
         if audio["microphone_muted"] == true {
@@ -300,15 +308,28 @@ fn inzone(app: &mut App, ui: &mut egui::Ui, device: &Device, audio: &Value) {
         return;
     }
     let Some(settings) = audio["settings"].as_array() else { return };
+    widgets::columns(ui,0.5,TWO_COLUMNS,|ui,column| {
+        if column==0 {
+            inzone_settings(app,ui,device,settings,true);
+            inzone_settings(app,ui,device,settings,false);
+        } else {
+            inzone_microphone(app,ui,device,audio);
+        }
+    });
+}
+
+fn inzone_settings(app: &mut App, ui: &mut egui::Ui, device: &Device, settings: &[Value], sound: bool) {
     let serial = device.serial.clone();
     let edit = app.edits.entry(serial.clone()).or_default();
     let mut send = Vec::new();
     let mut later = Vec::new();
-    widgets::columns(ui, 0.5, TWO_COLUMNS, |ui, column| {
-        let is_sound = |key: &str| matches!(key,"headphone_volume"|"headphone_muted"|"game_chat_balance"|"microphone_muted"|"microphone_level"|"sidetone_level");
-        let entries: Vec<_> = settings.iter().filter(|s| is_sound(s["key"].as_str().unwrap_or_default()) == (column==0)).collect();
+        let is_sound = |key: &str| matches!(key,"headphone_volume"|"headphone_muted"|"game_chat_balance");
+        let entries: Vec<_> = settings.iter().filter(|s| {
+            let key=s["key"].as_str().unwrap_or_default();
+            !matches!(key,"microphone_muted"|"microphone_level"|"sidetone_level") && is_sound(key) == sound
+        }).collect();
         if !entries.is_empty() {
-            widgets::panel(ui, if column==0 {t("Sound")} else {t("Headset settings")}, |ui| {
+            widgets::panel(ui, if sound {t("Sound")} else {t("Headset settings")}, |ui| {
                 for (index,setting) in entries.iter().enumerate() {
                     let key=setting["key"].as_str().unwrap_or_default();
                     if index>0 {widgets::divider(ui);}
@@ -352,14 +373,96 @@ fn inzone(app: &mut App, ui: &mut egui::Ui, device: &Device, audio: &Value) {
                 }
             });
         }
-        if column==1 {
-            inzone_battery(ui,audio);
+    if !send.is_empty() || !later.is_empty() {edit.touch();}
+    for command in send {app.send_audio(command);}
+    for (key,command) in later {app.debounce_audio(key,command,250);}
+}
+
+fn inzone_microphone(app: &mut App, ui: &mut egui::Ui, device: &Device, audio: &Value) {
+    let serial = &device.serial;
+    let apo = &audio["sony_apo"];
+    let mic = &apo["microphone"];
+    let mut send = Vec::new();
+    let mut later = Vec::new();
+    widgets::panel(ui, t("Microphone"), |ui| {
+        let edit = app.edits.entry(serial.clone()).or_default();
+        for key in ["microphone_level", "sidetone_level"] {
+            let Some(setting) = audio["settings"].as_array().and_then(|items| items.iter().find(|s|s["key"]==key)) else {continue};
+            let value = edit.audio.settings.entry(key.into()).or_insert_with(||setting["value"].as_f64().unwrap_or_default());
+            ui.add_enabled_ui(setting["enabled"]!=false && setting["readonly"]!=true, |ui| {
+                widgets::row(ui,inzone_label(key),"",|ui| {
+                    if widgets::slider_field(ui,("inzone-mic",serial,key),value,0.0..=setting["max"].as_f64().unwrap_or(100.),1.,0,if key=="microphone_level" {"%"} else {""},72.) {
+                        later.push((format!("inzone:{serial}:{key}"),call(serial,setting["method"].as_str().unwrap_or_default(),json!(value.round() as i64))));
+                    }
+                });
+            });
+            widgets::divider(ui);
+        }
+        if let Some(setting) = audio["settings"].as_array().and_then(|items|items.iter().find(|s|s["key"]=="microphone_muted")) {
+            let value = edit.audio.settings.entry("microphone_muted".into()).or_default();
+            let mut muted = *value != 0.;
+            ui.add_enabled_ui(setting["readonly"]!=true && setting["enabled"]!=false,|ui| {
+                if widgets::toggle_row(ui,t("Microphone muted"),if setting["readonly"]==true {t("Use the headset's physical microphone control.")} else {""},&mut muted) {
+                    *value = u8::from(muted) as f64;
+                    send.push(call(serial,setting["method"].as_str().unwrap_or_default(),json!(muted)));
+                }
+            });
+            widgets::divider(ui);
+        }
+        if mic["available"]==true {
+            ui.add_enabled_ui(mic["hub_running"]!=true && mic["effects_disabled"]!=true,|ui| {
+                if widgets::toggle_row(ui,t("Automatic gain control"),t("Keeps quiet and loud speech at a more even level."),&mut edit.audio.sony_auto_gain) {
+                    send.push(call(serial,"set_sony_auto_gain",json!(edit.audio.sony_auto_gain)));
+                }
+                if mic["backup"]==true && ui.add(Button::secondary(t("Restore original microphone settings")).small()).clicked() {
+                    send.push(call(serial,"restore_sony_microphone",Value::Null));
+                }
+            });
+            if mic["hub_running"]==true {widgets::help(ui,t("Exit INZONE Hub from its tray menu before changing these settings."));}
+            if mic["effects_disabled"]==true {widgets::help(ui,t("Enable audio enhancements for the H5 microphone in Windows Sound settings."));}
+        } else if !apo.is_null() {
+            widgets::help(ui,t("Automatic gain control needs the Sony microphone APO."));
+            if let Some(error)=mic["error"].as_str() {ui.label(error);}
+        }
+        if !send.is_empty() || !later.is_empty() {edit.touch();}
+        widgets::divider(ui);
+        if !apo.is_null() { microphone_test(app,ui,serial,apo,audio["microphone_muted"]==true); }
+    });
+    for command in send { app.send_audio(command); }
+    for (key,command) in later { app.debounce_audio(key,command,250); }
+}
+
+fn microphone_test(app: &mut App, ui: &mut egui::Ui, serial: &str, apo: &Value, muted: bool) {
+    use crate::microphone_test::{Phase, Test};
+    let phase = app.microphone_test.as_ref().filter(|test|test.serial==serial).map(Test::phase);
+    let active = phase.as_ref().is_some_and(Phase::active);
+    let input = apo["microphone"]["endpoint_id"].as_str();
+    let output = apo["endpoint_id"].as_str();
+    widgets::row(ui,t("Microphone test"),t("Record 4 seconds, then listen through your headset. Nothing is saved."),|ui| {
+        if active {
+            if ui.add(Button::secondary(t("Stop test"))).clicked() { if let Some(test)=&app.microphone_test {test.stop();} }
+        } else {
+            ui.add_enabled_ui(!muted && input.is_some() && output.is_some(), |ui| {
+                if ui.add(Button::primary(t("Start test"))).clicked() {
+                    app.microphone_test = Some(Test::start(serial.into(),input.unwrap().into(),output.unwrap().into()));
+                }
+            });
         }
     });
-    if !send.is_empty() || !later.is_empty() {edit.touch();}
-    for command in send {app.send(command);}
-    for (key,command) in later {app.debounce(key,command,250);}
-    sony_apo(app,ui,device,&audio["sony_apo"]);
+    match phase {
+        Some(Phase::Starting) => {widgets::help(ui,t("Opening the headset microphone…"));},
+        Some(Phase::Recording {progress,peak}) => {
+            ui.add(egui::ProgressBar::new(progress).text(t("Recording… Speak into the microphone.")));
+            ui.add(egui::ProgressBar::new(peak.sqrt()).text(t("Input level")));
+        },
+        Some(Phase::Playing {progress}) => {ui.add(egui::ProgressBar::new(progress).text(t("Playing your recording…")));},
+        Some(Phase::Finished) => {widgets::help(ui,t("Microphone test finished."));},
+        Some(Phase::Stopped) => {widgets::help(ui,t("Microphone test stopped."));},
+        Some(Phase::Failed(error)) => {widgets::help(ui,t("Microphone test failed. Check Windows microphone access and the headset connection."));ui.label(error);},
+        None if input.is_none() || output.is_none() => {widgets::help(ui,t("Connect the H5 microphone and Game output to test."));},
+        None => {},
+    }
+    if active {ui.ctx().request_repaint_after(Duration::from_millis(50));}
 }
 
 fn sony_apo(app: &mut App, ui: &mut egui::Ui, device: &Device, apo: &Value) {
@@ -377,19 +480,17 @@ fn sony_apo(app: &mut App, ui: &mut egui::Ui, device: &Device, apo: &Value) {
             ui.add_enabled_ui(apo["hub_running"]!=true && apo["effects_disabled"]!=true,|ui| {
                 if widgets::toggle_row(ui,t("Equalizer"),"",&mut edit.audio.sony_equalizer) {send.push(call(serial,"set_sony_equalizer",json!(edit.audio.sony_equalizer)));}
                 ui.add_enabled_ui(edit.audio.sony_equalizer,|ui| {
-                    let labels=["31.5 Hz","63 Hz","125 Hz","250 Hz","500 Hz","1 kHz","2 kHz","4 kHz","8 kHz","16 kHz"];
-                    if edit.audio.sony_bands.len()==10 {
-                        // Two columns also fit the minimum window width and translated labels.
-                        ui.columns(2,|columns| {
-                            for (i,value) in edit.audio.sony_bands.iter_mut().enumerate() {
-                                widgets::row(&mut columns[i/5],labels[i],"",|ui| {
-                                    bands_changed |= widgets::slider_field(ui,("sony-band",serial,i),value,-12.0..=12.0,0.5,1," dB",76.0);
-                                });
-                            }
-                        });
-                        if ui.add(Button::secondary(t("Flat"))).clicked() {edit.audio.sony_bands.fill(0.0);bands_changed=true;}
-                    }
+                    bands_changed |= edit.sony_equalizer.show(ui,serial,&mut edit.audio.sony_bands);
                 });
+                widgets::divider(ui);
+                widgets::row(ui,t("Dynamic range control"),t("Reduces the difference between quiet and loud sounds."),|ui| {
+                    ui.add_enabled_ui(edit.audio.sony_drc!="unavailable",|ui| {
+                        for (value,label) in [("high",t("High")),("low",t("Low")),("off",t("Off"))] {
+                            if ui.radio_value(&mut edit.audio.sony_drc,value.into(),label).changed() {send.push(call(serial,"set_sony_drc",json!(edit.audio.sony_drc)));}
+                        }
+                    });
+                });
+                if edit.audio.sony_drc=="custom" {widgets::help(ui,t("Custom compression is active. Select a level to replace it."));}
                 widgets::divider(ui);
                 if apo["spatial"]=="custom" {widgets::help(ui,t("A custom Sony spatial profile is active. Switching this control selects the standard H5 profile."));}
                 ui.add_enabled_ui(apo["resources"]==true,|ui| {
@@ -402,6 +503,7 @@ fn sony_apo(app: &mut App, ui: &mut egui::Ui, device: &Device, apo: &Value) {
             if let Some(error)=apo["error"].as_str() {ui.label(error);}
         }
         widgets::divider(ui);
+        egui::CollapsingHeader::new(t("Sony audio components")).default_open(apo["available"]!=true).show(ui,|ui| {
         let components=&apo["components"];
         let phase=components["phase"].as_str().unwrap_or("absent");
         let busy=matches!(phase,"starting"|"downloading"|"verifying"|"extracting"|"installing");
@@ -427,12 +529,13 @@ fn sony_apo(app: &mut App, ui: &mut egui::Ui, device: &Device, apo: &Value) {
                 if ui.add(Button::secondary(t("Install Sony drivers…"))).clicked() {send.push(call(serial,"install_sony_audio",Value::Null));}
             }
         });
+        });
     });
     if bands_changed {send.push(call(serial,"set_sony_bands",json!(edit.audio.sony_bands)));}
     if !send.is_empty() {edit.touch();}
     for command in send {
-        if matches!(&command,Command::Call{method,..} if method=="restore_sony_audio") {app.cancel_pending(&format!("sony-bands:{serial}"));}
-        if matches!(&command,Command::Call{method,..} if method=="set_sony_bands") {app.debounce(format!("sony-bands:{serial}"),command,300);} else {app.send(command);}
+        if matches!(&command,Command::Audio{change,..} if change.method=="restore_sony_audio") {app.cancel_pending(&format!("sony-bands:{serial}"));}
+        if matches!(&command,Command::Audio{change,..} if change.method=="set_sony_bands") {app.debounce_audio(format!("sony-bands:{serial}"),command,300);} else {app.send_audio(command);}
     }
 }
 

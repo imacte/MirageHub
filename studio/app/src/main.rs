@@ -17,6 +17,7 @@ mod ipc;
 mod host;
 mod layout;
 mod notes;
+mod microphone_test;
 mod outline;
 mod preview;
 mod report;

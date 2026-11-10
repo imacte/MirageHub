@@ -9,6 +9,32 @@ pub const FREQUENCIES: [f64; 10] = [
 ];
 const ENABLES: [f64; 12] = [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 0., 0.];
 
+// Sony INZONE Hub 1.0.20.0: Game DynamicRangeCompression and microphone
+// AutoGainControl parameters. Preserve all other APO sections and endpoint roles.
+const DRC_KEYS: [&str; 12] = [
+    "uthreshold",
+    "uratio",
+    "uattackTime",
+    "ureleaseTime",
+    "lthreshold",
+    "lratio",
+    "lattackTime",
+    "lreleaseTime",
+    "sthreshold",
+    "sratio",
+    "sattackTime",
+    "sreleaseTime",
+];
+const DRC_LOW: [f64; 12] = [
+    -15., 2.5, 0.015, 0.05, -35., 2.5, 0.005, 0.1, -50., 1.9, 0.03, 0.05,
+];
+const DRC_HIGH: [f64; 12] = [
+    -15., 5., 0.015, 0.05, -35., 5., 0.005, 0.1, -50., 2.2, 0.03, 0.05,
+];
+const MIC_AGC: [f64; 12] = [
+    -12., 2., 0.01, 0.2, -44., 2., 0.01, 0.2, -64., 3., 0.01, 0.2,
+];
+
 fn invalid() -> Error {
     Error::NotSupported("Unsupported Sony APO configuration".into())
 }
@@ -20,6 +46,18 @@ pub struct Document {
 }
 impl Document {
     pub fn parse(text: &str) -> Result<Self> {
+        let doc = Self::read(text)?;
+        doc.bands()?;
+        doc.boolean("equalizer", "enable")?;
+        doc.get("virtualizer", "cef_name_hki")?;
+        Ok(doc)
+    }
+    pub fn parse_microphone(text: &str) -> Result<Self> {
+        let doc = Self::read(text)?;
+        doc.compression_values()?;
+        Ok(doc)
+    }
+    fn read(text: &str) -> Result<Self> {
         if text.len() > 128 * 1024 || text.contains('\0') {
             return Err(invalid());
         }
@@ -28,9 +66,6 @@ impl Document {
             newline: if text.contains("\r\n") { "\r\n" } else { "\n" },
             trailing: text.ends_with('\n'),
         };
-        doc.bands()?;
-        doc.boolean("equalizer", "enable")?;
-        doc.get("virtualizer", "cef_name_hki")?;
         Ok(doc)
     }
     fn section(&self, name: &str) -> Result<Range<usize>> {
@@ -190,8 +225,58 @@ impl Document {
             "custom"
         };
         Ok(
-            json!({"equalizer":self.boolean("equalizer","enable")?,"bands":self.bands()?,"frequencies":FREQUENCIES,"spatial":spatial}),
+            json!({"equalizer":self.boolean("equalizer","enable")?,"bands":self.bands()?,"frequencies":FREQUENCIES,"spatial":spatial,"drc":self.dynamic_range().unwrap_or("unavailable")}),
         )
+    }
+    fn compression_values(&self) -> Result<[f64; 12]> {
+        self.boolean("drc", "enable")?;
+        let mut values = [0f64; 12];
+        for (value, key) in values.iter_mut().zip(DRC_KEYS) {
+            *value = self.get("drc", key)?.parse().map_err(|_| invalid())?;
+            if !value.is_finite() {
+                return Err(invalid());
+            }
+        }
+        Ok(values)
+    }
+    pub fn dynamic_range(&self) -> Result<&'static str> {
+        let values = self.compression_values()?;
+        if !self.boolean("drc", "enable")? {
+            return Ok("off");
+        }
+        if values == DRC_LOW {
+            Ok("low")
+        } else if values == DRC_HIGH {
+            Ok("high")
+        } else {
+            Ok("custom")
+        }
+    }
+    pub fn auto_gain(&self) -> Result<bool> {
+        self.boolean("drc", "enable")
+    }
+    fn compression(&mut self, enabled: bool, values: Option<&[f64; 12]>) -> Result<()> {
+        self.compression_values()?;
+        self.set("drc", "enable", if enabled { "true" } else { "false" })?;
+        if let Some(values) = values {
+            for (key, value) in DRC_KEYS.into_iter().zip(values) {
+                self.set("drc", key, &value.to_string())?;
+            }
+        }
+        Ok(())
+    }
+    pub fn set_dynamic_range(&mut self, mode: &str) -> Result<()> {
+        match mode {
+            "off" => self.compression(false, None),
+            "low" => self.compression(true, Some(&DRC_LOW)),
+            "high" => self.compression(true, Some(&DRC_HIGH)),
+            _ => Err(Error::Invalid(
+                "Dynamic range must be off, low or high".into(),
+            )),
+        }
+    }
+    pub fn set_auto_gain(&mut self, enabled: bool) -> Result<()> {
+        self.compression(enabled, Some(&MIC_AGC))
     }
     pub fn equalizer(&mut self, enabled: bool) -> Result<()> {
         self.set(
@@ -280,6 +365,63 @@ fn peaking(frequency: f64, q: f64, gain: f64) -> [f64; 5] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn drc_fixture() -> String {
+        let mut text = String::from("drc:\n  - enable: false # preserve\n");
+        for (key, value) in DRC_KEYS.into_iter().zip(MIC_AGC) {
+            text += &format!("  - {key}: {value}\n");
+        }
+        text + "noise_reduction:\n  - enable: true\n  - level: 9\n"
+    }
+    #[test]
+    fn compression_levels_preserve_eq_spatial_and_vendor_sections() {
+        let original = fixture().replace("drc:\n  - enable: false\n", &drc_fixture());
+        let mut doc = Document::parse(&original).unwrap();
+        for (mode, ratios) in [("low", [2.5, 2.5, 1.9]), ("high", [5., 5., 2.2])] {
+            doc.set_dynamic_range(mode).unwrap();
+            let readback = Document::parse(&doc.render()).unwrap();
+            assert_eq!(readback.dynamic_range().unwrap(), mode);
+            for (key, ratio) in ["uratio", "lratio", "sratio"].into_iter().zip(ratios) {
+                assert_eq!(
+                    readback.get("drc", key).unwrap().parse::<f64>().unwrap(),
+                    ratio
+                );
+            }
+            assert_eq!(
+                doc.render().split("drc:").next(),
+                original.split("drc:").next()
+            );
+            assert!(doc
+                .render()
+                .contains("noise_reduction:\n  - enable: true\n  - level: 9\n"));
+        }
+        let values = doc.compression_values().unwrap();
+        doc.set_dynamic_range("off").unwrap();
+        assert_eq!(doc.dynamic_range().unwrap(), "off");
+        assert_eq!(doc.compression_values().unwrap(), values);
+        let before = doc.render();
+        assert!(doc.set_dynamic_range("maximum").is_err());
+        assert_eq!(doc.render(), before);
+    }
+    #[test]
+    fn microphone_agc_uses_capture_parameters_and_preserves_other_effects() {
+        let original = drc_fixture().replace('\n', "\r\n");
+        let mut doc = Document::parse_microphone(&original).unwrap();
+        doc.set_auto_gain(true).unwrap();
+        assert!(Document::parse_microphone(&doc.render())
+            .unwrap()
+            .auto_gain()
+            .unwrap());
+        assert_eq!(
+            doc.render(),
+            original.replace("false # preserve", "true # preserve")
+        );
+        doc.set_auto_gain(false).unwrap();
+        assert_eq!(doc.render(), original);
+        assert!(
+            Document::parse_microphone(&original.replace("- uratio: 2", "- uratio: NaN")).is_err()
+        );
+        assert!(Document::parse_microphone(&(original + "drc:\n  - enable: true\n")).is_err());
+    }
     fn fixture() -> String {
         let mut text=String::from("# Keep vendor settings\nvirtualizer:\n  - enable: true\n  - rootpath: C:\\Sony\n  - cef_name_hki: downmix.hki\n  - coef_name_ba: \n  - alc_cfg_name: alc.cfg\nmode_equalizer:\n  enable: false\nequalizer:\n  enable: true # switch\n  coeffs:\n");
         for key in ["enables", "a1", "a2", "b0", "b1", "b2"] {

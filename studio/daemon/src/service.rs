@@ -376,11 +376,9 @@ impl DaemonService {
     ) -> Arc<Self> {
         let stores = Stores::load(directory);
         let hid: Arc<dyn crate::hid::HidBackend> = Arc::new(crate::hid::windows::NativeHid);
-        let manager = Arc::new(DeviceManager::new(
-            hid.clone(),
-            Some(Arc::new(crate::ble::windows::NativeBle)),
-            stores.persistence.clone(),
-        ));
+        // The running daemon needs the same Windows audio and serial integrations
+        // as direct CLI access. The generic constructor deliberately disables them.
+        let manager = Arc::new(DeviceManager::native(stores.persistence.clone(), true));
         let effects = enable_effects.then(|| EffectEngine::new(stores.persistence.clone()));
         let keys = enable_keys.then(|| KeyService::native(hid, stores.macros.clone()));
         let service = Self::new(manager, stores, effects, keys, options);

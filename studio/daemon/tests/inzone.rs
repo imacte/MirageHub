@@ -262,7 +262,7 @@ fn emulated_h5_has_only_reported_settings_and_cannot_touch_a_real_microphone() {
     assert_eq!(settings.iter().find(|s|s["key"]=="microphone_muted").unwrap()["readonly"],true);
     assert!(device.call("set_microphone_level",&[json!(0)],&Map::new()).is_err());
     assert!(audio["sony_apo"].is_null());
-    for method in ["set_sony_equalizer","set_sony_bands","set_sony_spatial","restore_sony_audio","prepare_sony_audio","install_sony_audio"] {
+    for method in ["set_sony_equalizer","set_sony_bands","set_sony_spatial","set_sony_drc","set_sony_auto_gain","restore_sony_microphone","restore_sony_audio","prepare_sony_audio","install_sony_audio"] {
         assert!(device.call(method,&[json!(true)],&Map::new()).is_err(),"{method} must not touch Windows from the demo backend");
     }
 }

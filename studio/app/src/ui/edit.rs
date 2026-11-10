@@ -1,12 +1,12 @@
 //! What the controls show for one device, loaded from the daemon's state.
 //!
 //! The controls hold their own values so dragging a slider is smooth; they
-//! are reloaded from the daemon whenever its saved state moves on, unless the
-//! user touched something moments ago -- a reload then would snap a slider
-//! back under their hand.
+//! are reloaded from the daemon whenever its saved state moves on. Audio
+//! edits wait for their own write/readback acknowledgement; other controls
+//! retain a short grace period while the user is dragging.
 
 use super::effects::{own_zones, ZONE_SOFTWARE};
-use crate::worker::{Command, Detail, Device, Snapshot};
+use crate::worker::{AudioChange, Command, Detail, Device, Snapshot};
 use egui::Color32;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -48,6 +48,8 @@ pub struct AudioEdit {
     pub sony_equalizer: bool,
     pub sony_bands: Vec<f64>,
     pub sony_spatial: bool,
+    pub sony_drc: String,
+    pub sony_auto_gain: bool,
     pub settings: HashMap<String, f64>,
     pub sidetone: bool,
     pub sidetone_level: f64,
@@ -58,11 +60,50 @@ pub struct AudioEdit {
 }
 
 impl AudioEdit {
+    fn preserve(&mut self, current: &Self, method: &str) {
+        match method {
+            "set_sony_equalizer" => self.sony_equalizer = current.sony_equalizer,
+            "set_sony_bands" => self.sony_bands.clone_from(&current.sony_bands),
+            "set_sony_spatial" => self.sony_spatial = current.sony_spatial,
+            "set_sony_drc" => self.sony_drc.clone_from(&current.sony_drc),
+            "set_sony_auto_gain" | "restore_sony_microphone" => self.sony_auto_gain = current.sony_auto_gain,
+            "restore_sony_audio" => {
+                self.sony_equalizer = current.sony_equalizer;
+                self.sony_bands.clone_from(&current.sony_bands);
+                self.sony_spatial = current.sony_spatial;
+                self.sony_drc.clone_from(&current.sony_drc);
+            }
+            "set_sidetone" => self.sidetone = current.sidetone,
+            "set_sidetone_level" => {
+                self.sidetone_level = current.sidetone_level;
+                if let Some(value) = current.settings.get("sidetone_level") {
+                    self.settings.insert("sidetone_level".into(), *value);
+                }
+            }
+            "set_equalizer" => self.equalizer = current.equalizer,
+            "set_equalizer_preset" => {
+                self.equalizer = current.equalizer;
+                self.preset.clone_from(&current.preset);
+            }
+            "set_equalizer_bands" => self.bands.clone_from(&current.bands),
+            "set_do_not_disturb" => self.do_not_disturb = current.do_not_disturb,
+            _ => {
+                if let Some(key) = method.strip_prefix("set_") {
+                    if let Some(value) = current.settings.get(key) {
+                        self.settings.insert(key.into(), *value);
+                    }
+                }
+            }
+        }
+    }
+
     fn read(audio: &Value) -> AudioEdit {
         AudioEdit {
             sony_equalizer: audio["sony_apo"]["equalizer"] == true,
             sony_bands: audio["sony_apo"]["bands"].as_array().map(|b|b.iter().filter_map(Value::as_f64).collect()).unwrap_or_default(),
             sony_spatial: audio["sony_apo"]["spatial"] == "standard",
+            sony_drc: audio["sony_apo"]["drc"].as_str().unwrap_or("unavailable").into(),
+            sony_auto_gain: audio["sony_apo"]["microphone"]["auto_gain"] == true,
             settings: audio["settings"].as_array().into_iter().flatten().filter_map(|s| Some((s["key"].as_str()?.to_string(), s["value"].as_f64()?))).collect(),
             sidetone: audio["sidetone"] == true,
             sidetone_level: audio["sidetone_level"].as_f64().unwrap_or(0.0),
@@ -87,6 +128,9 @@ pub struct DeviceEdit {
     pub idle_minutes: Option<f32>,
     pub low_battery: Option<f32>,
     pub audio: AudioEdit,
+    pub sony_equalizer: super::sony_equalizer::Equalizer,
+    #[serde(skip)]
+    audio_pending: HashMap<String, String>,
     generation: u64,
     detail_seen: bool,
     #[serde(skip)]
@@ -94,6 +138,23 @@ pub struct DeviceEdit {
 }
 
 impl DeviceEdit {
+    pub fn begin_audio(&mut self, change: &AudioChange) {
+        if change.method == "restore_sony_audio" {
+            self.audio_pending.retain(|method, _| !matches!(method.as_str(), "set_sony_equalizer" | "set_sony_bands" | "set_sony_spatial" | "set_sony_drc"));
+        } else if change.method == "restore_sony_microphone" {
+            self.audio_pending.remove("set_sony_auto_gain");
+        }
+        self.audio_pending.insert(change.method.clone(), change.id.clone());
+    }
+
+    pub fn cancel_audio(&mut self, change: &AudioChange) {
+        if self.audio_pending.get(&change.method) == Some(&change.id) {
+            self.audio_pending.remove(&change.method);
+        }
+    }
+
+    pub fn audio_pending(&self) -> bool { !self.audio_pending.is_empty() }
+
     /// Note that the user just changed something.
     pub fn touch(&mut self) {
         self.touched = Some(Instant::now());
@@ -106,8 +167,13 @@ impl DeviceEdit {
     pub fn refresh(&mut self, device: &Device, detail: &Detail, snap: &Snapshot) {
         let Some(caps) = detail.caps.as_ref() else { return };
         // The headset is the one holding these, and it can be used without Mirage Hub.
-        if let Some(audio) = detail.audio.as_ref().filter(|_| !self.recently_touched()) {
-            self.audio = AudioEdit::read(audio);
+        if let Some(audio) = detail.audio.as_ref() {
+            self.audio_pending.retain(|method, id| detail.audio_completed.get(method) != Some(id));
+            let mut next = AudioEdit::read(audio);
+            for method in self.audio_pending.keys() {
+                next.preserve(&self.audio, method);
+            }
+            self.audio = next;
         }
         // The worker reads a device piece by piece after its capabilities, so
         // DPI, polling rate and the rest can arrive after the first look:
@@ -243,6 +309,113 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    fn inzone_audio(volume: f64, balance: f64) -> (Device, Detail, Snapshot) {
+        let device = Device { serial: "H5".into(), kind: "headset".into(), ..Default::default() };
+        let detail = Detail {
+            caps: Some(json!({"zones":{},"protocol":"inzone"})),
+            audio: Some(json!({"connected":true,"settings":[
+                {"key":"headphone_volume","value":volume},
+                {"key":"game_chat_balance","value":balance}
+            ]})),
+            ..Default::default()
+        };
+        (device, detail, Snapshot::default())
+    }
+
+    #[test]
+    fn delayed_audio_readback_preserves_the_edit_but_updates_other_settings() {
+        let (device, mut detail, snap) = inzone_audio(15.0, 50.0);
+        let mut edit = DeviceEdit::default();
+        edit.refresh(&device, &detail, &snap);
+        edit.audio.settings.insert("headphone_volume".into(), 24.0);
+        let change = AudioChange::new("set_headphone_volume", json!(24));
+        edit.begin_audio(&change);
+        edit.touched = Some(Instant::now() - Duration::from_secs(30));
+        detail.audio.as_mut().unwrap()["settings"][1]["value"] = json!(70);
+        edit.refresh(&device, &detail, &snap);
+        assert_eq!(edit.audio.settings["headphone_volume"], 24.0);
+        assert_eq!(edit.audio.settings["game_chat_balance"], 70.0);
+        assert!(edit.audio_pending());
+
+        detail.audio.as_mut().unwrap()["settings"][0]["value"] = json!(24);
+        detail.audio_completed.insert(change.method, change.id);
+        edit.refresh(&device, &detail, &snap);
+        assert!(!edit.audio_pending());
+        // Subsequent physical volume changes are visible again.
+        detail.audio.as_mut().unwrap()["settings"][0]["value"] = json!(20);
+        edit.refresh(&device, &detail, &snap);
+        assert_eq!(edit.audio.settings["headphone_volume"], 20.0);
+    }
+
+    #[test]
+    fn an_older_audio_completion_cannot_overwrite_a_newer_edit() {
+        let (device, mut detail, snap) = inzone_audio(15.0, 50.0);
+        let mut edit = DeviceEdit::default();
+        edit.refresh(&device, &detail, &snap);
+        let first = AudioChange::new("set_headphone_volume", json!(18));
+        let latest = AudioChange::new("set_headphone_volume", json!(27));
+        edit.begin_audio(&first);
+        edit.audio.settings.insert("headphone_volume".into(), 27.0);
+        edit.begin_audio(&latest);
+        detail.audio.as_mut().unwrap()["settings"][0]["value"] = json!(18);
+        detail.audio_completed.insert(first.method, first.id);
+        edit.refresh(&device, &detail, &snap);
+        assert_eq!(edit.audio.settings["headphone_volume"], 27.0);
+        assert!(edit.audio_pending());
+        detail.audio.as_mut().unwrap()["settings"][0]["value"] = json!(27);
+        detail.audio_completed.insert(latest.method, latest.id);
+        edit.refresh(&device, &detail, &snap);
+        assert_eq!(edit.audio.settings["headphone_volume"], 27.0);
+        assert!(!edit.audio_pending());
+    }
+
+    #[test]
+    fn a_rejected_audio_change_returns_to_readback_without_losing_other_pending_edits() {
+        let (device, mut detail, snap) = inzone_audio(15.0, 50.0);
+        let mut edit = DeviceEdit::default();
+        edit.refresh(&device, &detail, &snap);
+        let volume = AudioChange::new("set_headphone_volume", json!(25));
+        let balance = AudioChange::new("set_game_chat_balance", json!(75));
+        edit.audio.settings.insert("headphone_volume".into(), 25.0);
+        edit.audio.settings.insert("game_chat_balance".into(), 75.0);
+        edit.begin_audio(&volume);
+        edit.begin_audio(&balance);
+        // The volume write failed; its readback still says 15.
+        detail.audio_completed.insert(volume.method, volume.id);
+        edit.refresh(&device, &detail, &snap);
+        assert_eq!(edit.audio.settings["headphone_volume"], 15.0);
+        assert_eq!(edit.audio.settings["game_chat_balance"], 75.0);
+        edit.cancel_audio(&balance);
+        edit.refresh(&device, &detail, &snap);
+        assert_eq!(edit.audio.settings["game_chat_balance"], 50.0);
+        assert!(!edit.audio_pending());
+    }
+
+    #[test]
+    fn sony_restore_releases_cancelled_band_edits() {
+        let (device, mut detail, snap) = inzone_audio(15.0, 50.0);
+        detail.audio.as_mut().unwrap()["sony_apo"] = json!({"equalizer":true,"bands":vec![0.0;10],"spatial":"off"});
+        let mut edit = DeviceEdit::default();
+        edit.refresh(&device, &detail, &snap);
+        edit.audio.sony_bands = vec![6.0;10];
+        edit.begin_audio(&AudioChange::new("set_sony_bands", json!(vec![6.0;10])));
+        let restore = AudioChange::new("restore_sony_audio", Value::Null);
+        edit.audio.sony_auto_gain = true;
+        let mic = AudioChange::new("set_sony_auto_gain", json!(true));
+        edit.begin_audio(&mic);
+        edit.begin_audio(&restore);
+        edit.refresh(&device, &detail, &snap);
+        assert_eq!(edit.audio.sony_bands, vec![6.0;10]);
+        detail.audio_completed.insert(restore.method, restore.id);
+        edit.refresh(&device, &detail, &snap);
+        assert_eq!(edit.audio.sony_bands, vec![0.0;10]);
+        assert!(edit.audio.sony_auto_gain);
+        assert_eq!(edit.audio_pending.len(), 1);
+        detail.audio_completed.insert(mic.method, mic.id);
+        edit.refresh(&device, &detail, &snap);
+        assert!(!edit.audio_pending());
+    }
+
     fn headset(left: [u8; 3], right: [u8; 3]) -> (Device, Detail, Snapshot) {
         let device = Device { serial: "BLE1".into(), kind: "headset".into(), ..Default::default() };
         let zones = json!({ "backlight": { "effects": ["none", "static"] }, "left": { "effects": ["none", "static"] }, "right": { "effects": ["none", "static"] } });
@@ -368,7 +541,7 @@ mod tests {
         assert_eq!((edit.audio.sidetone_level, edit.audio.preset.as_str()), (5.0, "game"));
         assert_eq!(edit.audio.bands, vec![1.0, -2.0]);
         edit.audio.sidetone_level = 9.0;
-        edit.touch();
+        edit.begin_audio(&AudioChange::new("set_sidetone_level", json!(9)));
         edit.refresh(&device, &detail, &snap);
         assert_eq!(edit.audio.sidetone_level, 9.0);
     }

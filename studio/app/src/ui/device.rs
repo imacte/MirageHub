@@ -21,6 +21,7 @@ pub enum Tab {
     Performance,
     Lighting,
     Sound,
+    AudioEffects,
     Power,
     Profiles,
     Keys,
@@ -34,6 +35,7 @@ impl Tab {
             Tab::Performance => t("Performance"),
             Tab::Lighting => t("Lighting"),
             Tab::Sound => t("Sound"),
+            Tab::AudioEffects => t("Audio effects"),
             Tab::Power => t("Power"),
             Tab::Profiles => t("Profiles"),
             Tab::Keys => t("Keys"),
@@ -46,6 +48,7 @@ impl Tab {
         match name {
             "lighting" => Tab::Lighting,
             "sound" => Tab::Sound,
+            "audio-effects" => Tab::AudioEffects,
             "power" => Tab::Power,
             "profiles" => Tab::Profiles,
             "keys" => Tab::Keys,
@@ -99,6 +102,10 @@ fn tabs_for(device: &Device, snap: &Snapshot) -> Vec<Tab> {
         }
         if caps["audio"].is_object() {
             tabs.push(Tab::Sound);
+            if (caps["protocol"] == "inzone" && device.vid == 0x054c && device.pid == 0x0ebf)
+                || caps["audio"]["equalizer_presets"].as_array().is_some_and(|presets| !presets.is_empty()) {
+                tabs.push(Tab::AudioEffects);
+            }
         }
         if caps["battery"] == true || caps["idle_time"] == true {
             tabs.push(Tab::Power);
@@ -125,7 +132,7 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
     let tabs = tabs_for(&device, snap);
     if !tabs.contains(&app.device_ui.tab) {
         // Keep the requested page while its device capabilities are loading.
-        if !(matches!(app.device_ui.tab, Tab::Lighting | Tab::Sound | Tab::Onboard | Tab::Profiles) && snap.details.get(&device.serial).and_then(|d| d.caps.as_ref()).is_none()) {
+        if !(matches!(app.device_ui.tab, Tab::Lighting | Tab::Sound | Tab::AudioEffects | Tab::Onboard | Tab::Profiles) && snap.details.get(&device.serial).and_then(|d| d.caps.as_ref()).is_none()) {
             app.device_ui.tab = tabs[0];
         }
     }
@@ -135,12 +142,14 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot) {
     if app.device_ui.tab == Tab::Lighting {
         return super::lighting::page(app, ui, snap, &device);
     }
-    scroll(ui, "device-tab", |ui| match app.device_ui.tab {
+    let scroll_id = format!("device-tab:{}:{:?}", device.serial, app.device_ui.tab);
+    scroll(ui, &scroll_id, |ui| match app.device_ui.tab {
         Tab::Performance => {
             performance(app, ui, &device, snap);
             super::snaptap::panel(app, ui, &device, snap);
         }
-        Tab::Sound => super::audio::page(app, ui, &device, snap),
+        Tab::Sound => super::audio::page(app, ui, &device, snap, false),
+        Tab::AudioEffects => super::audio::page(app, ui, &device, snap, true),
         Tab::Power => power(app, ui, &device, snap),
         Tab::Profiles => profiles(app, ui, &device, snap),
         Tab::Keys => super::macros::device_keys(app, ui, &device, snap),

@@ -10,7 +10,7 @@ use std::{
 };
 use windows::Win32::{
     Media::Audio::{
-        eRender, IAudioClient, IDeviceTopology, IMMDeviceEnumerator, MMDeviceEnumerator,
+        eCapture, eRender, IAudioClient, IDeviceTopology, IMMDeviceEnumerator, MMDeviceEnumerator,
         DEVICE_STATE_ACTIVE,
     },
     System::Com::{
@@ -20,13 +20,35 @@ use windows::Win32::{
 };
 use winreg::{enums::HKEY_LOCAL_MACHINE, RegKey};
 
+#[derive(Clone, Copy, PartialEq)]
+enum Kind {
+    Game,
+    Microphone,
+}
+impl Kind {
+    fn parse(self, text: &str) -> Result<Document> {
+        match self {
+            Self::Game => Document::parse(text),
+            Self::Microphone => Document::parse_microphone(text),
+        }
+    }
+    fn template(self) -> &'static str {
+        if self == Self::Game {
+            "Control.yaml"
+        } else {
+            "Mic.yaml"
+        }
+    }
+}
 struct Endpoint {
+    kind: Kind,
+    id: String,
     guid: String,
     path: PathBuf,
     bound: bool,
     disabled: bool,
 }
-fn endpoint() -> Result<Endpoint> {
+fn endpoint(kind: Kind) -> Result<Endpoint> {
     let work = || -> windows::core::Result<Vec<Endpoint>> {
         unsafe {
             let init = CoInitializeEx(None, COINIT_MULTITHREADED);
@@ -44,7 +66,14 @@ fn endpoint() -> Result<Endpoint> {
             let _com = Com(init.is_ok());
             let enumerator: IMMDeviceEnumerator =
                 CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)?;
-            let devices = enumerator.EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE)?;
+            let devices = enumerator.EnumAudioEndpoints(
+                if kind == Kind::Game {
+                    eRender
+                } else {
+                    eCapture
+                },
+                DEVICE_STATE_ACTIVE,
+            )?;
             let mut found = Vec::new();
             for i in 0..devices.GetCount()? {
                 let device = devices.Item(i)?;
@@ -75,7 +104,12 @@ fn endpoint() -> Result<Endpoint> {
                 let Ok(format) = client.GetMixFormat() else {
                     continue;
                 };
-                let supported = (*format).nChannels == 8 && (*format).nSamplesPerSec == 48000;
+                let channels = (*format).nChannels;
+                let supported = if kind == Kind::Game {
+                    channels == 8 && (*format).nSamplesPerSec == 48000
+                } else {
+                    (1..=2).contains(&channels)
+                };
                 CoTaskMemFree(Some(format.cast()));
                 // H5 Game is eight-channel, Chat is stereo. Do not depend on a user-renamable label.
                 if !supported {
@@ -85,25 +119,40 @@ fn endpoint() -> Result<Endpoint> {
                 let name = id.to_string().unwrap_or_default();
                 CoTaskMemFree(Some(id.0.cast()));
                 let Some(guid) = name
-                    .strip_prefix("{0.0.0.00000000}.")
+                    .strip_prefix(if kind == Kind::Game {
+                        "{0.0.0.00000000}."
+                    } else {
+                        "{0.0.1.00000000}."
+                    })
                     .filter(|s| valid_guid(s))
                 else {
                     continue;
                 };
-                let registry=RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(format!("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\MMDevices\\Audio\\Render\\{guid}\\FxProperties"));
+                let category = if kind == Kind::Game {
+                    "Render"
+                } else {
+                    "Capture"
+                };
+                let registry=RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(format!("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\MMDevices\\Audio\\{category}\\{guid}\\FxProperties"));
                 let mut bound = false;
                 let mut disabled = false;
                 if let Ok(key) = registry {
-                    bound = key
-                        .get_value::<String, _>("{d04e05a6-594b-4fb6-a80d-01af5eed7d1d},5")
-                        .is_ok_and(|v| {
-                            v.eq_ignore_ascii_case("{91E0E40B-B337-4FBA-B5D6-A2A6A5ECC93D}")
-                        })
-                        && key
-                            .get_value::<String, _>("{d04e05a6-594b-4fb6-a80d-01af5eed7d1d},7")
+                    bound = if kind == Kind::Microphone {
+                        key.get_value::<String, _>("{d04e05a6-594b-4fb6-a80d-01af5eed7d1d},6")
                             .is_ok_and(|v| {
                                 v.eq_ignore_ascii_case("{C3E23499-5356-4092-A10A-9821EF789E01}")
-                            });
+                            })
+                    } else {
+                        key.get_value::<String, _>("{d04e05a6-594b-4fb6-a80d-01af5eed7d1d},5")
+                            .is_ok_and(|v| {
+                                v.eq_ignore_ascii_case("{91E0E40B-B337-4FBA-B5D6-A2A6A5ECC93D}")
+                            })
+                            && key
+                                .get_value::<String, _>("{d04e05a6-594b-4fb6-a80d-01af5eed7d1d},7")
+                                .is_ok_and(|v| {
+                                    v.eq_ignore_ascii_case("{C3E23499-5356-4092-A10A-9821EF789E01}")
+                                })
+                    };
                     disabled = key
                         .get_value::<u32, _>("{1da5d803-d492-4edd-8c23-e0c0ffee7f0e},5")
                         .unwrap_or(0)
@@ -113,6 +162,8 @@ fn endpoint() -> Result<Endpoint> {
                     continue;
                 };
                 found.push(Endpoint {
+                    kind,
+                    id: name.clone(),
                     guid: guid.into(),
                     path: PathBuf::from(roaming)
                         .join("Sony/INZONE Hub/APO")
@@ -126,7 +177,7 @@ fn endpoint() -> Result<Endpoint> {
     };
     let mut found = work().map_err(|e| Error::Io(format!("Sony audio endpoint: {e}")))?;
     if found.len() != 1 {
-        return Err(Error::NotSupported("No unique H5 Game endpoint at 48 kHz; connect one H5 receiver and select its 7.1 Game output".into()));
+        return Err(Error::NotSupported(if kind == Kind::Game { "No unique H5 Game endpoint at 48 kHz; connect one H5 receiver and select its 7.1 Game output" } else { "No unique H5 microphone endpoint; connect one H5 receiver" }.into()));
     }
     Ok(found.remove(0))
 }
@@ -192,22 +243,27 @@ fn load(endpoint: &Endpoint) -> Result<(String, bool)> {
                 folders.push(PathBuf::from(base).join("Sony/INZONE Hub/APO"));
             }
             for folder in folders {
-                if components::verify_file(&folder, "Control.yaml").is_ok() {
-                    return Ok((fs::read_to_string(folder.join("Control.yaml"))?, true));
+                if components::verify_file(&folder, endpoint.kind.template()).is_ok() {
+                    return Ok((
+                        fs::read_to_string(folder.join(endpoint.kind.template()))?,
+                        true,
+                    ));
                 }
             }
             Err(Error::NotSupported(
-                "Prepare Sony audio components to create the Game output configuration".into(),
+                "Prepare Sony audio components to create the H5 audio configuration".into(),
             ))
         }
         Err(e) => Err(e.into()),
     }
 }
 pub fn state() -> Result<Value> {
-    let endpoint = endpoint()?;
+    let endpoint = endpoint(Kind::Game)?;
     let running = hub_running()?;
     if !endpoint.bound {
-        return Ok(json!({"available":false,"reason":"missing_driver","hub_running":running}));
+        return Ok(
+            json!({"available":false,"reason":"missing_driver","hub_running":running,"endpoint_id":endpoint.id}),
+        );
     }
     let (text, new) = load(&endpoint)?;
     let doc = Document::parse(&text)?;
@@ -218,7 +274,23 @@ pub fn state() -> Result<Value> {
     state["needs_initialization"] = json!(new);
     state["backup"] = json!(backup(&endpoint).is_file());
     state["endpoint"] = json!(endpoint.guid);
+    state["endpoint_id"] = json!(endpoint.id);
     state["resources"] = json!(components::resource_dir().is_ok());
+    Ok(state)
+}
+pub fn microphone_state() -> Result<Value> {
+    let endpoint = endpoint(Kind::Microphone)?;
+    let mut state = json!({"available":false,"endpoint_id":endpoint.id,"hub_running":hub_running()?,"effects_disabled":endpoint.disabled});
+    if !endpoint.bound {
+        state["reason"] = json!("missing_driver");
+        return Ok(state);
+    }
+    let (text, new) = load(&endpoint)?;
+    let doc = Document::parse_microphone(&text)?;
+    state["available"] = json!(true);
+    state["auto_gain"] = json!(doc.auto_gain()?);
+    state["needs_initialization"] = json!(new);
+    state["backup"] = json!(backup(&endpoint).is_file());
     Ok(state)
 }
 pub fn change(method: &str, value: &Value) -> Result<()> {
@@ -229,23 +301,28 @@ pub fn change(method: &str, value: &Value) -> Result<()> {
             "Exit INZONE Hub from its tray menu before changing Sony audio settings".into(),
         ));
     }
-    let endpoint = endpoint()?;
+    let kind = if matches!(method, "set_sony_auto_gain" | "restore_sony_microphone") {
+        Kind::Microphone
+    } else {
+        Kind::Game
+    };
+    let endpoint = endpoint(kind)?;
     if !endpoint.bound || endpoint.disabled {
         return Err(Error::NotSupported(
-            "Enable the Sony APO and Windows audio enhancements for the H5 Game output first"
+            "Enable the Sony APO and Windows audio enhancements for the selected H5 endpoint first"
                 .into(),
         ));
     }
     let (before, new) = load(&endpoint)?;
-    let mut doc = Document::parse(&before)?;
+    let mut doc = kind.parse(&before)?;
     let after = match method {
-        "restore_sony_audio" => {
+        "restore_sony_audio" | "restore_sony_microphone" => {
             let original = fs::read_to_string(backup(&endpoint))?;
-            Document::parse(&original)?;
+            kind.parse(&original)?;
             original
         }
         _ => {
-            if new {
+            if new && kind == Kind::Game {
                 doc.spatial(false, &components::resource_dir()?.to_string_lossy())?;
             }
             match method {
@@ -255,6 +332,14 @@ pub fn change(method: &str, value: &Value) -> Result<()> {
                 "set_sony_bands" => {
                     let bands: Vec<f64> = serde_json::from_value(value.clone())?;
                     doc.set_bands(&bands)?;
+                }
+                "set_sony_drc" => doc.set_dynamic_range(
+                    value
+                        .as_str()
+                        .ok_or_else(|| invalid("Expected compression mode"))?,
+                )?,
+                "set_sony_auto_gain" => {
+                    doc.set_auto_gain(value.as_bool().ok_or_else(|| invalid("Expected boolean"))?)?
                 }
                 "set_sony_spatial" => doc.spatial(
                     value.as_bool().ok_or_else(|| invalid("Expected boolean"))?,
@@ -271,7 +356,7 @@ pub fn change(method: &str, value: &Value) -> Result<()> {
     if !new {
         let path = backup(&endpoint);
         fs::create_dir_all(path.parent().unwrap())?;
-        save_original(&path, &before)?;
+        save_original(&path, &before, kind)?;
     }
     // Do not overwrite a concurrent Hub/profile update observed while preparing this edit.
     if (!new && fs::read_to_string(&endpoint.path)? != before)
@@ -312,9 +397,9 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     let _ = fs::remove_file(temp);
     result
 }
-fn save_original(path: &Path, text: &str) -> Result<()> {
+fn save_original(path: &Path, text: &str, kind: Kind) -> Result<()> {
     if path.exists() {
-        Document::parse(&fs::read_to_string(path)?)?;
+        kind.parse(&fs::read_to_string(path)?)?;
         return Ok(());
     }
     let mut random = [0u8; 8];
@@ -331,7 +416,7 @@ fn save_original(path: &Path, text: &str) -> Result<()> {
         match fs::hard_link(&temp, path) {
             Ok(()) => {}
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
-                Document::parse(&fs::read_to_string(path)?)?;
+                kind.parse(&fs::read_to_string(path)?)?;
             }
             Err(e) => return Err(e.into()),
         }

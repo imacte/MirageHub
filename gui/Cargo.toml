@@ -1,6 +1,6 @@
 [package]
 name = "mirage-hub-classic"
-version = "2.1.0"
+version = "2.2.0"
 edition = "2021"
 description = "Control panel for mirage-hub-daemon: Razer device control on Windows"
 license = "GPL-3.0-only"

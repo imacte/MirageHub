@@ -85,6 +85,9 @@ pub struct Detail {
     pub macros: Option<Value>,
     /// A headset's own sound settings.
     pub audio: Option<Value>,
+    /// Last completed write per audio setting, published only after its readback.
+    #[serde(default)]
+    pub audio_completed: HashMap<String, String>,
     #[serde(default)]
     pub onboard: Value,
     #[serde(default)]
@@ -144,6 +147,7 @@ pub enum Command {
     Rescan,
     LoadDevice(String),
     ReadAudio(String),
+    Audio { serial: String, change: AudioChange },
     Call { serial: String, method: String, args: Vec<Value>, zone: Option<String>, then: Then },
     Software { serial: String, effect: String, options: Value },
     /// `quiet` for the automatic switch, which should not pop a toast every
@@ -202,6 +206,27 @@ pub enum Then {
     Power,
     Keyboard,
     Audio,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AudioChange {
+    pub id: String,
+    pub method: String,
+    pub value: Value,
+}
+
+impl AudioChange {
+    pub fn new(method: &str, value: Value) -> Self {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        use std::time::{SystemTime, UNIX_EPOCH};
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos();
+        Self {
+            id: format!("{}-{time}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)),
+            method: method.into(),
+            value,
+        }
+    }
 }
 
 pub type Shared = Arc<Mutex<Snapshot>>;
@@ -571,6 +596,14 @@ impl Worker {
                 self.load_device(&serial);
             }
             Command::ReadAudio(serial) => self.read_audio(&serial),
+            Command::Audio { serial, change } => {
+                let result = self.with(|c| c.device(&serial, &change.method, vec![change.value], None));
+                self.report(&result, None);
+                // Read after failures too: rejecting a write must restore the real
+                // value and release the optimistic edit, rather than leave it stuck.
+                self.read_audio(&serial);
+                self.update(&serial, |d| { d.audio_completed.insert(change.method, change.id); });
+            }
             Command::Call { serial, method, args, zone, then } => {
                 let result = self.with(|c| c.device(&serial, &method, args, zone.as_deref()));
                 self.report(&result, None);
@@ -792,6 +825,54 @@ pub fn args(values: &[i64]) -> Vec<Value> {
 #[cfg(test)]
 mod startup_tests {
     use super::*;
+
+    #[test]
+    fn audio_completion_waits_for_readback_and_failed_writes_still_refresh() {
+        use std::io::{BufRead, BufReader, Write};
+        use std::net::TcpListener;
+        for rejected in [false, true] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let client = Client::connect_to(mirage_hub_core::rpc::Endpoint {
+                host: "127.0.0.1".into(), port: listener.local_addr().unwrap().port(), token: "test".into(), pid: None,
+            }).unwrap();
+            let (mut socket, _) = listener.accept().unwrap();
+            socket.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+            let mut reader = BufReader::new(socket.try_clone().unwrap());
+            let change = AudioChange::new("set_headphone_volume", json!(24));
+            let shared: Shared = Default::default();
+            shared.lock().unwrap().details.insert("H5".into(), Detail {
+                caps: Some(json!({"audio":{},"protocol":"inzone"})),
+                audio: Some(json!({"connected":true,"settings":[]})),
+                ..Default::default()
+            });
+            let observed = shared.clone();
+            let sent = change.clone();
+            let worker = std::thread::spawn(move || {
+                Worker { shared, serials: Default::default(), client: Some(client), battery_at: HashMap::new(), slow_at: None, repaint: Box::new(|| {}) }
+                    .handle(Command::Audio { serial: "H5".into(), change: sent });
+            });
+            let mut line = String::new();
+            reader.read_line(&mut line).unwrap();
+            let request: Value = serde_json::from_str(&line).unwrap();
+            assert_eq!(request["params"]["method"], "set_headphone_volume");
+            let answer = if rejected {
+                json!({"id":request["id"],"error":{"message":"setting rejected"}})
+            } else { json!({"id":request["id"],"result":null}) };
+            writeln!(socket, "{answer}").unwrap();
+            line.clear();
+            reader.read_line(&mut line).unwrap();
+            let request: Value = serde_json::from_str(&line).unwrap();
+            assert_eq!(request["params"]["method"], "get_audio");
+            assert!(observed.lock().unwrap().details["H5"].audio_completed.is_empty());
+            let audio = json!({"connected":true,"settings":[{"key":"headphone_volume","value":if rejected {15} else {24}}]});
+            writeln!(socket, "{}", json!({"id":request["id"],"result":audio})).unwrap();
+            worker.join().unwrap();
+            let snapshot = observed.lock().unwrap();
+            assert_eq!(snapshot.details["H5"].audio_completed[&change.method], change.id);
+            assert_eq!(snapshot.details["H5"].audio.as_ref(), Some(&audio));
+            assert_eq!(snapshot.toast.as_ref().is_some_and(|t|t.error), rejected);
+        }
+    }
 
     #[test]
     fn startup_is_queued_before_polling_can_start() {

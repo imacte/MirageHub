@@ -6,6 +6,20 @@ uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-10
+
+### Added
+
+- Separate Audio effects tab for EQ, dynamic range and spatial sound; volume, microphone and headset settings stay on Sound.
+- Sony EQ preset cards (Music / video, Custom and Flat), ten vertical gain controls and a retained custom curve.
+- H5 Game dynamic range control (high, low, off), plus microphone automatic gain control with separate APO backups.
+- A microphone panel with volume, sidetone and an on-demand four-second recording/playback test. Recordings stay in memory and are discarded; leaving the page or closing the window cancels the test.
+
+### Fixed
+
+- Enable Windows audio and serial integrations in the running daemon, restoring H5 Sony EQ, standard spatial sound and microphone-volume controls.
+- Keep audio edits visible until their own write and readback finish. Delayed polls and older requests no longer make sliders jump back; rejected writes still restore the actual device value.
+
 ## [2.1.0] - 2026-11-10
 
 ### Added
