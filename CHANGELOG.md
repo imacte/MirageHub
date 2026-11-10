@@ -6,6 +6,8 @@ uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-10
+
 ### Added
 
 - Sony INZONE H5 APO controls for ten-band EQ and standard spatial sound on the Game output, with live updates, first-edit backups and restoration of the original configuration.

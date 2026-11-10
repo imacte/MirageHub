@@ -1784,7 +1784,7 @@ dependencies = [
 
 [[package]]
 name = "mirage-hub"
-version = "2.0.1"
+version = "2.1.0"
 dependencies = [
  "eframe",
  "egui",
@@ -1803,11 +1803,11 @@ dependencies = [
 
 [[package]]
 name = "mirage-hub-chroma"
-version = "2.0.1"
+version = "2.1.0"
 
 [[package]]
 name = "mirage-hub-core"
-version = "2.0.1"
+version = "2.1.0"
 dependencies = [
  "egui",
  "memmap2",
@@ -1820,7 +1820,7 @@ dependencies = [
 
 [[package]]
 name = "mirage-hub-daemon"
-version = "2.0.1"
+version = "2.1.0"
 dependencies = [
  "cab",
  "getrandom 0.3.4",
@@ -1841,7 +1841,7 @@ dependencies = [
 
 [[package]]
 name = "mirage-hub-setup"
-version = "2.0.1"
+version = "2.1.0"
 dependencies = [
  "eframe",
  "egui",
@@ -1857,7 +1857,7 @@ dependencies = [
 
 [[package]]
 name = "mirage-hub-tools"
-version = "2.0.1"
+version = "2.1.0"
 dependencies = [
  "png",
  "proc-macro2",
