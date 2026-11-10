@@ -3,7 +3,7 @@
 //! Runs in the tray host, so rules keep working while the UI process is closed.
 
 use crate::settings::Settings;
-use crate::worker::{Command, Sender};
+use crate::worker::{Command, Sender, Shared};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -11,21 +11,27 @@ use std::time::Duration;
 /// The rules, shared with the window that edits them.
 pub type Rules = Arc<Mutex<Settings>>;
 
-pub fn spawn(rules: Rules, tx: Sender, serials: Arc<Mutex<Vec<String>>>) {
+pub fn spawn(rules: Rules, tx: Sender, serials: Arc<Mutex<Vec<String>>>, shared: Shared) {
     std::thread::Builder::new()
         .name("app-watch".into())
         .spawn(move || {
             let mut last_exe = String::new();
             // What each device was last switched to, and whether a rule did it.
             let mut applied: HashMap<String, (String, bool)> = HashMap::new();
+            let mut equalizer = crate::audio_watch::Watch::default();
             loop {
                 std::thread::sleep(Duration::from_millis(1000));
                 let Some(exe) = mirage_hub_core::process::foreground_exe() else { continue };
+                let settings = rules.lock().unwrap().clone();
+                let connected = serials.lock().unwrap().clone();
+                let snapshot = shared.lock().unwrap().clone();
+                for command in equalizer.tick(&settings.audio_profiles, &exe, &connected, &snapshot, std::time::Instant::now()) {
+                    let _ = tx.send(command);
+                }
                 if exe == last_exe || exe == mirage_hub_core::install::APP_EXE {
                     continue;
                 }
                 last_exe = exe.clone();
-                let settings = rules.lock().unwrap().clone();
                 if !settings.auto_switch {
                     continue;
                 }

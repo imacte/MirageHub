@@ -285,6 +285,7 @@ impl Equalizer {
             self.last = Some(bands);
         }
         values.copy_from_slice(&bands);
+        self.last = Some(bands);
         bands != before
     }
 }

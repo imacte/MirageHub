@@ -45,7 +45,7 @@ impl Runtime {
         let wake = changed.clone();
         let commands = worker::spawn(shared.clone(), serials.clone(), move || wake.notify());
         let rules = Arc::new(Mutex::new(settings.clone()));
-        appwatch::spawn(rules.clone(), commands.clone(), serials);
+        appwatch::spawn(rules.clone(), commands.clone(), serials, shared.clone());
         let wake = changed.clone();
         let updates = Arc::new(Updater::start(move || wake.notify(), settings.check_updates));
         crate::daemon::refresh_autostart();

@@ -48,6 +48,7 @@ pub struct AudioEdit {
     pub sony_equalizer: bool,
     pub sony_bands: Vec<f64>,
     pub sony_spatial: bool,
+    pub sony_spatial_unknown: bool,
     pub sony_drc: String,
     pub sony_auto_gain: bool,
     pub settings: HashMap<String, f64>,
@@ -60,17 +61,41 @@ pub struct AudioEdit {
 }
 
 impl AudioEdit {
+    pub fn effects(&self) -> Result<mirage_hub_core::audio_effects::AudioEffects, String> {
+        use mirage_hub_core::audio_effects::{AudioEffects, DynamicRange, Spatial};
+        let unknown = || mirage_hub_core::t("Select a supported compression and spatial mode before saving an audio effects profile.").to_string();
+        let drc = match self.sony_drc.as_str() {
+            "off" => DynamicRange::Off, "low" => DynamicRange::Low, "high" => DynamicRange::High,
+            _ => return Err(unknown()),
+        };
+        if self.sony_spatial_unknown { return Err(unknown()); }
+        let effects = AudioEffects { equalizer: self.sony_equalizer, bands: self.sony_bands.as_slice().try_into().map_err(|_| unknown())?, drc, spatial: if self.sony_spatial { Spatial::Standard } else { Spatial::Off } };
+        effects.validate().map_err(|e| e.to_string())?;
+        Ok(effects)
+    }
+
+    pub fn apply_effects(&mut self, effects: &mirage_hub_core::audio_effects::AudioEffects) {
+        self.sony_equalizer = effects.equalizer;
+        self.sony_bands = effects.bands.to_vec();
+        self.sony_drc = effects.drc.as_str().into();
+        self.sony_spatial = effects.spatial == mirage_hub_core::audio_effects::Spatial::Standard;
+        self.sony_spatial_unknown = false;
+    }
     fn preserve(&mut self, current: &Self, method: &str) {
         match method {
             "set_sony_equalizer" => self.sony_equalizer = current.sony_equalizer,
             "set_sony_bands" => self.sony_bands.clone_from(&current.sony_bands),
-            "set_sony_spatial" => self.sony_spatial = current.sony_spatial,
+            "set_sony_spatial" => {
+                self.sony_spatial = current.sony_spatial;
+                self.sony_spatial_unknown = current.sony_spatial_unknown;
+            }
             "set_sony_drc" => self.sony_drc.clone_from(&current.sony_drc),
             "set_sony_auto_gain" | "restore_sony_microphone" => self.sony_auto_gain = current.sony_auto_gain,
-            "restore_sony_audio" => {
+            "restore_sony_audio" | "set_sony_effects" => {
                 self.sony_equalizer = current.sony_equalizer;
                 self.sony_bands.clone_from(&current.sony_bands);
                 self.sony_spatial = current.sony_spatial;
+                self.sony_spatial_unknown = current.sony_spatial_unknown;
                 self.sony_drc.clone_from(&current.sony_drc);
             }
             "set_sidetone" => self.sidetone = current.sidetone,
@@ -102,6 +127,7 @@ impl AudioEdit {
             sony_equalizer: audio["sony_apo"]["equalizer"] == true,
             sony_bands: audio["sony_apo"]["bands"].as_array().map(|b|b.iter().filter_map(Value::as_f64).collect()).unwrap_or_default(),
             sony_spatial: audio["sony_apo"]["spatial"] == "standard",
+            sony_spatial_unknown: !matches!(audio["sony_apo"]["spatial"].as_str(), Some("off" | "standard")),
             sony_drc: audio["sony_apo"]["drc"].as_str().unwrap_or("unavailable").into(),
             sony_auto_gain: audio["sony_apo"]["microphone"]["auto_gain"] == true,
             settings: audio["settings"].as_array().into_iter().flatten().filter_map(|s| Some((s["key"].as_str()?.to_string(), s["value"].as_f64()?))).collect(),
@@ -129,6 +155,7 @@ pub struct DeviceEdit {
     pub low_battery: Option<f32>,
     pub audio: AudioEdit,
     pub sony_equalizer: super::sony_equalizer::Equalizer,
+    pub audio_profiles: super::audio_profiles::Editor,
     #[serde(skip)]
     audio_pending: HashMap<String, String>,
     generation: u64,
@@ -139,8 +166,8 @@ pub struct DeviceEdit {
 
 impl DeviceEdit {
     pub fn begin_audio(&mut self, change: &AudioChange) {
-        if change.method == "restore_sony_audio" {
-            self.audio_pending.retain(|method, _| !matches!(method.as_str(), "set_sony_equalizer" | "set_sony_bands" | "set_sony_spatial" | "set_sony_drc"));
+        if matches!(change.method.as_str(), "restore_sony_audio" | "set_sony_effects") {
+            self.audio_pending.retain(|method, _| !matches!(method.as_str(), "set_sony_effects" | "set_sony_equalizer" | "set_sony_bands" | "set_sony_spatial" | "set_sony_drc" | "restore_sony_audio"));
         } else if change.method == "restore_sony_microphone" {
             self.audio_pending.remove("set_sony_auto_gain");
         }
@@ -320,6 +347,40 @@ mod tests {
             ..Default::default()
         };
         (device, detail, Snapshot::default())
+    }
+
+    #[test]
+    fn whole_effect_profile_waits_for_ack_and_keeps_newer_individual_edits() {
+        let (device, mut detail, snap) = inzone_audio(15.0, 50.0);
+        let original = crate::audio_profiles::test_effects(0.);
+        detail.audio.as_mut().unwrap()["sony_apo"] = json!(original);
+        let mut edit = DeviceEdit::default();
+        edit.refresh(&device, &detail, &snap);
+        let mut target = crate::audio_profiles::test_effects(3.);
+        target.equalizer = false;
+        target.drc = mirage_hub_core::audio_effects::DynamicRange::High;
+        target.spatial = mirage_hub_core::audio_effects::Spatial::Standard;
+        edit.begin_audio(&AudioChange::new("set_sony_bands",json!(vec![9.;10])));
+        let batch = AudioChange::new("set_sony_effects",json!(target));
+        edit.audio.apply_effects(&target);
+        edit.begin_audio(&batch);
+        assert_eq!(edit.audio_pending.len(),1);
+        edit.refresh(&device,&detail,&snap);
+        assert_eq!(edit.audio.effects().unwrap(),target);
+        // A later band edit remains optimistic if the profile write is rejected.
+        edit.audio.sony_bands=vec![4.;10];
+        let bands=AudioChange::new("set_sony_bands",json!(vec![4.;10]));
+        edit.begin_audio(&bands);
+        detail.audio_completed.insert(batch.method,batch.id);
+        edit.refresh(&device,&detail,&snap);
+        assert!(edit.audio.sony_equalizer);
+        assert_eq!(edit.audio.sony_drc,"off");
+        assert!(!edit.audio.sony_spatial);
+        assert_eq!(edit.audio.sony_bands,vec![4.;10]);
+        detail.audio_completed.insert(bands.method,bands.id);
+        edit.refresh(&device,&detail,&snap);
+        assert_eq!(edit.audio.effects().unwrap(),original);
+        assert!(!edit.audio_pending());
     }
 
     #[test]

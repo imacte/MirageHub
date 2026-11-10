@@ -388,7 +388,7 @@ impl Device for InzoneDevice {
             "available_effects" => Ok(json!([])),
             "restore" => Ok(Value::Null),
             "get_audio" => self.audio(),
-            "set_sony_equalizer" | "set_sony_bands" | "set_sony_spatial" | "set_sony_drc" | "set_sony_auto_gain" | "restore_sony_microphone" | "restore_sony_audio" | "prepare_sony_audio" | "install_sony_audio" => {
+            "set_sony_effects" | "set_sony_equalizer" | "set_sony_bands" | "set_sony_spatial" | "set_sony_drc" | "set_sony_auto_gain" | "restore_sony_microphone" | "restore_sony_audio" | "prepare_sony_audio" | "install_sony_audio" => {
                 if !self.native_microphone || self.info.product_id != 0x0ebf {
                     return Err(Error::NotSupported("Sony APO is available only for a physical H5 receiver".into()));
                 }

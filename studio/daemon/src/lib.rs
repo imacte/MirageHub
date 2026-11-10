@@ -2,6 +2,8 @@
 //! existing port, so migrating the service does not change hardware commands.
 
 pub mod ble;
+#[path = "../../../assets/audio_effects.rs"]
+pub mod audio_effects;
 pub mod chroma;
 pub mod cli;
 pub mod database;

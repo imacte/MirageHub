@@ -50,6 +50,32 @@ EQ edits preserve unrelated DSP sections and comments, recalculate both paramete
 
 The equalizer offers Music / video, Custom and Flat cards above ten vertical ±12 dB controls. The music/video curve is `[3, 2, 2, 1, 0, -1, -2, -2, -9, -9]` dB. Switching presets retains the custom curve in Mirage Hub's UI session. Dragging a band selects Custom; double-clicking a handle resets that band to zero. Numeric fields and keyboard arrows also work.
 
+**音效配置文件：** “音效”面板顶部可管理整套音效配置，包含均衡器开关、十段曲线、动态范围控制（关闭／低／高）及标准空间音效（关闭／开启）。调整后填写名称，点击“另存为新配置”；修改设置或名称后点击“保存修改”，星号表示当前音效与保存的配置不同。每台设备最多保存 64 份，保存在 Mirage Hub 自己的 `studio/settings.json` 的 `audio_profiles` 字段中。导入／导出采用下述 JSON 格式，同名导入不会覆盖已有配置，导出包含当前可见的音效修改。均衡器关闭时也可管理及应用配置。“声音”页的音量、麦克风和耳机硬件设置不属于此配置。
+
+点击“关联应用…”可选择正在运行的应用、浏览 `.exe` 文件或输入程序文件名。同一设备上的同一程序只能关联一份音效配置；匹配程序文件名，不区分大小写。勾选“根据前台应用切换音效配置”后，托盘后台每秒检查前台程序；主窗口关闭后仍可切换，完全退出 Mirage Hub 后停止自动切换，最后应用的音效仍保留。Mirage Hub 自己处于前台时暂停切换，方便编辑。可指定一份“默认”配置，在切出关联应用后恢复；未指定时保留最后应用的音效。应用配置时，后台先校验所有参数和必要资源，再一次性替换 APO 文件并回读，避免部分设置生效。Sony APO 不可用或 INZONE Hub 正在运行时不会绕过保护，恢复可用后重试。
+
+Audio effects profiles include EQ enable/bypass and all ten gains, dynamic range control and standard spatial sound. They are saved explicitly; changes do not overwrite the saved version until **Save changes**. Renaming preserves app links, while deletion removes those links and its default designation. Foreground matching uses the executable's base name, so installations with the same name share a rule. Automatic switching runs in the Mirage Hub tray host, pauses while its own window is in front, and acknowledges every effect through readback with retry backoff. The daemon stages the entire profile and commits one atomic APO file replacement; validation or resource failures leave the original configuration intact. Leaving a linked app restores the selected default; without a default, the last applied effects remain. Unrelated foreground changes do not override a later manual selection.
+
+Portable audio effects file (UTF-8 JSON, version 1; fixed band order 31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000 Hz):
+
+```json
+{
+  "format": "mirage-hub-audio-effects",
+  "version": 1,
+  "name": "My game",
+  "effects": {
+    "equalizer": true,
+    "bands": [3, 2, 2, 1, 0, -1, -2, -2, -9, -9],
+    "drc": "low",
+    "spatial": "standard"
+  }
+}
+```
+
+旧版 `mirage-hub-equalizer` 文件与仅保存曲线的配置库不再兼容，也不自动迁移。用户已有的导出文件不会被删除。自定义 Sony 压缩参数、个性化空间资源和未知音效模式不能保存成此格式；请先选择界面支持的模式。
+
+Files larger than 16 KiB, unknown formats/versions or fields, incorrect band counts, non-finite gains, out-of-range gains and unsupported modes are rejected before any audio command. `drc` accepts `off`, `low`, `high`; `spatial` accepts `off`, `standard`. Legacy EQ-only files/libraries are not imported or migrated. Profiles contain no Sony resource paths, vendor YAML documents or executable scripts.
+
 **动态范围与麦克风：** Game 输出支持动态范围“高／低／关闭”。独立的麦克风面板提供 Windows 麦克风音量、侧音和 Sony 自动增益控制。自动增益需要麦克风端点绑定 Sony APO，并启用 Windows 音频增强。两类 APO 设置分别备份、分别恢复；“恢复原始麦克风音效设置”不会重置 Windows 音量或耳机侧音。点击“开始测试”会录音 4 秒，再通过 H5 回放一次。录音只暂存在内存中，不写入文件；停止、离开声音页面或关闭窗口会取消测试。
 
 Dynamic range control writes only the Game endpoint's `drc` section. High and Low use Sony INZONE Hub **1.0.20.0** parameters: upper/lower/soft thresholds −15/−35/−50 dB; ratios 5/5/2.2 for High or 2.5/2.5/1.9 for Low. Off disables compression without replacing its parameters. Automatic microphone gain uses the **capture** endpoint's Sony MFX binding and `Mic.yaml` schema, with thresholds −12/−44/−64 and ratios 2/2/3. Attack and release values are captured in the document implementation. These numeric mappings were checked against the installed Sony application's setters; no vendor code or binaries are included. Game and microphone configurations have separate first-edit backups.

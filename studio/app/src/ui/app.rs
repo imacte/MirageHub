@@ -214,6 +214,17 @@ impl App {
         self.updates.set_enabled(self.settings.check_updates);
     }
 
+    pub fn save_audio_profiles(&mut self, before: crate::audio_profiles::Library) {
+        if before == self.settings.audio_profiles { return; }
+        match self.settings.save_checked() {
+            Ok(()) => self.refresh_tray_language(),
+            Err(error) => {
+                self.settings.audio_profiles = before;
+                self.toast(error, true);
+            }
+        }
+    }
+
     /// Seconds since the window opened, for animations.
     pub fn time(&self) -> f32 {
         self.started.elapsed().as_secs_f32()

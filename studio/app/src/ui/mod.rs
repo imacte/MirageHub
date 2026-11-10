@@ -3,6 +3,7 @@
 pub mod app;
 pub mod audio;
 mod sony_equalizer;
+mod audio_profiles;
 pub mod canvas;
 pub mod device;
 pub mod edit;

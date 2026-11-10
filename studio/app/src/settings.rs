@@ -39,6 +39,7 @@ pub struct Settings {
     pub app_rules: Vec<AppRule>,
     /// What each device goes back to when no app with a rule is in front.
     pub default_profiles: BTreeMap<String, String>,
+    pub audio_profiles: crate::audio_profiles::Library,
     pub macros: Vec<LibraryMacro>,
     /// Brightness before "Lights off", by serial and zone, to put back.
     pub lights_before: BTreeMap<String, BTreeMap<String, f64>>,
@@ -58,6 +59,7 @@ impl Default for Settings {
             auto_switch: true,
             app_rules: Vec::new(),
             default_profiles: BTreeMap::new(),
+            audio_profiles: Default::default(),
             macros: Vec::new(),
             lights_before: BTreeMap::new(),
             recent_colours: Vec::new(),
@@ -85,9 +87,12 @@ impl Settings {
     }
 
     pub fn save(&self) {
-        if let Ok(text) = serde_json::to_string_pretty(self) {
-            let _ = mirage_hub_core::paths::write_atomic(&Self::path(), text.as_bytes());
-        }
+        let _ = self.save_checked();
+    }
+
+    pub fn save_checked(&self) -> Result<(), String> {
+        let text = serde_json::to_vec_pretty(self).map_err(|e| e.to_string())?;
+        mirage_hub_core::paths::write_atomic(&Self::path(), &text).map_err(|e| e.to_string())
     }
 
     pub fn remember_colour(&mut self, colour: egui::Color32) {
@@ -113,6 +118,17 @@ mod tests {
         assert!(!settings.close_to_tray);
         assert_eq!(settings.language, Lang::Ru);
         assert!(settings.check_updates && settings.auto_switch);
+        assert!(settings.audio_profiles.auto_switch && settings.audio_profiles.profiles.is_empty());
+    }
+
+    #[test]
+    fn audio_profiles_and_rules_survive_settings_roundtrip() {
+        let mut settings = Settings::default();
+        settings.audio_profiles.add("H5", crate::audio_profiles::Profile::new("游戏", crate::audio_profiles::test_effects(1.5)).unwrap()).unwrap();
+        settings.audio_profiles.link("H5", "游戏", "game.exe").unwrap();
+        settings.audio_profiles.defaults.insert("H5".into(), "游戏".into());
+        let restored: Settings = serde_json::from_str(&serde_json::to_string(&settings).unwrap()).unwrap();
+        assert_eq!(settings.audio_profiles, restored.audio_profiles);
     }
 
     #[test]

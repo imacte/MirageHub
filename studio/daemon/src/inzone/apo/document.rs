@@ -39,6 +39,7 @@ fn invalid() -> Error {
     Error::NotSupported("Unsupported Sony APO configuration".into())
 }
 
+#[derive(Clone)]
 pub struct Document {
     lines: Vec<String>,
     newline: &'static str,
@@ -285,6 +286,31 @@ impl Document {
             if enabled { "true" } else { "false" },
         )
     }
+    /// Stage every setting before committing even the in-memory document.
+    pub fn apply_effects(
+        &mut self,
+        effects: &crate::audio_effects::AudioEffects,
+        resource_root: Option<&str>,
+    ) -> Result<()> {
+        effects.validate().map_err(|e| Error::Invalid(e.into()))?;
+        let mut staged = self.clone();
+        staged.equalizer(effects.equalizer)?;
+        staged.set_bands(&effects.bands)?;
+        staged.set_dynamic_range(effects.drc.as_str())?;
+        if staged.state()?["spatial"] != effects.spatial.as_str() {
+            let root = resource_root.ok_or_else(|| {
+                Error::NotSupported(
+                    "Sony audio resources are required to change spatial sound".into(),
+                )
+            })?;
+            staged.spatial(
+                effects.spatial == crate::audio_effects::Spatial::Standard,
+                root,
+            )?;
+        }
+        *self = staged;
+        Ok(())
+    }
     pub fn set_bands(&mut self, bands: &[f64]) -> Result<()> {
         if bands.len() != 10
             || bands
@@ -372,6 +398,41 @@ mod tests {
         }
         text + "noise_reduction:\n  - enable: true\n  - level: 9\n"
     }
+    #[test]
+    fn effect_profiles_commit_together_and_leave_no_partial_changes_on_failure() {
+        use crate::audio_effects::{AudioEffects, DynamicRange, Spatial};
+        let original = fixture().replace("drc:\n  - enable: false\n", &drc_fixture());
+        let mut doc = Document::parse(&original).unwrap();
+        let effects = AudioEffects {
+            equalizer: false,
+            bands: [3.; 10],
+            drc: DynamicRange::High,
+            spatial: Spatial::Standard,
+        };
+        assert!(doc.apply_effects(&effects, None).is_err());
+        assert_eq!(doc.render(), original);
+        doc.apply_effects(&effects, Some("C:\\Mirage\\Audio"))
+            .unwrap();
+        assert_eq!(
+            AudioEffects::from_state(&doc.state().unwrap()),
+            Some(effects.clone())
+        );
+        assert!(doc.render().contains("unknown: untouched"));
+        assert!(doc.render().contains("# Keep vendor settings"));
+        let before = doc.render();
+        let mut invalid = effects.clone();
+        invalid.bands[0] = 13.;
+        assert!(doc.apply_effects(&invalid, None).is_err());
+        assert_eq!(doc.render(), before);
+        // No resource directory is needed when spatial mode already matches.
+        doc.apply_effects(&effects, None).unwrap();
+        let mut missing_drc = Document::parse(&fixture()).unwrap();
+        assert!(missing_drc
+            .apply_effects(&effects, Some("C:\\Mirage\\Audio"))
+            .is_err());
+        assert_eq!(missing_drc.render(), fixture());
+    }
+
     #[test]
     fn compression_levels_preserve_eq_spatial_and_vendor_sections() {
         let original = fixture().replace("drc:\n  - enable: false\n", &drc_fixture());

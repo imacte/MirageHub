@@ -11,6 +11,8 @@ mod appwatch;
 mod art;
 mod chroma;
 mod daemon;
+mod audio_profiles;
+mod audio_watch;
 mod images;
 mod ipc;
 #[cfg(windows)]

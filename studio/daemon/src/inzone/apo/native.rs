@@ -326,6 +326,17 @@ pub fn change(method: &str, value: &Value) -> Result<()> {
                 doc.spatial(false, &components::resource_dir()?.to_string_lossy())?;
             }
             match method {
+                "set_sony_effects" => {
+                    let effects: crate::audio_effects::AudioEffects =
+                        serde_json::from_value(value.clone())?;
+                    effects.validate().map_err(invalid)?;
+                    let root = if doc.state()?["spatial"] != effects.spatial.as_str() {
+                        Some(components::resource_dir()?.to_string_lossy().into_owned())
+                    } else {
+                        None
+                    };
+                    doc.apply_effects(&effects, root.as_deref())?;
+                }
                 "set_sony_equalizer" => {
                     doc.equalizer(value.as_bool().ok_or_else(|| invalid("Expected boolean"))?)?
                 }

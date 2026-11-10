@@ -8,6 +8,8 @@ pub mod i18n;
 pub mod connection;
 pub mod install;
 pub mod paths;
+#[path = "../../../assets/audio_effects.rs"]
+pub mod audio_effects;
 #[path = "../../../assets/data_paths.rs"]
 pub mod data_paths;
 pub mod process;

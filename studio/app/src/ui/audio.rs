@@ -468,6 +468,8 @@ fn microphone_test(app: &mut App, ui: &mut egui::Ui, serial: &str, apo: &Value, 
 fn sony_apo(app: &mut App, ui: &mut egui::Ui, device: &Device, apo: &Value) {
     if apo.is_null() {return;}
     let serial=&device.serial;
+    let library_before=app.settings.audio_profiles.clone();
+    let mut link=None;
     let edit=app.edits.entry(serial.clone()).or_default();
     let mut send=Vec::new();
     let mut bands_changed=false;
@@ -478,6 +480,14 @@ fn sony_apo(app: &mut App, ui: &mut egui::Ui, device: &Device, apo: &Value) {
         if apo["available"]==true {
             if apo["needs_initialization"]==true {widgets::help(ui,t("The first change creates a Sony audio configuration for this Windows account."));}
             ui.add_enabled_ui(apo["hub_running"]!=true && apo["effects_disabled"]!=true,|ui| {
+                let sync_profile = !edit.audio_pending();
+                let changes = edit.audio_profiles.show(ui,serial,edit.audio.effects(),&mut app.settings.audio_profiles,sync_profile);
+                link = changes.link;
+                if let Some(effects) = changes.apply {
+                    edit.audio.apply_effects(&effects);
+                    send.push(call(serial,"set_sony_effects",json!(effects)));
+                }
+                widgets::divider(ui);
                 if widgets::toggle_row(ui,t("Equalizer"),"",&mut edit.audio.sony_equalizer) {send.push(call(serial,"set_sony_equalizer",json!(edit.audio.sony_equalizer)));}
                 ui.add_enabled_ui(edit.audio.sony_equalizer,|ui| {
                     bands_changed |= edit.sony_equalizer.show(ui,serial,&mut edit.audio.sony_bands);
@@ -494,7 +504,7 @@ fn sony_apo(app: &mut App, ui: &mut egui::Ui, device: &Device, apo: &Value) {
                 widgets::divider(ui);
                 if apo["spatial"]=="custom" {widgets::help(ui,t("A custom Sony spatial profile is active. Switching this control selects the standard H5 profile."));}
                 ui.add_enabled_ui(apo["resources"]==true,|ui| {
-                    if widgets::toggle_row(ui,t("Standard spatial sound"),t("Uses Sony's standard H5 profile for the Game output."),&mut edit.audio.sony_spatial) {send.push(call(serial,"set_sony_spatial",json!(edit.audio.sony_spatial)));}
+                    if widgets::toggle_row(ui,t("Standard spatial sound"),t("Uses Sony's standard H5 profile for the Game output."),&mut edit.audio.sony_spatial) {edit.audio.sony_spatial_unknown=false;send.push(call(serial,"set_sony_spatial",json!(edit.audio.sony_spatial)));}
                 });
                 if apo["backup"]==true && ui.add(Button::secondary(t("Restore original audio settings"))).clicked() {send.push(call(serial,"restore_sony_audio",Value::Null));}
             });
@@ -534,9 +544,11 @@ fn sony_apo(app: &mut App, ui: &mut egui::Ui, device: &Device, apo: &Value) {
     if bands_changed {send.push(call(serial,"set_sony_bands",json!(edit.audio.sony_bands)));}
     if !send.is_empty() {edit.touch();}
     for command in send {
-        if matches!(&command,Command::Audio{change,..} if change.method=="restore_sony_audio") {app.cancel_pending(&format!("sony-bands:{serial}"));}
+        if matches!(&command,Command::Audio{change,..} if matches!(change.method.as_str(), "restore_sony_audio" | "set_sony_effects")) {app.cancel_pending(&format!("sony-bands:{serial}"));}
         if matches!(&command,Command::Audio{change,..} if change.method=="set_sony_bands") {app.debounce_audio(format!("sony-bands:{serial}"),command,300);} else {app.send_audio(command);}
     }
+    app.save_audio_profiles(library_before);
+    if let Some(name)=link {app.device_ui.link_audio_profile(name);}
 }
 
 pub fn inzone_battery(ui: &mut egui::Ui, audio: &Value) {

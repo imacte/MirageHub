@@ -74,12 +74,22 @@ pub struct DeviceUi {
     awaiting_copy: Option<Created>,
     /// The profile an app is being chosen for.
     pub linking: Option<String>,
+    pub linking_audio_profile: bool,
     pub app_name: String,
     #[serde(skip)]
     apps: Vec<String>,
     /// When the sound page last asked the headset how it stands.
     #[serde(skip)]
     pub audio_read: Option<std::time::Instant>,
+}
+
+impl DeviceUi {
+    pub fn link_audio_profile(&mut self, name: String) {
+        self.linking = Some(name);
+        self.linking_audio_profile = true;
+        self.apps = mirage_hub_core::process::windowed_apps();
+        self.app_name.clear();
+    }
 }
 
 /// Profiles also carry performance and keyboard Snap Tap settings.
@@ -678,6 +688,7 @@ fn profile_row(app: &mut App, ui: &mut egui::Ui, serial: &str, profile: &serde_j
             }
             if ui.add(Button::ghost(t("Link an app")).icon(icon::LINK).small()).clicked() {
                 app.device_ui.linking = Some(name.clone());
+                app.device_ui.linking_audio_profile = false;
                 app.device_ui.apps = mirage_hub_core::process::windowed_apps();
                 app.device_ui.app_name.clear();
             }
@@ -757,6 +768,17 @@ fn link_app_dialog(app: &mut App, ui: &mut egui::Ui) {
         cancel = true;
     }
     if let Some(exe) = chosen {
+        if app.device_ui.linking_audio_profile {
+            let before = app.settings.audio_profiles.clone();
+            match app.settings.audio_profiles.link(&serial, &profile, &exe) {
+                Ok(()) => {
+                    app.save_audio_profiles(before);
+                    app.device_ui.linking = None;
+                }
+                Err(error) => app.toast(error, true),
+            }
+            return;
+        }
         // One profile per app and device: a new link replaces an old one.
         app.settings.app_rules.retain(|r| !(r.serial == serial && r.exe.eq_ignore_ascii_case(&exe)));
         app.settings.app_rules.push(AppRule { exe, serial: serial.clone(), profile });

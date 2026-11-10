@@ -10,6 +10,7 @@ pub const PRODUCTS: &[u16] = &[
     0x0dfd, 0x0e47, 0x0e53, 0x0ebf, 0x0ec2, 0x0f80, 0x0f81, 0x0fa8, 0x0fc0, 0x0fc1,
 ];
 pub const METHODS: &[&str] = &[
+    "set_sony_effects",
     "set_sony_equalizer",
     "set_sony_bands",
     "set_sony_spatial",
