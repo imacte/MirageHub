@@ -1,3 +1,4 @@
+use crate::macro_input::MouseInput;
 use crate::{persistence::atomic_write, Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -18,6 +19,8 @@ pub struct MacroEvent {
     pub ext: bool,
     pub down: bool,
     pub delay: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mouse: Option<MouseInput>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -80,7 +83,19 @@ pub fn validate(value: &Value) -> Result<Action> {
                     let (Some(vk), Some(scan), Some(delay)) = (vk, scan, delay) else {
                         return Err(Error::Invalid(format!("malformed event: {value}")));
                     };
-                    if !(0..=255).contains(&vk)
+                    let mouse = event.get("mouse").map(|value| serde_json::from_value::<MouseInput>(value.clone())).transpose()?;
+                    let ext = truth(event.get("ext"), false);
+                    let down = truth(event.get("down"), true);
+                    if let Some(input) = mouse {
+                        if vk != 0 || scan != 0 || ext {
+                            return Err(Error::Invalid("mouse events cannot contain keyboard input".into()));
+                        }
+                        if let MouseInput::Wheel { delta, .. } = input {
+                            if delta == 0 || !(-12_000..=12_000).contains(&delta) || !down {
+                                return Err(Error::Invalid("wheel delta must be nonzero, within -12000..12000, and down must be true".into()));
+                            }
+                        }
+                    } else if !(0..=255).contains(&vk)
                         || !(0..=65535).contains(&scan)
                         || (vk == 0 && scan == 0)
                     {
@@ -95,8 +110,9 @@ pub fn validate(value: &Value) -> Result<Action> {
                         vk: vk as u16,
                         scan: scan as u16,
                         delay: delay as u32,
-                        ext: truth(event.get("ext"), false),
-                        down: truth(event.get("down"), true),
+                        ext,
+                        down,
+                        mouse,
                     })
                 })
                 .collect::<Result<_>>()?;
@@ -180,25 +196,34 @@ impl MacroStore {
             .filter(|v| !v.is_null())
             .cloned()
     }
+    pub fn contains(&self, serial: &str, key: &str) -> bool {
+        self.data
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(serial)
+            .and_then(|v| v.get(key))
+            .is_some_and(|v| !v.is_null())
+    }
     pub fn set(&self, serial: &str, key: &str, action: &Value) -> Result<Value> {
         let clean = serde_json::to_value(validate(action)?)?;
         let _writer = self.writer.lock().unwrap_or_else(|e| e.into_inner());
         let snapshot = {
-            let mut data = self.data.write().unwrap_or_else(|e| e.into_inner());
+            let mut data = self.data.read().unwrap_or_else(|e| e.into_inner()).clone();
             data.entry(serial)
                 .or_insert_with(|| json!({}))
                 .as_object_mut()
                 .expect("serials are objects")
                 .insert(key.into(), clean.clone());
-            data.clone()
+            data
         };
         self.save(&snapshot)?;
+        *self.data.write().unwrap_or_else(|e| e.into_inner()) = snapshot;
         Ok(clean)
     }
     pub fn delete(&self, serial: &str, key: &str) -> Result<bool> {
         let _writer = self.writer.lock().unwrap_or_else(|e| e.into_inner());
         let snapshot = {
-            let mut data = self.data.write().unwrap_or_else(|e| e.into_inner());
+            let mut data = self.data.read().unwrap_or_else(|e| e.into_inner()).clone();
             let Some(keys) = data.get_mut(serial).and_then(Value::as_object_mut) else {
                 return Ok(false);
             };
@@ -208,9 +233,10 @@ impl MacroStore {
             if keys.is_empty() {
                 data.remove(serial);
             }
-            data.clone()
+            data
         };
         self.save(&snapshot)?;
+        *self.data.write().unwrap_or_else(|e| e.into_inner()) = snapshot;
         Ok(true)
     }
     fn save(&self, snapshot: &Map<String, Value>) -> Result<()> {

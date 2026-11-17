@@ -8,7 +8,7 @@ use crate::{Error, Result};
 use serde_json::{json, Map, Value};
 use std::{collections::BTreeMap, f64::consts::PI};
 
-pub const SOFTWARE_EFFECTS: [&str; 10] = [
+pub const SOFTWARE_EFFECTS: [&str; 11] = [
     "ripple",
     "ripple_random",
     "wave_soft",
@@ -19,8 +19,9 @@ pub const SOFTWARE_EFFECTS: [&str; 10] = [
     "breath_soft",
     "starlight_soft",
     "accent",
+    "wallpaper",
 ];
-pub const ZONE_EFFECTS: [&str; 8] = [
+pub const ZONE_EFFECTS: [&str; 9] = [
     "none",
     "static",
     "spectrum_soft",
@@ -29,6 +30,7 @@ pub const ZONE_EFFECTS: [&str; 8] = [
     "breath_soft",
     "starlight_soft",
     "accent",
+    "wallpaper",
 ];
 pub const WINDOWS_BLUE: Colour = [0, 0x78, 0xd4];
 pub const RIPPLE_DURATION: f64 = 0.6;
@@ -119,6 +121,7 @@ pub struct Renderer {
     zone_effects: Vec<(String, Colour)>,
     shown: Option<Frame>,
     accent: Colour,
+    wallpaper: Colour,
 }
 impl Renderer {
     pub fn new(effect: &str, options: Map<String, Value>, capabilities: &Value) -> Result<Self> {
@@ -151,11 +154,11 @@ impl Renderer {
                 ));
             }
         }
-        let still = effect == "accent"
+        let still = ["accent", "wallpaper"].contains(&effect)
             || (effect == "zones"
                 && zone_effects
                     .iter()
-                    .all(|(effect, _)| ["none", "static", "accent"].contains(&effect.as_str())));
+                    .all(|(effect, _)| ["none", "static", "accent", "wallpaper"].contains(&effect.as_str())));
         let stack = if effect == "layers" {
             Some(LayerStack::new(layers::clean_layers(
                 options.get("layers").unwrap_or(&Value::Null),
@@ -181,6 +184,7 @@ impl Renderer {
             zone_effects,
             shown: None,
             accent: WINDOWS_BLUE,
+            wallpaper: [0; 3],
         })
     }
     pub fn needs_keys(&self) -> bool {
@@ -202,6 +206,10 @@ impl Renderer {
                 .zone_effects
                 .iter()
                 .any(|(effect, _)| effect == "accent")
+    }
+    pub fn needs_wallpaper(&self) -> bool {
+        self.effect == "wallpaper"
+            || self.zone_effects.iter().any(|(effect, _)| effect == "wallpaper")
     }
     pub fn interval(&self) -> f64 {
         if self
@@ -232,9 +240,12 @@ impl Renderer {
             colour,
         });
     }
-    pub fn step(&mut self, elapsed: f64, audio_peak: f64, accent: Option<Colour>) -> bool {
+    pub fn step(&mut self, elapsed: f64, audio_peak: f64, accent: Option<Colour>, wallpaper: Option<Colour>) -> bool {
         if let Some(colour) = accent {
             self.accent = colour;
+        }
+        if let Some(colour) = wallpaper {
+            self.wallpaper = colour;
         }
         if let Some(stack) = &self.stack {
             self.presses
@@ -279,7 +290,7 @@ impl Renderer {
                 };
                 for column in 0..self.zone_effects.len() {
                     let (effect, colour) = self.zone_effects[column].clone();
-                    if ["breath_soft", "starlight_soft", "accent"].contains(&effect.as_str()) {
+                    if ["breath_soft", "starlight_soft", "accent", "wallpaper"].contains(&effect.as_str()) {
                         for row in 0..self.frame.rows {
                             let shown = self.cell_at(&effect, colour, row, column, elapsed);
                             self.frame.set(row, column, shown);
@@ -308,7 +319,7 @@ impl Renderer {
             }
         };
         if changed
-            || ["zones", "breath_soft", "starlight_soft", "accent"].contains(&self.effect.as_str())
+            || ["zones", "breath_soft", "starlight_soft", "accent", "wallpaper"].contains(&self.effect.as_str())
         {
             self.phase = (self.phase + self.refresh) % 10.0;
         }
@@ -361,6 +372,7 @@ impl Renderer {
                     .powf(6.0),
             ),
             "accent" => self.accent,
+            "wallpaper" => self.wallpaper,
             _ => [0; 3],
         }
     }

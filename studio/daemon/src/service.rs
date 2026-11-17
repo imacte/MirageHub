@@ -684,7 +684,8 @@ impl DaemonService {
     }
     fn call_device(&self, p: &Parameters<'_>) -> rpc::Result<Value> {
         let method = p.string("method")?;
-        if !DEVICE_METHODS.contains(&method) && !crate::protocol::onboard::METHODS.contains(&method)
+        if !DEVICE_METHODS.contains(&method)
+            && !crate::protocol::onboard::METHODS.contains(&method)
             && !crate::protocol::inzone::METHODS.contains(&method)
         {
             return Err(RpcError::new(
@@ -907,6 +908,8 @@ impl Service for DaemonService {
             | "integration.status"
             | "snaptap.status"
             | "keys.status"
+            | "mouse_macro.list"
+            | "mouse_macro.stop"
             | "macro.record_stop" => (&[], &[]),
             "device.capabilities" | "profile.list" | "macro.list" => (&["serial"], &[]),
             "device.call" => (&["serial", "method"], &["args", "kwargs"]),
@@ -916,6 +919,9 @@ impl Service for DaemonService {
             "profile.save" | "profile.load" | "profile.delete" => (&["serial", "name"], &[]),
             "profile.create" => (&["serial", "name"], &["source"]),
             "macro.set" => (&["serial", "key", "action"], &[]),
+            "mouse_macro.set" => (&["key", "action"], &[]),
+            "mouse_macro.suspend" => (&["suspended"], &[]),
+            "mouse_macro.delete" | "mouse_macro.play" => (&["key"], &[]),
             "macro.delete" | "macro.record_start" | "macro.play" => (&["serial", "key"], &[]),
             _ => {
                 return Err(RpcError::new(
@@ -1014,6 +1020,58 @@ impl Service for DaemonService {
                 Some(keys) => Ok(lock(keys).stop_recording()?.unwrap_or(Value::Null)),
                 None => Ok(Value::Null),
             },
+            "mouse_macro.list" => Ok(json!({
+                "keys": crate::macro_input::MOUSE_BINDING_KEYS,
+                "bindings": self.macros.bindings(crate::macro_input::MOUSE_BINDING_SERIAL),
+                "handled": self.keys.as_ref().is_some_and(|keys| lock(keys).mouse_running()),
+                "scope": "global",
+            })),
+            "mouse_macro.stop" => {
+                if let Some(keys) = &self.keys {
+                    lock(keys).stop_mouse_playback();
+                }
+                Ok(json!({"stopped": true}))
+            }
+            "mouse_macro.suspend" => {
+                let suspended = p
+                    .value("suspended")
+                    .as_bool()
+                    .ok_or_else(|| RpcError::invalid("suspended must be a boolean"))?;
+                if let Some(keys) = &self.keys {
+                    lock(keys).suspend_mouse(suspended);
+                }
+                Ok(json!({"suspended": suspended}))
+            }
+            "mouse_macro.set" | "mouse_macro.delete" | "mouse_macro.play" => {
+                let key = p.string("key")?;
+                if !crate::macro_input::MOUSE_BINDING_KEYS.contains(&key) {
+                    return Err(RpcError::invalid("expected Back, Forward or Middle"));
+                }
+                let serial = crate::macro_input::MOUSE_BINDING_SERIAL;
+                match method {
+                    "mouse_macro.set" => Ok(self.macros.set(serial, key, p.value("action"))?),
+                    "mouse_macro.delete" => {
+                        Ok(json!({"deleted": self.macros.delete(serial, key)?}))
+                    }
+                    _ => {
+                        let action = self.macros.get(serial, key).ok_or_else(|| {
+                            RpcError::invalid("no macro is bound to this mouse button")
+                        })?;
+                        let keys = self.keys.as_ref().ok_or_else(|| {
+                            RpcError::new(NOT_SUPPORTED, "mouse bindings are not running")
+                        })?;
+                        let keys = lock(keys);
+                        if !keys.mouse_running() {
+                            return Err(RpcError::new(
+                                NOT_SUPPORTED,
+                                "mouse bindings are not running",
+                            ));
+                        }
+                        let playing = keys.play_async(serial, key, &action)?;
+                        Ok(json!({"playing": playing}))
+                    }
+                }
+            }
             "macro.list" => {
                 let device = self.device(p.string("serial")?)?;
                 let (mut keys, handled) = self.keys.as_ref().map_or((Vec::new(), false), |k| {

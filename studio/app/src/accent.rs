@@ -22,15 +22,7 @@ pub fn colour() -> Color32 {
     colour
 }
 
-#[cfg(windows)]
 fn read() -> Option<Color32> {
-    let key = winreg::RegKey::predef(winreg::enums::HKEY_CURRENT_USER).open_subkey(r"Software\Microsoft\Windows\DWM").ok()?;
-    let value: u32 = key.get_value("AccentColor").ok()?;
-    // 0xAABBGGRR: red is the low byte.
-    Some(Color32::from_rgb(value as u8, (value >> 8) as u8, (value >> 16) as u8))
-}
-
-#[cfg(not(windows))]
-fn read() -> Option<Color32> {
-    None
+    let [r, g, b] = crate::windows_accent::read()?;
+    Some(Color32::from_rgb(r, g, b))
 }

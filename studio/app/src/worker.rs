@@ -110,10 +110,15 @@ pub struct Snapshot {
     /// The daemon's saved lighting state, keyed by serial.
     pub persistence: Value,
     pub keys: Value,
+    #[serde(default)]
+    pub mouse_macros: Value,
     /// Host-drawn effects running, serial -> effect name.
     pub software: HashMap<String, String>,
     /// ... and what each was given.
     pub software_options: HashMap<String, Value>,
+    /// The latest desktop colour sampled by active wallpaper effects.
+    #[serde(default)]
+    pub wallpaper_colours: HashMap<String, [u8; 3]>,
     pub toast: Option<Toast>,
     /// Bumped whenever the saved state changes, so the UI can reload from it.
     pub generation: u64,
@@ -159,6 +164,11 @@ pub enum Command {
     MacroRecordStart { serial: String, key: String },
     MacroRecordStop { serial: String },
     MacroPlay { serial: String, key: String },
+    MouseMacroSet { key: String, action: Value },
+    MouseMacroDelete { key: String },
+    MouseMacroPlay { key: String },
+    MouseMacroStop,
+    MouseMacroSuspend { suspended: bool },
     StartDaemon,
     StopDaemon,
     RestartDaemon,
@@ -328,6 +338,7 @@ impl Worker {
         };
         let devices = self.with(|c| c.call("devices.list", json!({}))).unwrap_or(Value::Null);
         let keys = self.with(|c| c.call("keys.status", json!({}))).unwrap_or(Value::Null);
+        let mouse_macros = self.with(|c| c.call("mouse_macro.list", json!({}))).unwrap_or(Value::Null);
         let effects = self.with(|c| c.call("effect.status", json!({}))).unwrap_or(Value::Null);
         let integrations = self.with(|c| c.call("integration.status", json!({}))).unwrap_or(Value::Null);
         let snaptap = self.with(|c| c.call("snaptap.status", json!({}))).unwrap_or(Value::Null);
@@ -343,14 +354,23 @@ impl Worker {
             .and_then(Value::as_object)
             .map(|options| options.iter().map(|(serial, o)| (serial.clone(), o.clone())).collect())
             .unwrap_or_default();
+        let wallpaper_colours = effects["wallpaper_colours"].as_object()
+            .map(|colours| colours.iter().filter_map(|(serial, colour)| {
+                Some((serial.clone(), serde_json::from_value(colour.clone()).ok()?))
+            }).collect()).unwrap_or_default();
 
         let new: Vec<String> = {
             let mut shared = self.shared.lock().unwrap();
             let first = !matches!(shared.daemon, DaemonState::Running(_));
             shared.daemon = DaemonState::Running(info);
             shared.keys = keys;
+            shared.mouse_macros = mouse_macros;
+            if shared.software != software || shared.software_options != software_options {
+                shared.generation += 1;
+            }
             shared.software = software;
             shared.software_options = software_options;
+            shared.wallpaper_colours = wallpaper_colours;
             shared.integrations = integrations;
             shared.snaptap = snaptap;
             let new = devices.iter().filter(|d| first || !shared.details.contains_key(&d.serial)).map(|d| d.serial.clone()).collect();
@@ -637,6 +657,11 @@ impl Worker {
                         .unwrap_or_default();
                     shared.software_options =
                         status["options"].as_object().map(|o| o.iter().map(|(s, v)| (s.clone(), v.clone())).collect()).unwrap_or_default();
+                    shared.wallpaper_colours = status["wallpaper_colours"].as_object()
+                        .map(|colours| colours.iter().filter_map(|(serial, colour)| {
+                            Some((serial.clone(), serde_json::from_value(colour.clone()).ok()?))
+                        }).collect()).unwrap_or_default();
+                    shared.generation += 1;
                 }
             }
             Command::Integration { name, enabled } => {
@@ -736,6 +761,27 @@ impl Worker {
                 let result = self.with(|c| c.call("macro.play", json!({ "serial": serial, "key": key })));
                 self.report(&result, None);
             }
+            Command::MouseMacroSet { key, action } => {
+                let result = self.with(|c| c.call("mouse_macro.set", json!({"key": key, "action": action})));
+                self.report(&result, Some(tf("{} saved", &[&key])));
+                self.reload_mouse_macros();
+            }
+            Command::MouseMacroDelete { key } => {
+                let result = self.with(|c| c.call("mouse_macro.delete", json!({"key": key})));
+                self.report(&result, Some(tf("{} is back to its default", &[&key])));
+                self.reload_mouse_macros();
+            }
+            Command::MouseMacroPlay { key } => {
+                let result = self.with(|c| c.call("mouse_macro.play", json!({"key": key})));
+                self.report(&result, None);
+            }
+            Command::MouseMacroStop => {
+                let result = self.with(|c| c.call("mouse_macro.stop", json!({})));
+                self.report(&result, None);
+            }
+            Command::MouseMacroSuspend { suspended } => {
+                let _ = self.with(|c| c.call("mouse_macro.suspend", json!({"suspended": suspended})));
+            }
             Command::StartDaemon => self.start_daemon(false),
             Command::StopDaemon => {
                 let result = crate::daemon::stop();
@@ -797,6 +843,11 @@ impl Worker {
         }
         if let Ok(keys) = self.with(|c| c.call("keys.status", json!({}))) {
             self.shared.lock().unwrap().keys = keys;
+        }
+    }
+    fn reload_mouse_macros(&mut self) {
+        if let Ok(info) = self.with(|c| c.call("mouse_macro.list", json!({}))) {
+            self.shared.lock().unwrap().mouse_macros = info;
         }
     }
 }

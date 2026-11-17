@@ -604,6 +604,10 @@ impl App {
                     self.macros_opened = Some(index);
                 }
             }
+            if page == Page::Macros && parts.get(1) == Some(&"new") && self.macros_opened.is_none() {
+                super::macros::capture_new(self, parts.get(2) == Some(&"text"));
+                self.macros_opened = Some(usize::MAX);
+            }
             if parts.first() == Some(&"lighting") {
                 self.device_ui.tab = Tab::Lighting;
                 self.lighting.studio = parts.get(2) == Some(&"studio");

@@ -10,6 +10,8 @@ pub mod install;
 pub mod paths;
 #[path = "../../../assets/audio_effects.rs"]
 pub mod audio_effects;
+#[path = "../../../assets/macro_input.rs"]
+pub mod macro_input;
 #[path = "../../../assets/data_paths.rs"]
 pub mod data_paths;
 pub mod process;

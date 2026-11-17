@@ -12,4 +12,28 @@ Sony INZONE protocol framing, settings semantics, capability maps and serial tra
 
 Copyright (C) 2026 penguinwokrs. SPDX-License-Identifier: GPL-3.0-only. The port is in `studio/daemon/src/protocol/inzone.rs`, `studio/daemon/src/inzone/` and `studio/daemon/src/device/inzone.rs`. The license text is also retained in [LICENSES/GPL-3.0.txt](LICENSES/GPL-3.0.txt).
 
+## windows-capture
+
+The wallpaper colour effect uses [windows-capture](https://github.com/NiiightmareXD/windows-capture), distributed under the MIT License:
+
+> Copyright (c) 2023 NiiightmareXD
+>
+> Permission is hereby granted, free of charge, to any person obtaining a copy
+> of this software and associated documentation files (the "Software"), to deal
+> in the Software without restriction, including without limitation the rights
+> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+> copies of the Software, and to permit persons to whom the Software is
+> furnished to do so, subject to the following conditions:
+>
+> The above copyright notice and this permission notice shall be included in all
+> copies or substantial portions of the Software.
+>
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+> SOFTWARE.
+
 Mirage Hub is independent of Razer and Sony. Their names identify compatible hardware; neither company endorses this project. No proprietary INZONE Hub code or assets are included. Optional Sony audio drivers/resources are downloaded directly from Sony only when requested by the user and remain subject to Sony's terms. The source tree contains extraction instructions and hash metadata, not those binaries. See [Sony audio setup](docs/INZONE.md#sony-apo-audio-effects-h5).

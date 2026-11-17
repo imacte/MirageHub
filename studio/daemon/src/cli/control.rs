@@ -374,6 +374,7 @@ pub(super) const EFFECTS: &[&str] = &[
     "ripple_random",
     "music",
     "accent",
+    "wallpaper",
     "spectrum_soft",
     "wave_soft",
     "breath_soft",
@@ -830,7 +831,7 @@ fn apply_effect(
         zone(
             caps,
             Some(
-                if ["ripple", "ripple_random", "music", "accent"].contains(&requested) {
+                if ["ripple", "ripple_random", "music", "accent", "wallpaper"].contains(&requested) {
                     "custom"
                 } else {
                     requested
@@ -855,6 +856,7 @@ fn apply_effect(
         "ripple_random",
         "music",
         "accent",
+        "wallpaper",
         "spectrum_soft",
         "wave_soft",
         "breath_soft",
@@ -924,7 +926,7 @@ fn apply_effect(
         backend.device(serial, &format!("set_{effect}"), json!(values), Some(&zone))?;
     }
     Ok(Some(
-        json!({"effect":requested,"zone":zone,"host_rendered":effect!=requested || effect.ends_with("_soft") || ["ripple","ripple_random","music","accent"].contains(&effect)}),
+        json!({"effect":requested,"zone":zone,"host_rendered":effect!=requested || effect.ends_with("_soft") || ["ripple","ripple_random","music","accent","wallpaper"].contains(&effect)}),
     ))
 }
 

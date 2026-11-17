@@ -9,7 +9,9 @@ use crate::{
     database::DeviceInfo,
     hid::{HidBackend, HidInfo},
     keyboard::{KeyEvent, KeyboardHook},
+    macro_input::{MouseButton, MOUSE_BINDING_SERIAL},
     manager::{lock_device, SharedDevice},
+    mouse::{MouseEvent, MouseHook},
     worker::Cancellation,
     Error, Result,
 };
@@ -18,12 +20,12 @@ use serde_json::{json, Map, Value};
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         mpsc::{self, SyncSender},
         Arc, Mutex, MutexGuard, OnceLock,
     },
     thread::{self, JoinHandle},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 fn lock<T>(value: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -126,6 +128,7 @@ impl Recording {
             ext: event.extended,
             down: event.down,
             delay,
+            mouse: None,
         });
     }
 }
@@ -134,8 +137,11 @@ struct State {
     bindings: Vec<Binding>,
     recording: Option<Recording>,
     next_id: u64,
+    mouse_held: BTreeSet<MouseButton>,
+    mouse_suspended_until: Option<Instant>,
 }
 enum Job {
+    Mouse(String, u64),
     Perform(Reference, String),
     Led(Reference, bool, bool),
 }
@@ -181,12 +187,55 @@ struct Core {
     injector: Arc<dyn Injector>,
     launcher: Arc<dyn Launcher>,
     enabled: AtomicBool,
+    mouse_epoch: AtomicU64,
     jobs: Mutex<Option<SyncSender<Job>>>,
     inputs: Mutex<Option<mpsc::Sender<InputJob>>>,
     playing: Mutex<BTreeMap<(String, String), Playback>>,
     errors: Errors,
 }
 impl Core {
+    fn handle_mouse(&self, event: MouseEvent) -> bool {
+        if event.injected || event.ours || !self.enabled.load(Ordering::Acquire) {
+            return false;
+        }
+        let Some(key) = event.button.binding_key() else {
+            return false;
+        };
+        let mut state = lock(&self.state);
+        if !event.down {
+            return state.mouse_held.remove(&event.button);
+        }
+        if state.mouse_held.contains(&event.button) {
+            return true;
+        }
+        if state
+            .mouse_suspended_until
+            .is_some_and(|until| until > Instant::now())
+        {
+            return false;
+        }
+        if !self.macros.contains(MOUSE_BINDING_SERIAL, key) {
+            return false;
+        }
+        let epoch = self.mouse_epoch.load(Ordering::Acquire);
+        let queued = lock(&self.jobs)
+            .as_ref()
+            .is_some_and(|sender| sender.try_send(Job::Mouse(key.into(), epoch)).is_ok());
+        if queued {
+            state.mouse_held.insert(event.button);
+        }
+        queued
+    }
+    fn cancel_mouse(&self) {
+        // Only signal here: joining a SendInput worker from a hook deadlocks.
+        let playing = lock(&self.playing);
+        self.mouse_epoch.fetch_add(1, Ordering::AcqRel);
+        for ((serial, _), task) in playing.iter() {
+            if serial == MOUSE_BINDING_SERIAL {
+                task.cancel.stop();
+            }
+        }
+    }
     fn queue(&self, job: Job) {
         if let Some(sender) = lock(&self.jobs).as_ref() {
             if sender.try_send(job).is_err() {
@@ -321,6 +370,9 @@ impl Core {
     fn handle_key(&self, event: KeyEvent) -> bool {
         if event.injected || !self.enabled.load(Ordering::Acquire) {
             return false;
+        }
+        if event.down && event.vk == 0x1b {
+            self.cancel_mouse();
         }
         let _gate = lock(&self.output_gate);
         let mut effects = Vec::new();
@@ -498,8 +550,21 @@ impl Core {
         }
     }
     fn play_async(&self, serial: &str, key: &str, action: Action) -> Result<bool> {
+        let epoch =
+            (serial == MOUSE_BINDING_SERIAL).then(|| self.mouse_epoch.load(Ordering::Acquire));
+        self.play_with_epoch(serial, key, action, epoch)
+    }
+    fn play_with_epoch(
+        &self,
+        serial: &str,
+        key: &str,
+        action: Action,
+        epoch: Option<u64>,
+    ) -> Result<bool> {
         let mut playing = lock(&self.playing);
-        if !self.enabled.load(Ordering::Acquire) {
+        if !self.enabled.load(Ordering::Acquire)
+            || epoch.is_some_and(|epoch| epoch != self.mouse_epoch.load(Ordering::Acquire))
+        {
             return Ok(false);
         }
         playing.retain(|_, v| !v.worker.is_finished());
@@ -568,6 +633,7 @@ pub struct KeyService {
     core: Arc<Core>,
     native_hook: bool,
     hook: Option<KeyboardHook>,
+    mouse_hook: Option<MouseHook>,
     snaptap: Option<Arc<super::snaptap_host::Controller>>,
     action_worker: Option<JoinHandle<()>>,
     input_worker: Option<JoinHandle<()>>,
@@ -600,6 +666,7 @@ impl KeyService {
                 injector,
                 launcher,
                 enabled: AtomicBool::new(false),
+                mouse_epoch: AtomicU64::new(0),
                 jobs: Mutex::new(None),
                 inputs: Mutex::new(None),
                 playing: Mutex::new(BTreeMap::new()),
@@ -607,6 +674,7 @@ impl KeyService {
             }),
             native_hook,
             hook: None,
+            mouse_hook: None,
             snaptap: None,
             action_worker: None,
             input_worker: None,
@@ -671,6 +739,21 @@ impl KeyService {
                             continue;
                         }
                         let result = match job {
+                            Job::Mouse(key, epoch) => {
+                                match core.macros.get(MOUSE_BINDING_SERIAL, &key) {
+                                    Some(action) => macros::validate(&action)
+                                        .and_then(|action| {
+                                            core.play_with_epoch(
+                                                MOUSE_BINDING_SERIAL,
+                                                &key,
+                                                action,
+                                                Some(epoch),
+                                            )
+                                        })
+                                        .map(|_| ()),
+                                    None => Ok(()),
+                                }
+                            }
                             Job::Perform(reference, action) => core.perform(&reference, &action),
                             Job::Led(reference, recording, blinking) => {
                                 if core.current(&reference) {
@@ -698,6 +781,13 @@ impl KeyService {
                     return Err(error);
                 }
             }
+            let core = Arc::downgrade(&self.core);
+            match MouseHook::start(Arc::new(move |event| {
+                core.upgrade().is_some_and(|core| core.handle_mouse(event))
+            })) {
+                Ok(hook) => self.mouse_hook = Some(hook),
+                Err(error) => report_error(&self.core.errors, error),
+            }
         }
         self.core.enabled.store(true, Ordering::Release);
         Ok(true)
@@ -706,6 +796,23 @@ impl KeyService {
         self.core.enabled.load(Ordering::Acquire)
             && (!self.native_hook || self.hook.as_ref().is_some_and(KeyboardHook::running))
     }
+    pub fn mouse_running(&self) -> bool {
+        self.running()
+            && (!self.native_hook || self.mouse_hook.as_ref().is_some_and(MouseHook::running))
+    }
+    pub fn handle_mouse(&self, event: MouseEvent) -> bool {
+        self.core.handle_mouse(event)
+    }
+    pub fn stop_mouse_playback(&self) {
+        self.core.cancel_mouse();
+    }
+    pub fn suspend_mouse(&self, suspended: bool) {
+        lock(&self.core.state).mouse_suspended_until =
+            suspended.then(|| Instant::now() + Duration::from_secs(3));
+        if suspended {
+            self.core.cancel_mouse();
+        }
+    }
     /// Applied when the service starts; Snap Tap shares the Fn filter's hook.
     pub fn set_snaptap(&mut self, controller: Arc<super::snaptap_host::Controller>) {
         self.snaptap = Some(controller);
@@ -713,6 +820,12 @@ impl KeyService {
     pub fn stop(&mut self) {
         self.core.enabled.store(false, Ordering::Release);
         self.hook.take();
+        self.mouse_hook.take();
+        {
+            let mut state = lock(&self.core.state);
+            state.mouse_held.clear();
+            state.mouse_suspended_until = None;
+        }
         self.input_cancel.stop();
         for readers in &self.readers {
             readers.cancel.stop();

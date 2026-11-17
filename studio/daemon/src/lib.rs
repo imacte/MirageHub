@@ -13,7 +13,12 @@ pub mod effects;
 pub mod hid;
 pub mod inzone;
 pub mod integrations;
+#[path = "../../../assets/windows_accent.rs"]
+mod windows_accent;
 pub mod keyboard;
+pub mod mouse;
+#[path = "../../../assets/macro_input.rs"]
+pub mod macro_input;
 pub mod keys;
 pub mod logging;
 pub mod manager;

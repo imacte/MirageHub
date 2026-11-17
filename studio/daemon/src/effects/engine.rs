@@ -4,6 +4,7 @@ use super::{
     keys::KeySource,
     layers,
     render::{self, Renderer, SOFTWARE_EFFECTS, ZONE_EFFECTS},
+    wallpaper::{self, WallpaperReader},
 };
 use crate::{
     device::Device,
@@ -24,6 +25,9 @@ use std::{
 pub trait Environment: Send + Sync {
     fn audio(&self) -> Box<dyn AudioMeter>;
     fn accent(&self) -> Option<Colour>;
+    fn wallpaper(&self) -> Box<dyn WallpaperReader> {
+        Box::new(wallpaper::Unavailable)
+    }
 }
 pub struct NativeEnvironment;
 impl Environment for NativeEnvironment {
@@ -32,6 +36,9 @@ impl Environment for NativeEnvironment {
     }
     fn accent(&self) -> Option<Colour> {
         read_accent()
+    }
+    fn wallpaper(&self) -> Box<dyn WallpaperReader> {
+        wallpaper::open()
     }
 }
 
@@ -66,6 +73,27 @@ pub fn push_frame(
     Ok(())
 }
 
+/// A uniform colour can use the keyboard's built-in static effect, including
+/// LEDs that are not represented by its custom-frame matrix.
+fn push_uniform(device: &mut dyn Device, frame: &Frame, custom: &mut bool) -> Result<()> {
+    let caps = device.capabilities();
+    let static_backlight = caps["zone_colours"] != true
+        && caps["zones"]["backlight"]["effects"]
+            .as_array()
+            .is_some_and(|effects| effects.iter().any(|effect| effect == "static"));
+    if static_backlight {
+        let colour = frame.get(0, 0);
+        device.call(
+            "set_static",
+            &colour.map(|channel| json!(channel)),
+            &Map::from_iter([("zone".into(), json!("backlight"))]),
+        )?;
+        Ok(())
+    } else {
+        push_frame(device, frame, true, custom, false)
+    }
+}
+
 struct EffectWorker {
     effect: String,
     options: Map<String, Value>,
@@ -73,6 +101,7 @@ struct EffectWorker {
     cancel: Arc<Cancellation>,
     handle: Option<JoinHandle<()>>,
     error: Arc<Mutex<Option<String>>>,
+    wallpaper_colour: Arc<Mutex<Option<Colour>>>,
 }
 impl EffectWorker {
     fn start(
@@ -88,12 +117,17 @@ impl EffectWorker {
         let stopping = cancel.clone();
         let error = Arc::new(Mutex::new(None));
         let failure = error.clone();
+        let wallpaper_colour = Arc::new(Mutex::new(None));
+        let reported_wallpaper = wallpaper_colour.clone();
         let subscription = renderer.needs_keys().then(|| keys.subscribe());
         let handle = thread::Builder::new()
             .name(format!("openrazer-effect-{effect}"))
             .spawn(move || {
                 let started = Instant::now();
                 let mut last_accent = None;
+                let mut last_wallpaper = None;
+                let mut wallpaper_seen = false;
+                let mut wallpaper_source = renderer.needs_wallpaper().then(|| environment.wallpaper());
                 let mut meter = renderer.needs_audio().then(|| environment.audio());
                 let mut custom = false;
                 let mut first = true;
@@ -103,6 +137,7 @@ impl EffectWorker {
                     .as_nanos() as u64)
                     .max(1);
                 while !stopping.stopped() {
+                    let first_frame = first;
                     if !(first && renderer.stack.is_some())
                         && stopping.wait(Duration::from_secs_f64(renderer.interval()))
                     {
@@ -129,16 +164,32 @@ impl EffectWorker {
                     } else {
                         None
                     };
+                    let wallpaper = if let Some(source) = wallpaper_source.as_mut().filter(|_| {
+                        last_wallpaper.is_none_or(|at: Instant| at.elapsed() >= Duration::from_secs(1))
+                    }) {
+                        last_wallpaper = Some(Instant::now());
+                        let colour = source.sample();
+                        *reported_wallpaper.lock().unwrap_or_else(|e| e.into_inner()) = colour;
+                        colour
+                    } else {
+                        None
+                    };
+                    let first_wallpaper = wallpaper.is_some() && !wallpaper_seen;
+                    wallpaper_seen |= wallpaper.is_some();
                     let peak = meter.as_mut().map(|meter| meter.peak()).unwrap_or(0.0);
-                    if renderer.step(started.elapsed().as_secs_f64(), peak, accent) {
+                    if renderer.step(started.elapsed().as_secs_f64(), peak, accent, wallpaper)
+                        || (first_frame && renderer.effect == "accent")
+                        || first_wallpaper
+                    {
                         let mut device = lock_device(&device);
-                        if let Err(error) = push_frame(
-                            device.as_mut(),
-                            &renderer.frame,
-                            renderer.still,
-                            &mut custom,
-                            stopping.stopped(),
-                        ) {
+                        let result = if stopping.stopped() {
+                            Ok(())
+                        } else if ["accent", "wallpaper"].contains(&renderer.effect.as_str()) {
+                            push_uniform(device.as_mut(), &renderer.frame, &mut custom)
+                        } else {
+                            push_frame(device.as_mut(), &renderer.frame, renderer.still, &mut custom, false)
+                        };
+                        if let Err(error) = result {
                             *failure.lock().unwrap_or_else(|e| e.into_inner()) =
                                 Some(error.to_string());
                             break;
@@ -156,6 +207,7 @@ impl EffectWorker {
             cancel,
             handle: Some(handle),
             error,
+            wallpaper_colour,
         })
     }
     fn running(&self) -> bool {
@@ -394,7 +446,12 @@ impl EffectEngine {
             }
             options.insert("zones".into(), zones);
         }
-        if !render::can_render(&capabilities) {
+        let wallpaper_static = effect == "wallpaper"
+            && capabilities["zone_colours"] != true
+            && capabilities["zones"]["backlight"]["effects"]
+                .as_array()
+                .is_some_and(|effects| effects.iter().any(|effect| effect == "static"));
+        if !render::can_render(&capabilities) && !wallpaper_static {
             return Err(Error::NotSupported(
                 "device has no addressable matrix big enough for software effects".into(),
             ));
@@ -446,7 +503,14 @@ impl EffectEngine {
             .filter(|(_, w)| w.running())
             .map(|(s, w)| (s.clone(), json!(w.options)))
             .collect();
-        json!({"enabled":true,"active":active,"options":options,"keyboard_hook":self.keys.running(),"available":SOFTWARE_EFFECTS})
+        let wallpaper: Map<String, Value> = self.workers.iter()
+            .filter(|(_, worker)| worker.running())
+            .filter_map(|(serial, worker)| {
+                (*worker.wallpaper_colour.lock().unwrap_or_else(|e| e.into_inner()))
+                    .map(|colour| (serial.clone(), json!(colour)))
+            })
+            .collect();
+        json!({"enabled":true,"active":active,"options":options,"wallpaper_colours":wallpaper,"keyboard_hook":self.keys.running(),"available":SOFTWARE_EFFECTS})
     }
     pub fn errors(&self) -> BTreeMap<String, String> {
         self.workers

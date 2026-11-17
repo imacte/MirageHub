@@ -7,6 +7,8 @@
 #![windows_subsystem = "windows"]
 
 mod accent;
+#[path = "../../../assets/windows_accent.rs"]
+mod windows_accent;
 mod appwatch;
 mod art;
 mod chroma;

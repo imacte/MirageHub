@@ -7,16 +7,16 @@ use mirage_hub_core::t;
 use serde_json::{json, Value};
 
 /// Drawn by the daemon, frame by frame, rather than by the device.
-pub const SOFTWARE: [&str; 8] = ["ripple", "ripple_random", "spectrum_soft", "wave_soft", "music", "breath_soft", "starlight_soft", "accent"];
+pub const SOFTWARE: [&str; 9] = ["ripple", "ripple_random", "spectrum_soft", "wave_soft", "music", "breath_soft", "starlight_soft", "accent", "wallpaper"];
 /// Drawn by the daemon on one zone alone, on a device whose zones it can light one by one.
-pub const ZONE_SOFTWARE: [&str; 6] = ["spectrum_soft", "wave_soft", "music", "breath_soft", "starlight_soft", "accent"];
+pub const ZONE_SOFTWARE: [&str; 7] = ["spectrum_soft", "wave_soft", "music", "breath_soft", "starlight_soft", "accent", "wallpaper"];
 /// A host-drawn effect, and the device's own that makes it unneeded where there is one.
 const STANDS_IN_FOR: [(&str, &str); 2] = [("breath_soft", "breath_single"), ("starlight_soft", "starlight_single")];
 /// Need a key press to place; pointless below this many LEDs.
 const KEY_REACTIVE: [&str; 2] = ["ripple", "ripple_random"];
 const MIN_RIPPLE_CELLS: i64 = 8;
 
-pub const PALETTE: [Color32; 12] = [
+pub const PALETTE: [Color32; 18] = [
     Color32::from_rgb(0x44, 0xD6, 0x2C),
     Color32::from_rgb(0x00, 0xFF, 0x80),
     Color32::from_rgb(0x00, 0xC8, 0xFF),
@@ -29,6 +29,12 @@ pub const PALETTE: [Color32; 12] = [
     Color32::from_rgb(0xFF, 0xE0, 0x00),
     Color32::from_rgb(0xFF, 0xFF, 0xFF),
     Color32::from_rgb(0xFF, 0xB4, 0x6E),
+    Color32::from_rgb(0xFF, 0x00, 0x00),
+    Color32::from_rgb(0xFF, 0xFF, 0x00),
+    Color32::from_rgb(0x00, 0xFF, 0x00),
+    Color32::from_rgb(0x00, 0xFF, 0xFF),
+    Color32::from_rgb(0x00, 0x00, 0xFF),
+    Color32::from_rgb(0xFF, 0x00, 0xFF),
 ];
 
 pub fn label(effect: &str) -> &'static str {
@@ -56,6 +62,7 @@ pub fn label(effect: &str) -> &'static str {
         "breath_soft" => t("Breathing"),
         "starlight_soft" => t("Starlight"),
         "accent" => t("Accent colour"),
+        "wallpaper" => t("Wallpaper colour"),
         "custom" | "layers" => t("Per-key lighting"),
         "zones" => t("Each ear on its own"),
         _ => t("Other"),
@@ -171,6 +178,10 @@ pub fn effects_for(caps: &Value, zone: &str) -> Vec<String> {
             }
         }
     }
+    if zone == "backlight" && effects.iter().any(|effect| effect == "static")
+        && !effects.iter().any(|effect| effect == "wallpaper") {
+        effects.push("wallpaper".into());
+    }
     if own_zones(caps).iter().any(|z| z == zone) {
         for effect in ZONE_SOFTWARE {
             if !effects.iter().any(|e| e == effect) {
@@ -249,7 +260,7 @@ mod tests {
             "zones": { "backlight": { "effects": ["none", "static"] }, "left": { "effects": ["none", "static"] }, "right": { "effects": ["none", "static"] } },
         });
         assert_eq!(own_zones(&caps), vec!["left".to_string(), "right".to_string()]);
-        assert_eq!(effects_for(&caps, "left"), vec!["none", "static", "spectrum_soft", "wave_soft", "music", "breath_soft", "starlight_soft", "accent"]);
+        assert_eq!(effects_for(&caps, "left"), vec!["none", "static", "spectrum_soft", "wave_soft", "music", "breath_soft", "starlight_soft", "accent", "wallpaper"]);
         // A ripple needs keys to spread over, on the whole headset as on one ear.
         assert!(!effects_for(&caps, "backlight").iter().any(|e| e.starts_with("ripple")));
         let keyboard = json!({ "software_effects": true, "zones": { "logo": { "effects": ["static"] } } });
@@ -267,8 +278,27 @@ mod tests {
     }
 
     #[test]
+    fn wallpaper_colour_is_available_for_static_only_devices() {
+        let caps = json!({"software_effects": false, "zones":{"backlight":{"effects":["static"]}}});
+        assert!(effects_for(&caps, "backlight").iter().any(|effect| effect == "wallpaper"));
+        let commands = apply_commands("S", "backlight", &zone("wallpaper"), false);
+        assert!(matches!(&commands[0], Command::Software { effect, .. } if effect == "wallpaper"));
+    }
+
+    #[test]
     fn colours_are_written_as_hex() {
         assert_eq!(hex(Color32::from_rgb(0x44, 0xD6, 0x2C)), "#44D62C");
         assert_eq!(hex(Color32::from_rgb(0, 5, 255)), "#0005FF");
+    }
+
+    #[test]
+    fn palette_includes_the_primary_and_secondary_rgb_colours() {
+        for colour in [
+            Color32::from_rgb(255, 0, 0), Color32::from_rgb(255, 255, 0),
+            Color32::from_rgb(0, 255, 0), Color32::from_rgb(0, 255, 255),
+            Color32::from_rgb(0, 0, 255), Color32::from_rgb(255, 0, 255),
+        ] {
+            assert!(PALETTE.contains(&colour));
+        }
     }
 }

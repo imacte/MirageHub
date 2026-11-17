@@ -13,17 +13,7 @@ pub const ACCENT_POLL: Duration = Duration::from_secs(2);
 pub const NAMES: [&str; 2] = ["accent", "chroma"];
 
 pub fn read_accent() -> Option<Colour> {
-    #[cfg(windows)]
-    {
-        use winreg::{enums::HKEY_CURRENT_USER, RegKey};
-        let key = RegKey::predef(HKEY_CURRENT_USER)
-            .open_subkey(r"Software\Microsoft\Windows\DWM")
-            .ok()?;
-        let value: u32 = key.get_value("AccentColor").ok()?;
-        Some([value as u8, (value >> 8) as u8, (value >> 16) as u8])
-    }
-    #[cfg(not(windows))]
-    None
+    crate::windows_accent::read()
 }
 pub struct IntegrationSettings {
     path: Option<PathBuf>,

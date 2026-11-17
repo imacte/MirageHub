@@ -83,6 +83,21 @@ pub fn page(app: &mut App, ui: &mut egui::Ui, snap: &Snapshot, device: &Device) 
         return;
     };
     scroll(ui, "lighting", |ui| {
+        if !snap.synapse.is_empty() {
+            widgets::banner(
+                ui,
+                theme::WARN,
+                icon::WARNING,
+                t("Razer Synapse is running"),
+                t("Synapse talks to the same devices, and the two will keep overwriting each other's lighting and settings. Close it to let Mirage Hub have them to itself."),
+                |ui| {
+                    if ui.add(Button::primary(t("Close Synapse")).small()).clicked() {
+                        app.send(Command::CloseSynapse);
+                    }
+                    ui.label(widgets::faint(t("Its Windows services can only be stopped by an administrator, in Services.")));
+                },
+            );
+        }
         if app.lighting.studio && !per_key {
             widgets::banner(ui, theme::INFO, icon::INFO, t("This device has no per-key lighting"), t("Its lights are set zone by zone, in Quick effects."), |ui| {
                 if ui.add(Button::secondary(t("Go to Quick effects")).small()).clicked() {
@@ -136,7 +151,12 @@ pub fn now_showing(app: &mut App, art: &Art, device: &Device, caps: &Value, snap
         let state = edit.zones.get(zone).cloned().unwrap_or_default();
         let effect = if zone == "backlight" { software.clone().unwrap_or(state.effect.clone()) } else { state.effect.clone() };
         let level = edit.zones.get("backlight").filter(|_| own.iter().any(|o| o == zone)).unwrap_or(&state).brightness.unwrap_or(100.0) / 100.0;
-        preview::hardware(&effect, &state.colours, state.speed, state.direction, time, x, preview::twinkle_phase((i / 256) as u8, (i % 256) as u8)).gamma_multiply(0.25 + 0.75 * level)
+        let colour = if effect == "wallpaper" {
+            snap.wallpaper_colours.get(serial).map(|c| Color32::from_rgb(c[0], c[1], c[2])).unwrap_or(Color32::BLACK)
+        } else {
+            preview::hardware(&effect, &state.colours, state.speed, state.direction, time, x, preview::twinkle_phase((i / 256) as u8, (i % 256) as u8))
+        };
+        colour.gamma_multiply(0.25 + 0.75 * level)
     };
     let across = |shape: &Shape| (shape.bounds(art).center().x / art.w as f32).clamp(0.0, 1.0);
     let ear = |r: u8, c: u8| own.get(c as usize).filter(|_| r == 0);
@@ -177,6 +197,7 @@ fn quick(app: &mut App, ui: &mut egui::Ui, device: &Device, caps: &Value, snap: 
     let mut sync: Option<super::edit::ZoneEdit> = None;
     let mut commands: Vec<Command> = Vec::new();
     let mut debounced: Vec<(String, Command, u64)> = Vec::new();
+    let mut effect_changed = false;
 
     widgets::columns(ui, 0.56, 900.0, |ui, column| {
         if column == 0 {
@@ -249,13 +270,18 @@ fn quick(app: &mut App, ui: &mut egui::Ui, device: &Device, caps: &Value, snap: 
                 let clicked = super::widgets::effect_grid(
                     ui,
                     &offered,
-                    |effect| if effect == shown { current.colours } else { preview_zone.colours },
+                    |effect| if effect == "wallpaper" {
+                        snap.wallpaper_colours.get(&serial)
+                            .map(|c| [Color32::from_rgb(c[0], c[1], c[2]); 3])
+                            .unwrap_or(preview_zone.colours)
+                    } else if effect == shown { current.colours } else { preview_zone.colours },
                     |effect| if running_here { software.as_deref() == Some(effect) } else { shown == effect },
                     time,
                 );
                 if let Some(effect) = clicked {
                     current.effect = effect.clone();
                     light_up(current, colour_count(&effect));
+                    effect_changed = true;
                     commands.extend(effects::apply_commands(&serial, &zone, current, software.is_some()));
                 }
             });
@@ -321,7 +347,32 @@ fn quick(app: &mut App, ui: &mut egui::Ui, device: &Device, caps: &Value, snap: 
         let count = colour_count(&effect);
         widgets::panel(ui, if count > 1 { t("Colours") } else { t("Colour") }, |ui| {
             if count == 0 {
-                widgets::help(ui, t("This effect picks its own colours."));
+                if effect == "accent" {
+                    widgets::help(ui, t("This effect follows the Windows accent colour. Change it in Windows settings."));
+                    if let Some(colour) = super::integrations::accent_colour(&snap.integrations) {
+                        ui.horizontal(|ui| {
+                            widgets::swatch(ui, colour, 24.0, false);
+                            ui.label(widgets::dim(effects::hex(colour)));
+                        });
+                    } else {
+                        ui.label(widgets::faint(t("Not reported yet.")));
+                    }
+                } else if effect == "wallpaper" {
+                    widgets::help(ui, t("Follows the average colour of the Windows wallpaper or Wallpaper Engine."));
+                    widgets::help(ui, t("Windows may show a capture border while this effect is active."));
+                    if let Some(c) = snap.wallpaper_colours.get(&serial) {
+                        let colour = Color32::from_rgb(c[0], c[1], c[2]);
+                        ui.horizontal(|ui| {
+                            widgets::swatch(ui, colour, 24.0, false);
+                            ui.label(widgets::dim(effects::hex(colour)));
+                        });
+                    } else {
+                        ui.label(widgets::faint(t("Waiting for wallpaper colour.")));
+                    }
+                } else {
+                    widgets::help(ui, t("This effect picks its own colours."));
+                }
+                return;
             }
             if count > 1 {
                 ui.horizontal(|ui| {
@@ -338,12 +389,10 @@ fn quick(app: &mut App, ui: &mut egui::Ui, device: &Device, caps: &Value, snap: 
             let active = current.active.min(count.max(1) - 1);
             current.active = active;
             let mut colour = current.colours[active];
-            ui.add_enabled_ui(count > 0, |ui| {
-                if super::widgets::colour_chooser(ui, &format!("quick-{serial}-{zone}-{active}"), &mut colour, &app.settings.recent_colours) {
-                    current.colours[active] = colour;
-                    debounced.push((format!("light:{serial}:{zone}"), Command::Refresh, 0));
-                }
-            });
+            if super::widgets::colour_chooser(ui, &format!("quick-{serial}-{zone}-{active}"), &mut colour, &app.settings.recent_colours) {
+                current.colours[active] = colour;
+                debounced.push((format!("light:{serial}:{zone}"), Command::Refresh, 0));
+            }
         });
     });
     // Both ears given one look: each ear has it now, ready to be changed on its own.
@@ -373,6 +422,12 @@ fn quick(app: &mut App, ui: &mut egui::Ui, device: &Device, caps: &Value, snap: 
     }
     if commands.iter().chain(debounced.iter().map(|d| &d.1)).any(|c| matches!(c, Command::Call { .. } | Command::Refresh)) && colour_count(&zone_now.effect) > 0 {
         app.settings.remember_colour(zone_now.colours[zone_now.active.min(2)]);
+    }
+    if effect_changed {
+        // A delayed colour change from the old effect must not switch it back.
+        for i in 0..2 {
+            app.cancel_pending(&format!("light:{serial}:{zone}:{i}"));
+        }
     }
     for command in commands {
         app.send(command);

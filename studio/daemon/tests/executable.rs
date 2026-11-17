@@ -234,6 +234,13 @@ fn native_cli_controls_devices_and_keeps_profiles_macros_and_integrations_compat
         client.call("effect.status", json!({})).unwrap()["active"][keyboard],
         "ripple"
     );
+    let wallpaper = ok(session.run(&["effect", "wallpaper", "-d", "0203", "--json"]));
+    assert_eq!(wallpaper[0]["effect"], "wallpaper");
+    assert_eq!(wallpaper[0]["host_rendered"], true);
+    assert_eq!(
+        client.call("effect.status", json!({})).unwrap()["active"][keyboard],
+        "wallpaper"
+    );
     success(session.run(&["effect", "none", "-d", "0203"]));
     assert!(client.call("effect.status", json!({})).unwrap()["active"]
         .get(keyboard)

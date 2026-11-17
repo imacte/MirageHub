@@ -3,6 +3,7 @@ use super::{
     codes::Output,
     macros::{Action, MacroEvent},
 };
+use crate::macro_input::{MouseButton, MouseInput};
 use crate::{worker::Cancellation, Error, Result};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeSet, time::Duration};
@@ -83,7 +84,13 @@ pub trait Injector: Send + Sync {
         self.emit(&[key_input(output, down)])
     }
     fn raw(&self, event: &MacroEvent) -> Result<()> {
-        self.emit(&[raw_input(event)])
+        match event.mouse {
+            Some(input) => self.mouse(input, event.down),
+            None => self.emit(&[raw_input(event)]),
+        }
+    }
+    fn mouse(&self, _: MouseInput, _: bool) -> Result<()> {
+        Err(Error::NotSupported("mouse injection is unavailable".into()))
     }
     fn text(&self, text: &str) -> Result<()> {
         self.emit(&text_inputs(text))
@@ -98,6 +105,7 @@ pub struct NativeLauncher;
 struct HeldKeys<'a> {
     injector: &'a dyn Injector,
     held: BTreeSet<(u16, u16, bool)>,
+    mouse: BTreeSet<MouseButton>,
 }
 impl Drop for HeldKeys<'_> {
     fn drop(&mut self) {
@@ -108,7 +116,11 @@ impl Drop for HeldKeys<'_> {
                 ext,
                 down: false,
                 delay: 0,
+                mouse: None,
             });
+        }
+        for &button in &self.mouse {
+            let _ = self.injector.mouse(MouseInput::Button { button }, false);
         }
     }
 }
@@ -126,12 +138,27 @@ pub(crate) fn play(
             let mut held = HeldKeys {
                 injector,
                 held: BTreeSet::new(),
+                mouse: BTreeSet::new(),
             };
             for event in events {
                 if cancel.wait(Duration::from_millis(u64::from(event.delay))) {
                     break;
                 }
                 let identity = (event.vk, event.scan, event.ext);
+                if let Some(input) = event.mouse {
+                    if let MouseInput::Button { button } = input {
+                        if event.down {
+                            held.mouse.insert(button);
+                        }
+                    }
+                    injector.raw(event)?;
+                    if let MouseInput::Button { button } = input {
+                        if !event.down {
+                            held.mouse.remove(&button);
+                        }
+                    }
+                    continue;
+                }
                 // Also release a down event whose delivery only partially succeeded.
                 if event.down {
                     held.held.insert(identity);
@@ -168,6 +195,81 @@ impl Launcher for NativeLauncher {
 
 #[cfg(windows)]
 impl Injector for NativeInjector {
+    fn mouse(&self, input: MouseInput, down: bool) -> Result<()> {
+        use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
+        let (flags, data) = match input {
+            MouseInput::Button { button } => match button {
+                MouseButton::Left => (
+                    if down {
+                        MOUSEEVENTF_LEFTDOWN
+                    } else {
+                        MOUSEEVENTF_LEFTUP
+                    },
+                    0,
+                ),
+                MouseButton::Right => (
+                    if down {
+                        MOUSEEVENTF_RIGHTDOWN
+                    } else {
+                        MOUSEEVENTF_RIGHTUP
+                    },
+                    0,
+                ),
+                MouseButton::Middle => (
+                    if down {
+                        MOUSEEVENTF_MIDDLEDOWN
+                    } else {
+                        MOUSEEVENTF_MIDDLEUP
+                    },
+                    0,
+                ),
+                MouseButton::Back => (
+                    if down {
+                        MOUSEEVENTF_XDOWN
+                    } else {
+                        MOUSEEVENTF_XUP
+                    },
+                    1,
+                ),
+                MouseButton::Forward => (
+                    if down {
+                        MOUSEEVENTF_XDOWN
+                    } else {
+                        MOUSEEVENTF_XUP
+                    },
+                    2,
+                ),
+            },
+            MouseInput::Wheel { delta, horizontal } => (
+                if horizontal {
+                    MOUSEEVENTF_HWHEEL
+                } else {
+                    MOUSEEVENTF_WHEEL
+                },
+                delta as u32,
+            ),
+        };
+        let native = INPUT {
+            r#type: INPUT_MOUSE,
+            Anonymous: INPUT_0 {
+                mi: MOUSEINPUT {
+                    dx: 0,
+                    dy: 0,
+                    mouseData: data,
+                    dwFlags: flags,
+                    time: 0,
+                    dwExtraInfo: crate::keyboard::INJECTION_MARKER,
+                },
+            },
+        };
+        if unsafe { SendInput(1, &native, std::mem::size_of::<INPUT>() as i32) } != 1 {
+            return Err(Error::Io(format!(
+                "SendInput could not send mouse input: {}",
+                std::io::Error::last_os_error()
+            )));
+        }
+        Ok(())
+    }
     fn emit(&self, events: &[Injection]) -> Result<()> {
         use crate::keyboard::INJECTION_MARKER;
         use windows_sys::Win32::UI::Input::KeyboardAndMouse::{

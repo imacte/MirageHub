@@ -6,6 +6,8 @@ use mirage_hub_daemon::{
         engine::{push_frame, EffectEngine, Environment},
         frame::{Colour, Frame},
         keys::KeySource,
+        render::Renderer,
+        wallpaper::WallpaperReader,
     },
     manager::SharedDevice,
     persistence::{Persistence, SharedStore},
@@ -13,7 +15,7 @@ use mirage_hub_daemon::{
 };
 use serde_json::{json, Map, Value};
 use std::{
-    sync::{mpsc, Arc, Mutex},
+    sync::{atomic::{AtomicBool, Ordering}, mpsc, Arc, Mutex},
     time::{Duration, Instant},
 };
 
@@ -223,6 +225,129 @@ fn accent_frames_are_held_and_unsupported_input_does_not_stop_the_current_effect
     assert!(engine.drawing(&device));
     assert!(calls.recv_timeout(Duration::from_millis(40)).is_err());
     engine.stop();
+}
+
+#[test]
+fn keyboard_accent_uses_static_effect_for_all_lights_including_black() {
+    struct Accent(Colour);
+    impl Environment for Accent {
+        fn audio(&self) -> Box<dyn AudioMeter> { Box::new(SilentMeter) }
+        fn accent(&self) -> Option<Colour> { Some(self.0) }
+    }
+
+    for colour in [[20, 40, 60], [0, 0, 0]] {
+        let store = Persistence::memory().shared();
+        let (send, calls) = mpsc::channel();
+        let device: SharedDevice = Arc::new(Mutex::new(Box::new(FakeDevice {
+            info: database::lookup(0x1532, 0x02b9).unwrap().clone(),
+            store: store.clone(),
+            serial: "MINI".into(),
+            capabilities: json!({
+                "name":"Razer BlackWidow V4 Mini HyperSpeed (Wired)",
+                "custom_frame":true, "matrix_dimensions":[5,14],
+                "zones":{"backlight":{"effects":["static"]}}
+            }),
+            calls: send,
+            colours: vec![],
+            argb: false,
+            fail: false,
+        })));
+        let mut engine = EffectEngine::with_environment(store, KeySource::new(false), Arc::new(Accent(colour)));
+        engine.set_effect(&device, "accent", options(json!({"refresh_rate":0.005}))).unwrap();
+        let (method, args) = call(&calls);
+        assert_eq!(method, "set_static");
+        assert_eq!(args, colour.map(|channel| json!(channel)).to_vec());
+        assert!(calls.recv_timeout(Duration::from_millis(30)).is_err());
+        engine.stop();
+    }
+}
+
+#[test]
+fn keyboard_accent_tracks_a_new_windows_colour() {
+    struct ChangingAccent(Arc<Mutex<Colour>>);
+    impl Environment for ChangingAccent {
+        fn audio(&self) -> Box<dyn AudioMeter> { Box::new(SilentMeter) }
+        fn accent(&self) -> Option<Colour> { Some(*self.0.lock().unwrap()) }
+    }
+    let store = Persistence::memory().shared();
+    let (send, calls) = mpsc::channel();
+    let device: SharedDevice = Arc::new(Mutex::new(Box::new(FakeDevice {
+        info: database::lookup(0x1532, 0x02b9).unwrap().clone(),
+        store: store.clone(),
+        serial: "MINI".into(),
+        capabilities: json!({"custom_frame":true,"matrix_dimensions":[5,14],"zones":{"backlight":{"effects":["static"]}}}),
+        calls: send,
+        colours: vec![],
+        argb: false,
+        fail: false,
+    })));
+    let source = Arc::new(Mutex::new([255, 0, 0]));
+    let mut engine = EffectEngine::with_environment(store, KeySource::new(false), Arc::new(ChangingAccent(source.clone())));
+    engine.set_effect(&device, "accent", options(json!({"refresh_rate":0.005}))).unwrap();
+    assert_eq!(call(&calls), ("set_static".into(), vec![json!(255), json!(0), json!(0)]));
+    *source.lock().unwrap() = [128, 0, 255];
+    assert_eq!(calls.recv_timeout(Duration::from_secs(6)).unwrap(), ("set_static".into(), vec![json!(128), json!(0), json!(255)]));
+    engine.stop();
+}
+
+#[test]
+fn wallpaper_waits_for_a_frame_tracks_changes_and_releases_its_reader() {
+    struct Reader {
+        colour: Arc<Mutex<Option<Colour>>>,
+        dropped: Arc<AtomicBool>,
+    }
+    impl WallpaperReader for Reader {
+        fn sample(&mut self) -> Option<Colour> { *self.colour.lock().unwrap() }
+    }
+    impl Drop for Reader {
+        fn drop(&mut self) { self.dropped.store(true, Ordering::SeqCst); }
+    }
+    struct Desktop(Arc<Mutex<Option<Colour>>>, Arc<AtomicBool>);
+    impl Environment for Desktop {
+        fn audio(&self) -> Box<dyn AudioMeter> { Box::new(SilentMeter) }
+        fn accent(&self) -> Option<Colour> { None }
+        fn wallpaper(&self) -> Box<dyn WallpaperReader> {
+            Box::new(Reader { colour: self.0.clone(), dropped: self.1.clone() })
+        }
+    }
+    let store = Persistence::memory().shared();
+    let (send, calls) = mpsc::channel();
+    let device: SharedDevice = Arc::new(Mutex::new(Box::new(FakeDevice {
+        info: database::lookup(0x1532, 0x02b9).unwrap().clone(),
+        store: store.clone(), serial: "WALL".into(),
+        // A static-only device can follow the wallpaper too.
+        capabilities: json!({"zones":{"backlight":{"effects":["static"]}}}),
+        calls: send, colours: vec![], argb: false, fail: false,
+    })));
+    let colour = Arc::new(Mutex::new(None));
+    let dropped = Arc::new(AtomicBool::new(false));
+    let mut engine = EffectEngine::with_environment(
+        store, KeySource::new(false), Arc::new(Desktop(colour.clone(), dropped.clone())),
+    );
+    engine.set_effect(&device, "wallpaper", options(json!({"refresh_rate":0.005}))).unwrap();
+    assert!(calls.recv_timeout(Duration::from_millis(100)).is_err());
+    *colour.lock().unwrap() = Some([0, 0, 0]);
+    assert_eq!(call(&calls), ("set_static".into(), vec![json!(0), json!(0), json!(0)]));
+    *colour.lock().unwrap() = Some([200, 80, 20]);
+    assert_eq!(call(&calls), ("set_static".into(), vec![json!(200), json!(80), json!(20)]));
+    assert_eq!(engine.status()["wallpaper_colours"]["WALL"], json!([200, 80, 20]));
+    engine.set_effect(&device, "none", Map::new()).unwrap();
+    assert!(dropped.load(Ordering::SeqCst));
+}
+
+#[test]
+fn zones_can_follow_wallpaper_and_windows_accent_independently() {
+    let caps = json!({"matrix_dimensions":[1,2],"zone_order":["left","right"]});
+    let settings = options(json!({"zones":{
+        "left":{"effect":"accent"}, "right":{"effect":"wallpaper"}
+    }}));
+    let mut renderer = Renderer::new("zones", settings, &caps).unwrap();
+    assert!(renderer.step(0.0, 0.0, Some([255, 0, 0]), Some([0, 0, 255])));
+    assert_eq!(renderer.frame.get(0, 0), [255, 0, 0]);
+    assert_eq!(renderer.frame.get(0, 1), [0, 0, 255]);
+    assert!(renderer.step(1.0, 0.0, None, Some([0, 255, 0])));
+    assert_eq!(renderer.frame.get(0, 0), [255, 0, 0]);
+    assert_eq!(renderer.frame.get(0, 1), [0, 255, 0]);
 }
 
 #[test]

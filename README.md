@@ -64,10 +64,29 @@ Run `mirage-hub-setup.exe` manually for the first upgrade: old versions restrict
 - DPI, polling rate, brightness and supported headset controls.
 - Macro keys, key bindings and application-specific profiles.
 - Windows accent colour and Chroma integrations.
+- Wallpaper colour lighting for the Windows desktop and Wallpaper Engine.
 - A local authenticated JSON-RPC interface and scriptable native CLI.
 
 Available controls depend on the device. Database coverage does not mean every model has been tested on physical hardware.
+Select **Lighting → Quick effects → Wallpaper colour** to follow the primary display's Windows wallpaper, slideshow, or solid background. When Wallpaper Engine is active, the effect uses its live colour when frames are available and the Windows wallpaper colour otherwise. Windows may show a capture border. Wallpaper Engine's performance settings can pause playback while other apps are open.
 The [device list](docs/devices.json) and `mirage-hub-daemon supported` show bundled models.
+
+## Software mouse macros
+
+Create a **Keyboard and mouse** macro on the **Macros** page, then assign it to
+the Back, Forward or Middle button. Steps support keyboard input, all five mouse
+buttons (click, hold and release), vertical/horizontal scrolling and delays.
+Existing text and launch macros can also be assigned. While recording, type in
+the window and click or scroll in the recording pad. Pointer movement is not
+recorded: playback uses the current pointer position. Mouse bindings pause
+during recording and resume afterwards.
+
+Bindings apply globally to all Windows mice, including the Viper V2 Pro. Only
+assigned buttons are intercepted. Keep `mirage-hub-daemon.exe` running; the UI
+can be closed. Esc or **Stop mouse macros** cancels playback and releases held
+inputs. Clear a binding to restore the original button action. Assignments copy
+the library macro, so reassign after editing it. These are software bindings and
+do not write to the mouse's onboard memory.
 
 ## Command line
 

@@ -9,7 +9,9 @@ use mirage_hub_daemon::{
         macros::{self, MacroStore},
         service::{is_event_collection, KeyService},
     },
+    macro_input::{MouseButton, MouseInput, MOUSE_BINDING_SERIAL},
     manager::SharedDevice,
+    mouse::MouseEvent,
     persistence::{Persistence, SharedStore},
     Error, Result,
 };
@@ -24,8 +26,17 @@ struct OutputRecorder {
     events: Mutex<Vec<Injection>>,
     launches: Mutex<Vec<String>>,
     fail_scan: Option<u16>,
+    mouse: Mutex<Vec<(MouseInput, bool)>>,
+    fail_mouse: bool,
 }
 impl Injector for OutputRecorder {
+    fn mouse(&self, input: MouseInput, down: bool) -> Result<()> {
+        self.mouse.lock().unwrap().push((input, down));
+        if self.fail_mouse && down {
+            return Err(Error::Io("test mouse send failed".into()));
+        }
+        Ok(())
+    }
     fn emit(&self, events: &[Injection]) -> Result<()> {
         self.events.lock().unwrap().extend_from_slice(events);
         if events
@@ -207,6 +218,229 @@ fn event(name: &str, down: bool, time: u32) -> KeyEvent {
         ours: false,
         time,
     }
+}
+
+fn mouse_event(button: MouseButton, down: bool) -> MouseEvent {
+    MouseEvent {
+        button,
+        down,
+        injected: false,
+        ours: false,
+    }
+}
+
+#[test]
+fn mouse_bindings_ignore_injection_and_preserve_pairs_across_changes() {
+    let mut rig = Rig::new(0x0203);
+    assert!(rig.service.mouse_running());
+    assert!(!rig
+        .service
+        .handle_mouse(mouse_event(MouseButton::Back, true)));
+    let store = rig.service.macros();
+    store
+        .set(MOUSE_BINDING_SERIAL, "Back", &json!({"type":"disabled"}))
+        .unwrap();
+    assert!(!rig.service.handle_mouse(MouseEvent {
+        injected: true,
+        ..mouse_event(MouseButton::Back, true)
+    }));
+    assert!(!rig.service.handle_mouse(MouseEvent {
+        ours: true,
+        ..mouse_event(MouseButton::Back, true)
+    }));
+    assert!(!rig
+        .service
+        .handle_mouse(mouse_event(MouseButton::Left, true)));
+    assert!(rig
+        .service
+        .handle_mouse(mouse_event(MouseButton::Back, true)));
+    assert!(rig
+        .service
+        .handle_mouse(mouse_event(MouseButton::Back, true)));
+    store.delete(MOUSE_BINDING_SERIAL, "Back").unwrap();
+    assert!(rig
+        .service
+        .handle_mouse(mouse_event(MouseButton::Back, false)));
+    assert!(!rig
+        .service
+        .handle_mouse(mouse_event(MouseButton::Back, false)));
+    store
+        .set(MOUSE_BINDING_SERIAL, "Back", &json!({"type":"disabled"}))
+        .unwrap();
+    rig.service.suspend_mouse(true);
+    assert!(!rig
+        .service
+        .handle_mouse(mouse_event(MouseButton::Back, true)));
+    rig.service.suspend_mouse(false);
+    assert!(rig
+        .service
+        .handle_mouse(mouse_event(MouseButton::Back, true)));
+    rig.service.stop();
+    assert!(!rig
+        .service
+        .handle_mouse(mouse_event(MouseButton::Back, true)));
+}
+
+#[test]
+fn side_button_plays_mixed_input_and_escape_releases_held_buttons() {
+    let rig = Rig::new(0x0203);
+    let action = json!({"type":"keys", "events":[
+        {"vk":65,"down":true},
+        {"mouse":{"kind":"button","button":"left"},"down":true},
+        {"mouse":{"kind":"wheel","delta":-120,"horizontal":false}},
+        {"vk":65,"down":false,"delay":30000},
+        {"mouse":{"kind":"button","button":"left"},"down":false}
+    ]});
+    rig.service
+        .macros()
+        .set(MOUSE_BINDING_SERIAL, "Forward", &action)
+        .unwrap();
+    assert!(rig
+        .service
+        .handle_mouse(mouse_event(MouseButton::Forward, true)));
+    assert!(rig
+        .service
+        .handle_mouse(mouse_event(MouseButton::Forward, false)));
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while rig.output.mouse.lock().unwrap().len() < 2 {
+        assert!(Instant::now() < deadline, "mouse macro was not played");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert!(!rig.service.handle_key(event("Escape", true, 0)));
+    while rig.output.mouse.lock().unwrap().len() < 3 {
+        assert!(
+            Instant::now() < deadline,
+            "cancel did not release the mouse"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert_eq!(
+        *rig.output.mouse.lock().unwrap(),
+        vec![
+            (
+                MouseInput::Button {
+                    button: MouseButton::Left
+                },
+                true
+            ),
+            (
+                MouseInput::Wheel {
+                    delta: -120,
+                    horizontal: false
+                },
+                true
+            ),
+            (
+                MouseInput::Button {
+                    button: MouseButton::Left
+                },
+                false
+            ),
+        ]
+    );
+    assert_eq!(
+        rig.output
+            .take()
+            .iter()
+            .map(|e| (e.vk, e.flags & KEY_UP != 0))
+            .collect::<Vec<_>>(),
+        vec![(65, false), (65, true)]
+    );
+}
+
+#[test]
+fn failed_mouse_send_releases_the_button_and_keyboard() {
+    let rig = Rig::new(0x0203);
+    let output = Arc::new(OutputRecorder {
+        fail_mouse: true,
+        ..Default::default()
+    });
+    let service = KeyService::new(
+        rig.backend.clone(),
+        Arc::new(MacroStore::memory()),
+        output.clone(),
+        output.clone(),
+        false,
+    );
+    let action = json!({"type":"keys", "events":[
+        {"vk":65,"down":true},
+        {"mouse":{"kind":"button","button":"middle"},"down":true}
+    ]});
+    assert!(service.play(&action).is_err());
+    assert_eq!(
+        *output.mouse.lock().unwrap(),
+        vec![
+            (
+                MouseInput::Button {
+                    button: MouseButton::Middle
+                },
+                true
+            ),
+            (
+                MouseInput::Button {
+                    button: MouseButton::Middle
+                },
+                false
+            ),
+        ]
+    );
+    assert_eq!(output.take().len(), 2);
+}
+
+#[test]
+fn mouse_events_validate_and_persist_without_changing_keyboard_json() {
+    for event in [
+        json!({"mouse":{"kind":"button","button":"unknown"}}),
+        json!({"vk":65,"mouse":{"kind":"button","button":"left"}}),
+        json!({"ext":true,"mouse":{"kind":"button","button":"left"}}),
+        json!({"mouse":{"kind":"wheel","delta":0,"horizontal":false}}),
+        json!({"mouse":{"kind":"wheel","delta":12001,"horizontal":true}}),
+        json!({"down":false,"mouse":{"kind":"wheel","delta":120,"horizontal":false}}),
+        json!({"delay":30001,"mouse":{"kind":"button","button":"left"}}),
+    ] {
+        assert!(macros::validate(&json!({"type":"keys","events":[event]})).is_err());
+    }
+    let keyboard =
+        json!({"type":"keys","events":[{"vk":65,"scan":0,"ext":false,"down":true,"delay":0}]});
+    assert_eq!(
+        serde_json::to_value(macros::validate(&keyboard).unwrap()).unwrap(),
+        keyboard
+    );
+    let directory = std::env::temp_dir().join(format!("mirage-mouse-test-{}", std::process::id()));
+    std::fs::create_dir_all(&directory).unwrap();
+    let path = directory.join("macros.json");
+    let store = MacroStore::load(path.clone());
+    let action = store
+        .set(
+            MOUSE_BINDING_SERIAL,
+            "Middle",
+            &json!({"type":"keys","events":[{"mouse":{"kind":"button","button":"back"}}]}),
+        )
+        .unwrap();
+    assert_eq!(
+        MacroStore::load(path.clone()).get(MOUSE_BINDING_SERIAL, "Middle"),
+        Some(action)
+    );
+    std::fs::remove_file(path).unwrap();
+    std::fs::remove_dir(directory).unwrap();
+}
+
+#[test]
+fn failed_binding_write_does_not_change_live_mouse_bindings() {
+    let directory = std::env::temp_dir().join(format!("mirage-mouse-write-test-{}", std::process::id()));
+    std::fs::create_dir_all(&directory).unwrap();
+    let path = directory.join("macros.json");
+    let store = MacroStore::load(path.clone());
+    let original = json!({"type":"disabled"});
+    store.set(MOUSE_BINDING_SERIAL, "Back", &original).unwrap();
+    std::fs::remove_file(&path).unwrap();
+    std::fs::create_dir(&path).unwrap();
+    assert!(store.set(MOUSE_BINDING_SERIAL, "Back", &json!({"type":"text","text":"new"})).is_err());
+    assert_eq!(store.get(MOUSE_BINDING_SERIAL, "Back"), Some(original.clone()));
+    assert!(store.delete(MOUSE_BINDING_SERIAL, "Back").is_err());
+    assert_eq!(store.get(MOUSE_BINDING_SERIAL, "Back"), Some(original));
+    std::fs::remove_dir(path).unwrap();
+    std::fs::remove_dir(directory).unwrap();
 }
 
 #[test]

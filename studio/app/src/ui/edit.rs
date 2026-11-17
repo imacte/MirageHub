@@ -264,6 +264,13 @@ impl DeviceEdit {
             if zone == "backlight" {
                 if let Some(effect) = snap.software.get(&device.serial) {
                     edit.effect = effect.clone();
+                    // Software effects keep their colour in their own options,
+                    // not in the last hardware effect's saved colours.
+                    if let Some(options) = snap.software_options.get(&device.serial) {
+                        if options["colour"].is_array() {
+                            edit.colours[0] = rgb(&options["colour"], 0);
+                        }
+                    }
                 }
             }
             if own.contains(zone) {
@@ -544,6 +551,27 @@ mod tests {
         edit.refresh(&device, &detail, &snap);
         assert_eq!(edit.zones["right"].effect, "wave_soft");
         assert_eq!(edit.zones["right"].colours[0], Color32::from_rgb(1, 2, 3));
+    }
+
+    #[test]
+    fn software_backlight_reads_its_own_colour_after_refresh() {
+        let device = Device { serial: "K1".into(), kind: "keyboard".into(), ..Default::default() };
+        let detail = Detail { caps: Some(json!({ "zones": { "backlight": { "effects": ["static"] } }, "software_effects": true })), ..Default::default() };
+        let mut snap = Snapshot {
+            generation: 1,
+            persistence: json!({ "K1": { "zones": { "backlight": { "effect": "static", "colors": [255, 0, 0] } } } }),
+            ..Default::default()
+        };
+        snap.software.insert("K1".into(), "music".into());
+        snap.software_options.insert("K1".into(), json!({ "colour": [12, 34, 56] }));
+        let mut edit = DeviceEdit::default();
+        edit.refresh(&device, &detail, &snap);
+        assert_eq!(edit.zones["backlight"].effect, "music");
+        assert_eq!(edit.zones["backlight"].colours[0], Color32::from_rgb(12, 34, 56));
+        snap.software_options.insert("K1".into(), json!({ "colour": [90, 80, 70] }));
+        snap.generation += 1;
+        edit.refresh(&device, &detail, &snap);
+        assert_eq!(edit.zones["backlight"].colours[0], Color32::from_rgb(90, 80, 70));
     }
 
     #[test]

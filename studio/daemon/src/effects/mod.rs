@@ -4,3 +4,4 @@ pub mod frame;
 pub mod keys;
 pub mod layers;
 pub mod render;
+pub mod wallpaper;

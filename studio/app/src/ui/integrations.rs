@@ -7,7 +7,7 @@
 use super::app::{scroll, App};
 use crate::chroma;
 use crate::worker::{Command, Snapshot};
-use egui::{vec2, CornerRadius, Frame, Margin, RichText, Sense, Stroke};
+use egui::{vec2, Color32, CornerRadius, Frame, Margin, RichText, Sense, Stroke};
 use mirage_hub_core::install::REPOSITORY;
 use mirage_hub_core::theme::{self, icon, ACCENT, BORDER, SURFACE, SURFACE_HI, TEXT, TEXT_DIM};
 use mirage_hub_core::widgets::Button;
@@ -81,21 +81,34 @@ fn switch(app: &mut App, ui: &mut egui::Ui, status: &Value, name: &str, label: &
     on
 }
 
+pub(crate) fn accent_colour(status: &Value) -> Option<Color32> {
+    let rgb = status["accent"]["colour"].as_array().filter(|rgb| rgb.len() == 3)?;
+    let channel = |i: usize| u8::try_from(rgb[i].as_u64()?).ok();
+    Some(Color32::from_rgb(channel(0)?, channel(1)?, channel(2)?))
+}
+
 fn accent(app: &mut App, ui: &mut egui::Ui, status: &Value) {
     widgets::panel_with(
         ui,
         t("Windows accent colour"),
         |ui| {
-            widgets::badge(ui, t("Works now"), ACCENT);
+            if status["accent"]["available"] == true {
+                widgets::badge(ui, t("Works now"), ACCENT);
+            } else {
+                widgets::badge(ui, t("Unavailable"), theme::WARN);
+            }
         },
         |ui| {
             widgets::help(ui, t("Every device in the colour Windows is set to, following it when it changes."));
             let on = switch(app, ui, status, "accent", t("Follow the accent colour"), t("While on, a new colour chosen in Windows' personalisation settings is put on every device."));
             widgets::divider(ui);
             widgets::row(ui, t("The colour now"), "", |ui| {
-                let colour = crate::accent::colour();
-                widgets::swatch(ui, colour, 26.0, false);
-                ui.label(widgets::dim(super::effects::hex(colour)));
+                if let Some(colour) = accent_colour(status) {
+                    widgets::swatch(ui, colour, 26.0, false);
+                    ui.label(widgets::dim(super::effects::hex(colour)));
+                } else {
+                    ui.label(widgets::faint(t("Not reported yet.")));
+                }
             });
             if !on {
                 widgets::help(ui, t("One device or one ear can follow it on its own too: choose Windows accent colour as its effect, under Lighting."));
@@ -260,4 +273,18 @@ fn developers(ui: &mut egui::Ui) {
             });
         },
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn accent_display_uses_only_a_valid_daemon_colour() {
+        assert_eq!(accent_colour(&json!({"accent":{"colour":[255, 0, 128]}})), Some(Color32::from_rgb(255, 0, 128)));
+        assert_eq!(accent_colour(&json!({"accent":{"colour":null}})), None);
+        assert_eq!(accent_colour(&json!({"accent":{"colour":[255, 256, 0]}})), None);
+        assert_eq!(accent_colour(&json!({"accent":{"colour":[255, 0]}})), None);
+    }
 }

@@ -268,7 +268,7 @@ pub fn hardware(effect: &str, colours: &[Color32; 3], speed: i64, direction: i64
     let c1 = colours[0];
     match effect {
         "none" | "" => Color32::BLACK,
-        "static" | "custom" => c1,
+        "static" | "custom" | "wallpaper" => c1,
         "on" => Color32::from_rgb(0xE0, 0xF0, 0xDC),
         "spectrum" => hue(t / SPECTRUM_PERIOD),
         // The daemon's: one turn of the wheel in five seconds, spread across the device.
@@ -314,7 +314,7 @@ pub fn hardware(effect: &str, colours: &[Color32; 3], speed: i64, direction: i64
 
 /// Whether a device effect changes over time.
 pub fn hardware_animated(effect: &str) -> bool {
-    !matches!(effect, "none" | "" | "static" | "custom" | "on" | "reactive" | "ripple" | "ripple_random" | "accent")
+    !matches!(effect, "none" | "" | "static" | "custom" | "on" | "reactive" | "ripple" | "ripple_random" | "accent" | "wallpaper")
 }
 
 #[cfg(test)]

@@ -599,6 +599,41 @@ fn macro_bindings_are_editable_without_hooks_and_sequences_use_the_shared_key_ta
 }
 
 #[test]
+fn software_mouse_rpc_is_global_and_checks_buttons_and_hook_availability() {
+    let f = Fixture::new(false, false, 0);
+    f.service.start();
+    let list = f.call("mouse_macro.list", json!({}));
+    assert_eq!(list["scope"], "global");
+    assert_eq!(list["keys"], json!(["Back", "Forward", "Middle"]));
+    assert_eq!(list["handled"], false);
+    let action =
+        json!({"type":"keys","events":[{"mouse":{"kind":"wheel","delta":120,"horizontal":false}}]});
+    f.call("mouse_macro.set", json!({"key":"Back","action":action}));
+    assert_eq!(
+        f.call("mouse_macro.list", json!({}))["bindings"]["Back"]["events"][0]["mouse"],
+        action["events"][0]["mouse"]
+    );
+    assert_eq!(
+        f.error("mouse_macro.set", json!({"key":"Left","action":action})),
+        rpc::INVALID_PARAMS
+    );
+    assert_eq!(
+        f.error("mouse_macro.play", json!({"key":"Back"})),
+        rpc::NOT_SUPPORTED
+    );
+    assert_eq!(
+        f.error("mouse_macro.suspend", json!({"suspended":"true"})),
+        rpc::INVALID_PARAMS
+    );
+    assert_eq!(f.call("mouse_macro.stop", json!({}))["stopped"], true);
+    assert_eq!(
+        f.call("mouse_macro.delete", json!({"key":"Back"}))["deleted"],
+        true
+    );
+    assert_eq!(f.call("mouse_macro.list", json!({}))["bindings"], json!({}));
+}
+
+#[test]
 fn chroma_enable_disable_restores_software_lighting_without_changing_saved_settings() {
     let f = Fixture::new(true, false, 0);
     f.service.start();
